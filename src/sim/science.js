@@ -3,7 +3,7 @@
 // once its genome is complete, and the clone arrives in a crate. Everything is timed in park minutes and finishes the
 // minute it's due. No DOM; world.js wraps the commands.
 import { DAY_MIN, SCIENCE } from "./config.js";
-import { SPECIES, SITES, PERIODS, TRACKS, BUILDINGS } from "./data.js";
+import { SPECIES, SITES, PERIODS, TRACKS, BUILDINGS, TIMELINE_FLOOR, TIMELINE_MAPS } from "./data.js";
 import { newAnimal } from "./animals.js";
 import { rand, chance } from "./rng.js";
 
@@ -17,6 +17,14 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const period = id => PERIODS.find(p => p.id === id);
 export const siteById = id => SITES.find(s => s.id === id);
 export const sitesShown = () => SITES.filter(s => s.fauna.some(sp => SPECIES[sp]));
+// A period's epochs as {name, from, to, map}: years ago it began and ended, and the map it shows.
+export function epochsOf(periodId) {
+  const all = PERIODS.flatMap(p => p.epochs.map(([name, from]) => ({ name, from, period: p.id })));
+  return all.map((e, i) => ({ ...e, to: i + 1 < all.length ? all[i + 1].from : TIMELINE_FLOOR, map: TIMELINE_MAPS[e.name] || TIMELINE_MAPS[e.period] }))
+    .filter(e => e.period === periodId);
+}
+// The sites that show in an epoch: their window touches it, and the epoch's map has a marker for them.
+export const sitesIn = ep => sitesShown().filter(s => s.from > ep.to && s.to < ep.from && s.at && s.at[ep.map]);
 
 // ---- research ----
 export const hasTech = (state, id) => !id || state.science.done.includes(id);

@@ -71,6 +71,15 @@
   .perbar .per.has { color: var(--ink); }
   .perbar .per i { font-style: normal; color: var(--accent); font-size: 10px; height: 10px; }
   .perbar .per[aria-pressed="true"] i { color: #1d2419; }
+  .perbar.eps .per { font-size: 11px; padding: 3px 2px; }
+  /* The Time Travel Lab's map: the 260 x 130 picture scaled up pixel-sharp, site markers over it (lit once scouted). */
+  .ttmap { position: relative; margin: 4px 0 2px; border: 2px solid #141a10; border-radius: 4px; overflow: hidden; line-height: 0; }
+  .ttmap img { width: 100%; height: auto; image-rendering: pixelated; }
+  .ttmap .mark { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; padding: 0; border: 2px solid #1d2419; border-radius: 2px; background: #a8ad94; }
+  .ttmap .mark.lit { background: var(--accent); }
+  .ttmap .mark[aria-pressed="true"] { border-color: #fff; }
+  .credit { margin-bottom: 4px; }
+  .card.sel { border-color: var(--accent); }
 </style>
 <div id="app">
   <div id="hud"></div>

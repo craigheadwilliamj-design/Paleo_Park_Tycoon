@@ -68,31 +68,56 @@ export const BUILDINGS = {
 // ---- Science (science.js) ----
 
 // Geological periods, oldest first. trip: what a scouting trip or a mid-size expedition costs; days: how long it takes;
-// risk: extra chance an expedition comes back with nothing.
+// risk: extra chance an expedition comes back with nothing. epochs: [name, years ago it began]; each ends where the next
+// begins (the last at TIMELINE_FLOOR). Epochs only pick the map and which sites show; the period is what every rule uses.
 export const PERIODS = [
-  { id: "Cambrian",      ago: "539–485 million years ago", trip: 3000, days: 1.5, risk: 0.10 },
-  { id: "Ordovician",    ago: "485–443 million years ago", trip: 3100, days: 1.5, risk: 0.10 },
-  { id: "Silurian",      ago: "443–419 million years ago", trip: 3200, days: 1.5, risk: 0.10 },
-  { id: "Devonian",      ago: "419–359 million years ago", trip: 3500, days: 1.5, risk: 0.10 },
-  { id: "Carboniferous", ago: "359–299 million years ago", trip: 4000, days: 1.5, risk: 0.10 },
-  { id: "Permian",       ago: "299–252 million years ago", trip: 4500, days: 1.5, risk: 0.12 },
-  { id: "Triassic",      ago: "252–201 million years ago", trip: 5000, days: 2.5, risk: 0.12 },
-  { id: "Jurassic",      ago: "201–145 million years ago", trip: 7000, days: 2.5, risk: 0.15 },
-  { id: "Cretaceous",    ago: "145–66 million years ago",  trip: 7500, days: 2.5, risk: 0.15 },
-  { id: "Paleogene",     ago: "66–23 million years ago",   trip: 4500, days: 1.5, risk: 0.10 },
-  { id: "Neogene",       ago: "23–2.6 million years ago",  trip: 3500, days: 1.5, risk: 0.07 },
-  { id: "Quaternary",    ago: "2.6 million years ago to today", trip: 3000, days: 1.5, risk: 0.05 },
+  { id: "Cambrian",      ago: "539–485 million years ago", trip: 3000, days: 1.5, risk: 0.10,
+    epochs: [["Early Cambrian", 538.8e6], ["Middle Cambrian", 506.5e6], ["Late Cambrian", 497e6]] },
+  { id: "Ordovician",    ago: "485–443 million years ago", trip: 3100, days: 1.5, risk: 0.10,
+    epochs: [["Early Ordovician", 485.4e6], ["Middle Ordovician", 471.3e6], ["Late Ordovician", 458.2e6]] },
+  { id: "Silurian",      ago: "443–419 million years ago", trip: 3200, days: 1.5, risk: 0.10,
+    epochs: [["Early Silurian", 443.1e6], ["Late Silurian", 426.7e6]] },
+  { id: "Devonian",      ago: "419–359 million years ago", trip: 3500, days: 1.5, risk: 0.10,
+    epochs: [["Early Devonian", 419.6e6], ["Middle Devonian", 393.3e6], ["Late Devonian", 382.7e6]] },
+  { id: "Carboniferous", ago: "359–299 million years ago", trip: 4000, days: 1.5, risk: 0.10,
+    epochs: [["Mississippian", 358.9e6], ["Pennsylvanian", 323.4e6]] },
+  { id: "Permian",       ago: "299–252 million years ago", trip: 4500, days: 1.5, risk: 0.12,
+    epochs: [["Cisuralian", 298.9e6], ["Guadalupian", 273.0e6], ["Lopingian", 259.5e6]] },
+  { id: "Triassic",      ago: "252–201 million years ago", trip: 5000, days: 2.5, risk: 0.12,
+    epochs: [["Early Triassic", 251.9e6], ["Middle Triassic", 246.7e6], ["Late Triassic", 237e6]] },
+  { id: "Jurassic",      ago: "201–145 million years ago", trip: 7000, days: 2.5, risk: 0.15,
+    epochs: [["Early Jurassic", 201.4e6], ["Middle Jurassic", 174.7e6], ["Late Jurassic", 161.5e6]] },
+  { id: "Cretaceous",    ago: "145–66 million years ago",  trip: 7500, days: 2.5, risk: 0.15,
+    epochs: [["Early Cretaceous", 143.1e6], ["Late Cretaceous", 100.5e6]] },
+  { id: "Paleogene",     ago: "66–23 million years ago",   trip: 4500, days: 1.5, risk: 0.10,
+    epochs: [["Paleocene", 66.0e6], ["Eocene", 56.0e6], ["Oligocene", 33.9e6]] },
+  { id: "Neogene",       ago: "23–2.6 million years ago",  trip: 3500, days: 1.5, risk: 0.07,
+    epochs: [["Miocene", 23.03e6], ["Pliocene", 5.333e6]] },
+  { id: "Quaternary",    ago: "2.6 million years ago to today", trip: 3000, days: 1.5, risk: 0.05,
+    epochs: [["Pleistocene", 2.58e6], ["Holocene", 11700]] },
 ];
+
+export const TIMELINE_FLOOR = 10;
+// The map an epoch shows (by its name, else its period's): art/timeline/<name>.png, 260 x 130 Mollweide, from v1's
+// tools/timeline/genmaps.py, drafted from the PALEOMAP PaleoDEMs (Scotese & Wright 2018, CC BY 4.0; credited in the panel).
+export const TIMELINE_MAPS = {
+  Cambrian: "cambrian", Ordovician: "ordovician", Silurian: "silurian", Devonian: "devonian", Carboniferous: "carboniferous",
+  Permian: "permian", Triassic: "triassic", Jurassic: "jurassic", "Early Jurassic": "jurassic-early", "Late Jurassic": "jurassic-late",
+  "Early Cretaceous": "cretaceous-early", "Late Cretaceous": "cretaceous-late", Paleogene: "paleogene", Neogene: "neogene",
+  Pleistocene: "pleistocene", Holocene: "holocene",
+};
+export const TIMELINE_MAP_SIZE = [260, 130];
 
 // Real fossil sites the Time Travel Lab's drones fly to (from v1's tools/timeline/sites.py). from/to: years ago.
 // fauna: species found there; a site shows only while one of them is in SPECIES. Its period is the one it starts in.
+// at: its marker's pixel on each map it shows on (placed by plate reconstruction in v1's tools/timeline/placesites.py).
 export const SITES = [
-  { id: "burgess",   name: "Burgess Shale", where: "British Columbia, Canada", period: "Cambrian", from: 507e6, to: 505e6, fauna: ["anom"] },
-  { id: "fram",      name: "Fram Formation", where: "Ellesmere Island, Canada", period: "Devonian", from: 378e6, to: 372e6, fauna: ["tikt"] },
-  { id: "joggins",   name: "Joggins Fossil Cliffs", where: "Nova Scotia, Canada", period: "Carboniferous", from: 315e6, to: 312e6, fauna: ["arth"] },
-  { id: "texasred",  name: "Texas Red Beds", where: "Texas, USA", period: "Permian", from: 290e6, to: 275e6, fauna: ["dime"] },
-  { id: "karoolate", name: "Karoo, Daptocephalus Zone", where: "Eastern Cape, South Africa", period: "Permian", from: 256e6, to: 252.2e6, fauna: ["lyst"] },
-  { id: "hellcreek", name: "Hell Creek Formation", where: "Montana, USA", period: "Cretaceous", from: 67e6, to: 66.1e6, fauna: ["trex"] },
+  { id: "burgess",   name: "Burgess Shale", where: "British Columbia, Canada", period: "Cambrian", from: 507e6, to: 505e6, at: { cambrian: [68, 66] }, fauna: ["anom"] },
+  { id: "fram",      name: "Fram Formation", where: "Ellesmere Island, Canada", period: "Devonian", from: 378e6, to: 372e6, at: { devonian: [117, 65] }, fauna: ["tikt"] },
+  { id: "joggins",   name: "Joggins Fossil Cliffs", where: "Nova Scotia, Canada", period: "Carboniferous", from: 315e6, to: 312e6, at: { carboniferous: [126, 70] }, fauna: ["arth"] },
+  { id: "texasred",  name: "Texas Red Beds", where: "Texas, USA", period: "Permian", from: 290e6, to: 275e6, at: { permian: [106, 61] }, fauna: ["dime"] },
+  { id: "karoolate", name: "Karoo, Daptocephalus Zone", where: "Eastern Cape, South Africa", period: "Permian", from: 256e6, to: 252.2e6, at: { permian: [116, 114] }, fauna: ["lyst"] },
+  { id: "hellcreek", name: "Hell Creek Formation", where: "Montana, USA", period: "Cretaceous", from: 67e6, to: 66.1e6, at: { "cretaceous-late": [92, 19] }, fauna: ["trex"] },
 ];
 
 // Research tracks: each a straight line of steps. A step's effects add up once it's done (fences name their step in `tech`).

@@ -304,3 +304,12 @@ test("saves from before the labs keep the fences they built", () => {
   assert.ok(w2.state.science.done.includes("stone"));
   assert.ok(!w2.state.science.done.includes("glass"));
 });
+
+test("every site shows on a map in its own period, and every map exists", async () => {
+  const { epochsOf, sitesIn } = await import("../src/sim/science.js");
+  const { PERIODS, TIMELINE_MAPS } = await import("../src/sim/data.js");
+  const { existsSync } = await import("node:fs");
+  for (const s of SITES) assert.ok(epochsOf(s.period).some(e => sitesIn(e).includes(s)), s.id + " shows in the " + s.period);
+  for (const p of PERIODS) for (const e of epochsOf(p.id)) assert.ok(existsSync(new URL(`../art/timeline/${e.map}.png`, import.meta.url)), e.map);
+  assert.equal(new Set(Object.values(TIMELINE_MAPS)).size, 16);
+});

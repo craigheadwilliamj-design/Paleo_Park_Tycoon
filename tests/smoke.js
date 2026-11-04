@@ -101,7 +101,7 @@ const menu = await page.evaluate(() => {
   return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice };
 });
 // The labs: each opens its panel when tapped; Time Travel Lab buttons work through the page.
-const labs = await page.evaluate(() => {
+const labs = await page.evaluate(async () => {
   const { world: w, ui } = window.__ppt, out = {}, keep = ui.selectedEx;
   w.state.money += 100000;
   const spots = { research: [4, 4], timetravel: [10, 4], genetics: [16, 4] };
@@ -112,6 +112,8 @@ const labs = await page.evaluate(() => {
   }
   ui.click([11, 5], "click"); ui.lastPanel = ""; ui.refresh();
   document.querySelector('#side [data-period="Permian"]').click(); ui.refresh();
+  out.mapOk = await new Promise(r => { const img = document.querySelector("#side .ttmap img"); if (!img) return r(false); if (img.complete) return r(img.naturalWidth === 260); img.onload = () => r(img.naturalWidth === 260); img.onerror = () => r(false); });
+  out.marks = document.querySelectorAll("#side .ttmap .mark").length;
   document.querySelector('#side [data-scout="texasred"]').click();
   out.out = w.state.science.trips.length;
   out.stoneLocked = document.querySelector('[data-tool="fence:hedge"]').classList.contains("locked") === false && document.querySelector('[data-tool="fence:aquarium"]').classList.contains("locked");
@@ -122,6 +124,7 @@ if (labs.researchPlaced || labs.timetravelPlaced || labs.geneticsPlaced) fails.p
 if (!/Researchers/.test(labs.research) || !/Exhibits/.test(labs.research)) fails.push("research panel: " + labs.research.slice(0, 120));
 if (!/Timeline/.test(labs.timetravel) || !/Drones/.test(labs.timetravel)) fails.push("time travel panel: " + labs.timetravel.slice(0, 120));
 if (!/Geneticists/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
+if (!labs.mapOk || labs.marks !== 1) fails.push(`time travel map: loaded ${labs.mapOk}, ${labs.marks} markers in the Cisuralian`);
 if (labs.out !== 1) fails.push("scout button sent " + labs.out + " drones");
 if (!labs.stoneLocked) fails.push("locked fences not greyed out in the menu");
 const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
