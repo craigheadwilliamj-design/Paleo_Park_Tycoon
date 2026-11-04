@@ -1,0 +1,97 @@
+// Guests: arrive at the entrance, pay, walk the paths to exhibits they haven't seen, watch, eat, and leave.
+// Same utility idea as animals: a pressing need first, then the most appealing unseen exhibit, then home.
+import { SPEED, GUESTS, S_PATH, STAFF } from "./config.js";
+import { SPECIES, BUILDINGS } from "./data.js";
+import { neighbours, idx } from "./grid.js";
+import { route } from "./paths.js";
+import { walk, tileOf, placeAt } from "./movers.js";
+import { animalsIn } from "./animals.js";
+import { rand, range } from "./rng.js";
+
+// Path tiles beside a building (where guests queue or leave from).
+export function pathsBeside(state, b) {
+  const g = state.grid, def = BUILDINGS[b.type], out = new Set();
+  for (let y = b.y; y < b.y + def.h; y++) for (let x = b.x; x < b.x + def.w; x++)
+    for (const j of neighbours(g, idx(g, x, y))) if (g.struct[j] === S_PATH) out.add(j);
+  return [...out];
+}
+
+// How much an exhibit draws guests right now: its animals' appeal, scaled by how happy they are.
+export function exhibitDraw(state, exId) {
+  return animalsIn(state, exId).reduce((d, a) => d + SPECIES[a.sp].appeal * (0.4 + 0.6 * a.happy / 100), 0);
+}
+export const parkDraw = (state, derived) =>
+  state.exhibits.reduce((d, e) => d + (derived.ex.get(e.id)?.viewing.length ? exhibitDraw(state, e.id) : 0), 0);
+
+function arrivals(state, derived, dt) {
+  const ent = state.buildings.find(b => b.type === "entrance");
+  if (!ent) return;
+  const draw = parkDraw(state, derived);
+  const price = Math.max(0.2, 1.4 - state.ticket / (GUESTS.ticket * 2.5));
+  const rate = GUESTS.baseRate * (0.3 + state.rating / 4) * Math.min(2.5, 0.15 + draw / 25) * price;
+  state.arrivalAcc = (state.arrivalAcc || 0) + rate * dt;
+  while (state.arrivalAcc >= 1) {
+    state.arrivalAcc -= 1;
+    const spots = pathsBeside(state, ent);
+    if (!spots.length) return;
+    const gst = { id: state.nextId++, x: 0, y: 0, face: 1, path: [], plan: "arrive", t: 0, fun: 0, hunger: range(state, 0, 40),
+                  seen: [], until: state.clock + range(state, ...GUESTS.stay), at: 0 };
+    placeAt(state.grid, gst, spots[Math.floor(rand(state) * spots.length)]);
+    state.guests.push(gst);
+    state.money += state.ticket; state.books.today.tickets += state.ticket;
+  }
+}
+
+function decide(state, derived, gst) {
+  const g = state.grid, here = tileOf(g, gst);
+  if (gst.hunger > 70) {
+    const stands = state.buildings.filter(b => BUILDINGS[b.type].serves === "hunger");
+    const p = stands.length && route(g, here, stands.flatMap(b => pathsBeside(state, b)), "guest");
+    if (p) { gst.path = p; gst.plan = "eat"; gst.t = 4; return; }
+  }
+  if (state.clock < gst.until) {
+    const options = state.exhibits.filter(e => !gst.seen.includes(e.id) && derived.ex.get(e.id)?.viewing.length && exhibitDraw(state, e.id) > 0)
+      .map(e => [e, exhibitDraw(state, e.id) * (0.6 + rand(state) * 0.8)]).sort((a, b) => b[1] - a[1]);
+    for (const [e] of options) {
+      const p = route(g, here, derived.ex.get(e.id).viewing, "guest");
+      if (p) { gst.path = p; gst.plan = "watch"; gst.at = e.id; gst.t = range(state, ...GUESTS.watchMin); return; }
+      gst.seen.push(e.id);   // can't get there: don't keep trying
+    }
+  }
+  const ent = state.buildings.find(b => b.type === "entrance");
+  const p = ent && route(g, here, pathsBeside(state, ent), "guest");
+  gst.path = p || []; gst.plan = "leave"; gst.t = 0;
+}
+
+export function guestTick(state, derived, bus, dt) {
+  arrivals(state, derived, dt);
+  const g = state.grid, gone = [];
+  const loose = state.animals.filter(a => a.escaped && SPECIES[a.sp].danger >= 3);
+  for (const gst of state.guests) {
+    if (!gst.panic && loose.some(a => Math.hypot(a.x - gst.x, a.y - gst.y) < STAFF.panicTiles)) {
+      gst.panic = true; gst.until = 0; gst.t = 0;
+      const ent = state.buildings.find(b => b.type === "entrance");
+      gst.path = (ent && route(g, tileOf(g, gst), pathsBeside(state, ent), "guest")) || []; gst.plan = "leave";
+    }
+    gst.hunger = Math.min(100, gst.hunger + dt * 100 / 300);
+    if (!walk(g, gst, SPEED.guest, dt)) continue;
+    if ((gst.t -= dt) > 0) continue;
+    if (gst.plan === "watch") {
+      gst.fun += exhibitDraw(state, gst.at); gst.seen.push(gst.at);
+    } else if (gst.plan === "eat") {
+      const def = BUILDINGS.snack;
+      gst.hunger = 0; state.money += def.sale - def.cost; state.books.today.shops += def.sale - def.cost;
+    } else if (gst.plan === "leave") { gone.push(gst); continue; }
+    decide(state, derived, gst);
+  }
+  for (const gst of gone) leave(state, gst);
+}
+
+// A guest going home rates the visit: fun had against what the ticket cost.
+function leave(state, gst) {
+  const worth = gst.fun / Math.max(10, state.ticket * 0.8);
+  const stars = gst.panic ? 0.5 : Math.max(0.5, Math.min(5, 1 + worth * 2.5 - (gst.hunger > 80 ? 0.5 : 0)));
+  state.rating = state.rating * 0.97 + stars * 0.03;
+  state.books.today.visitors++;
+  state.guests = state.guests.filter(x => x !== gst);
+}
