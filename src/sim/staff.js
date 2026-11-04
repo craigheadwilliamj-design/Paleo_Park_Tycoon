@@ -133,6 +133,13 @@ function arrive(state, derived, bus, s, job) {
   }
 }
 
+// The way ahead changed: plan the current stage again (it drops the job if there's no way now).
+export function reroute(state, derived, s) {
+  const job = s.job && state.jobs.find(j => j.id === s.job);
+  s.path = [];
+  if (job) startStage(state, derived, s, job);
+}
+
 export function staffTick(state, derived, bus, dt) {
   const g = state.grid;
   for (const j of state.jobs) if (j.wait > 0) j.wait -= dt;

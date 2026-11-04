@@ -41,7 +41,7 @@ test("closing a fence makes an exhibit, opening it again removes it", () => {
   assert.ok(t.viewing.length > 0, "path beside the fence gives viewing spots");
   assert.equal(t.gates.length, 1);
   assert.equal(t.security, 2, "palisade is tier 2");
-  assert.equal(w.paint("erase", [[ex - 18, 33]]), "");
+  assert.equal(w.bulldoze([[ex - 18, 33]]), "");
   assert.equal(w.state.exhibits.length, 0, "a gap in the wall opens the pen");
   assert.equal(w.paint("fence:palisade", [[ex - 18, 33]]), "");
   assert.equal(w.state.exhibits.length, 1);
@@ -157,4 +157,59 @@ test("guests run from a loose predator", () => {
   a.escaped = true; a.ex = 0;
   const gst = w.state.guests[0];
   if (gst) { gst.x = a.x + 1; gst.y = a.y; w.advance(1); assert.ok(gst.panic, "a guest next to it panics"); }
+});
+
+test("bulldoze takes what's on the tiles and gives a share back", () => {
+  const { w, e, ex } = buildPark();
+  const g = w.state.grid, money = () => w.state.money;
+  // A path tile: 25% of its price.
+  let m0 = money();
+  assert.equal(w.bulldoze([[ex, 45]]), "");
+  assert.equal(g.struct[idx(g, ex, 45)], 0);
+  assert.equal(money() - m0, Math.round(10 * 0.25));
+  // A tap on a gate takes the gate and leaves the wall.
+  m0 = money();
+  assert.equal(w.bulldoze([[ex - 12, 39]]), "");
+  assert.equal(g.struct[idx(g, ex - 12, 39)], 2, "the fence stays");
+  assert.equal(w.derived.ex.get(e.id).gates.length, 0);
+  assert.equal(money() - m0, Math.round(50 * 0.25));
+  // Any tile of a building takes all of it.
+  const shed = w.state.buildings.find(b => b.type === "shed");
+  const plan = w.bulldozePlan([[shed.x + 1, shed.y + 1]]);
+  assert.equal(plan.ask, "Bulldoze Food Shed?", "the shed asks first");
+  assert.equal(w.planTiles(plan).length, 4);
+  assert.equal(w.bulldoze([[shed.x + 1, shed.y + 1]]), "");
+  assert.ok(!w.state.buildings.includes(shed));
+  assert.equal(g.struct[idx(g, shed.x, shed.y)], 0);
+  // A box over water dries it.
+  assert.equal(w.bulldoze(line(ex - 16, 30, ex - 14, 32)), "");
+  assert.equal(w.derived.ex.get(e.id).shallow, 0);
+  // The entrance stays; empty ground says so.
+  const ent = w.state.buildings.find(b => b.type === "entrance");
+  assert.equal(w.bulldoze([[ent.x, ent.y]]), "Can't remove that.");
+  assert.equal(w.bulldoze([[2, 2]]), "Nothing to bulldoze.");
+  assert.ok(w.state.books.today.sold > 0);
+});
+
+test("bulldozing a wall of a pen with animals asks first, then lets them out", () => {
+  const { w, e, ex } = buildPark();
+  assert.equal(w.bulldozePlan([[ex - 18, 33]]).ask, "", "an empty pen doesn't ask");
+  w.buyAnimal("lyst", e.id);
+  assert.equal(w.bulldozePlan([[ex - 18, 33]]).ask, `Open a gap in ${e.name}?`);
+  assert.equal(w.bulldoze([[ex - 18, 33]]), "");
+  assert.equal(w.state.exhibits.length, 0);
+  assert.ok(w.state.animals[0].escaped, "it's loose");
+});
+
+test("guests walking over a bulldozed path pick a new way", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  w.buyAnimal("lyst", e.id);
+  w.advance(60);
+  const g = w.state.grid, gst = w.state.guests.find(x => x.path.length);
+  assert.ok(gst, "someone is walking");
+  const [x, y] = [gst.path[0] % g.w, (gst.path[0] / g.w) | 0];
+  w.bulldoze([[x, y]]);
+  assert.ok(!gst.path.includes(idx(g, x, y)), "the route no longer crosses the gap");
+  w.advance(60);
 });

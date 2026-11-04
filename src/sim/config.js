@@ -14,6 +14,10 @@ export const W_NONE = 0, W_SHALLOW = 1, W_DEEP = 2;
 // Bits of the flags layer (fence tiles only):
 export const F_GATE = 1, F_CHUTE = 2;
 
+// Prices a tile. Fences and buildings carry their own price in data.js.
+export const PRICE = { path: 10, water: 15, gate: 50, chute: 50 };
+export const REFUND = 0.25;   // share of what something cost that bulldozing it gives back
+
 // Fence condition, 0 to 100.
 export const COND = { worn: 50, damaged: 25 };
 export const WEAR = {

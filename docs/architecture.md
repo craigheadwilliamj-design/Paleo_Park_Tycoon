@@ -8,6 +8,9 @@
 ## The grid (grid.js)
 Typed-array layers, one entry a tile: `water` (none, shallow, deep), `struct` (none, path, fence, building), `fence` (type index + 1), `cond` (0 to 100), `flags` (gate, chute), `bld` (building id), `ex` (the exhibit the tile last belonged to). `walkable(g, i, who)` says who may stand where: guests on paths only; staff anywhere but buildings, deep water and fences (gates excepted); `land`, `swim` and `both` animals by water.
 
+## Bulldozing (world.js)
+One tool takes everything away and gives back `REFUND` (25%) of what it cost (`PRICE` in config.js, fence and building prices in data.js), booked as `books.sold`. `bulldozePlan(tiles)` is read only and says what would go: fence and path tiles, water, and any building with a tile in the box (whole); a single tile on a gate or chute takes just that and leaves the wall. The entrance (`fixed`) stays. `plan.ask` is set when it needs a yes first: `opensPens` floods a copy of the grid without those fences and names any exhibit whose animals would end up in a region reaching the map edge, or a building has `ask`. The view marks `planTiles(plan)` in red and shows the money back while dragging. After any paint or bulldoze, `replan` sends guests, animals and staff (`reroute`) whose route crosses a changed tile they can no longer stand on to pick again.
+
 ## Exhibits (exhibits.js)
 - `findRegions` flood-fills the tiles that aren't fence. A region that doesn't touch the map edge is an exhibit.
 - `rebuildExhibits` gives each one an id by voting with the grid's `ex` layer: biggest regions vote first, so a merge keeps the bigger pen's exhibit; a split half without its own id copies the biome of the exhibit it came from. An exhibit whose pen is opened waits in `state.openPens` and comes back when the gap closes.
@@ -34,7 +37,7 @@ Arrivals depend on rating, ticket price and how much the viewable exhibits draw.
 JSON, grid layers as base64. `migrate()` fills in missing fields for older saves. `main.js` autosaves to localStorage every 20 seconds and on page hide.
 
 ## Drawing (view/)
-`renderer.js` draws ground (park turf or the exhibit's biome, with stable per-tile detail), water from the biome's ramp, paths, fences (top and front face, darker when worn), buildings, then walkers sorted by their feet. `display.js` holds the size curve (`displayPx(meters)`), the only place real size turns into pixels. `ui.js` builds the HUD once and updates numbers, handles tools (drag a box: paths and water fill it, fences outline it), and renders the exhibit and animal panels.
+`renderer.js` draws ground (park turf or the exhibit's biome, with stable per-tile detail), water from the biome's ramp, paths, fences (top and front face, darker when worn), buildings, then walkers sorted by their feet. `display.js` holds the size curve (`displayPx(meters)`), the only place real size turns into pixels. `ui.js` builds the HUD once and updates numbers, handles tools (drag a box: paths and water fill it, fences outline it, bulldoze clears it; a yes/cancel for a bulldoze that asks sits in the tool bar), and renders the exhibit and animal panels.
 
 ## Not built yet
 Power plants (power is one switch), plants and browsing, research, the Time Travel and Genetics Labs, vandalism, morale and break rooms, attractions, weather, real art.

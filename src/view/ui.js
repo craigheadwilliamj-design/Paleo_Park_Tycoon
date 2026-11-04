@@ -20,7 +20,7 @@ const TOOLS = [
   ["gate", "Gate", "tile"], ["chute", "Chute", "tile"],
   ["water:shallow", "Shallow", "rect"], ["water:deep", "Deep", "rect"],
   ["place:feeder", "Feeder", "place"], ["place:shed", "Food Shed", "place"], ["place:snack", "Snack Stand", "place"],
-  ["erase", "Erase", "rect"], ["demolish", "Demolish", "click"],
+  ["bulldoze", "Bulldoze", "rect"],
 ];
 
 export class UI {
@@ -37,13 +37,31 @@ export class UI {
   buildTools() {
     const bar = $("tools");
     bar.innerHTML = TOOLS.map(([id, label]) => `<button data-tool="${id}" aria-pressed="${id === this.tool}">${esc(label)}</button>`).join("")
-      + `<span class="sep"></span><button data-hire="keeper">Hire Keeper</button><button data-hire="mechanic">Hire Mechanic</button><button data-hire="guard">Hire Guard</button><span id="why"></span>`;
+      + `<span class="sep"></span><button data-hire="keeper">Hire Keeper</button><button data-hire="mechanic">Hire Mechanic</button><button data-hire="guard">Hire Guard</button><span id="why"></span><span id="stat"></span><span id="ask"></span>`;
     bar.onclick = e => {
       const b = e.target.closest("button"); if (!b) return;
-      if (b.dataset.tool) { this.tool = b.dataset.tool; bar.querySelectorAll("[data-tool]").forEach(x => x.setAttribute("aria-pressed", x === b)); }
+      if (b.dataset.tool) { this.tool = b.dataset.tool; this.cancelAsk(); bar.querySelectorAll("[data-tool]").forEach(x => x.setAttribute("aria-pressed", x === b)); }
       if (b.dataset.hire) this.say(this.world.hire(b.dataset.hire));
+      if (b.dataset.yes !== undefined) { const t = this.asking; this.cancelAsk(); if (t) this.say(this.world.bulldoze(t)); }
+      if (b.dataset.no !== undefined) this.cancelAsk();
     };
   }
+
+  // Bulldoze: mark what would go and show the money back; a plan that asks first waits for Yes in the tool bar.
+  doomed(tiles) {
+    const plan = this.world.bulldozePlan(tiles);
+    const doomed = this.world.planTiles(plan);
+    this.preview = doomed.length ? doomed : null; this.previewOk = false;
+    $("stat").textContent = doomed.length ? `${fmtMoney(plan.refund)} back` : "";
+    return plan;
+  }
+  bulldoze(tiles) {
+    const plan = this.world.bulldozePlan(tiles);
+    if (!plan.ask) { this.say(this.world.bulldoze(tiles)); return; }
+    this.asking = tiles;
+    $("ask").innerHTML = `${esc(plan.ask)} <button data-yes>Bulldoze</button> <button data-no>Cancel</button>`;
+  }
+  cancelAsk() { if (this.asking) this.preview = null; this.asking = null; $("ask").innerHTML = ""; $("stat").textContent = ""; }
 
   tileAt(ev) {
     const r = this.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -66,8 +84,9 @@ export class UI {
       if (e.button === 2 || e.button === 1 || this.tool === "select" && e.shiftKey) { this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y }; return; }
       const t = this.tileAt(e), kind = TOOLS.find(x => x[0] === this.tool)[2];
       if (kind === "click" || kind === "place") { this.click(t, kind); this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, click: true }; return; }
+      this.cancelAsk();
       this.drag = { from: t, kind };
-      this.preview = this.dragTiles(t, t, kind);
+      if (this.tool === "bulldoze") this.doomed([t]); else { this.preview = this.dragTiles(t, t, kind); this.previewOk = true; }
     });
     c.addEventListener("pointermove", e => {
       this.hover = this.tileAt(e);
@@ -75,13 +94,21 @@ export class UI {
         const dpr = window.devicePixelRatio || 1, dx = e.clientX - this.pan.x, dy = e.clientY - this.pan.y;
         if (this.pan.click && Math.hypot(dx, dy) < 6) return;
         this.cam.x = this.pan.cx - (dx * dpr) / this.cam.zoom; this.cam.y = this.pan.cy - (dy * dpr) / this.cam.zoom; this.hooks.clamp();
-      } else if (this.drag) this.preview = this.dragTiles(this.drag.from, this.hover, this.drag.kind);
+      } else if (this.drag) {
+        const tiles = this.dragTiles(this.drag.from, this.hover, this.drag.kind);
+        if (this.tool === "bulldoze") this.doomed(tiles); else this.preview = tiles;
+      } else if (this.tool === "bulldoze" && !this.asking) this.doomed([this.hover]);
+      else if (this.preview && !this.asking) this.preview = null;
     });
     c.addEventListener("pointerup", () => {
-      if (this.drag) { this.say(this.world.paint(this.tool, this.preview)); this.drag = null; this.preview = null; }
+      if (this.drag) {
+        const tiles = this.dragTiles(this.drag.from, this.hover || this.drag.from, this.drag.kind);
+        if (this.tool === "bulldoze") this.bulldoze(tiles); else this.say(this.world.paint(this.tool, this.preview));
+        this.drag = null; if (!this.asking) { this.preview = null; $("stat").textContent = ""; }
+      }
       this.pan = null;
     });
-    c.addEventListener("pointerleave", () => { this.hover = null; });
+    c.addEventListener("pointerleave", () => { this.hover = null; if (!this.drag && !this.asking) { this.preview = null; $("stat").textContent = ""; } });
     c.addEventListener("wheel", e => { e.preventDefault(); this.hooks.zoom(e.deltaY < 0 ? 1 : -1, e); }, { passive: false });
     window.addEventListener("keydown", e => {
       if (e.target.closest && e.target.closest("input,select")) return;
@@ -90,7 +117,7 @@ export class UI {
       if (k === "arrowleft" || k === "a") this.cam.x -= step; else if (k === "arrowright" || k === "d") this.cam.x += step;
       else if (k === "arrowup" || k === "w") this.cam.y -= step; else if (k === "arrowdown" || k === "s") this.cam.y += step;
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
-      else if (k === "escape") { this.tool = "select"; this.buildTools(); this.selected = null; this.selectedEx = 0; }
+      else if (k === "escape") { this.tool = "select"; this.preview = null; this.buildTools(); this.cancelAsk(); this.selected = null; this.selectedEx = 0; }
       else return;
       this.hooks.clamp();
     });
@@ -99,7 +126,6 @@ export class UI {
   click([x, y], kind) {
     const w = this.world, g = w.state.grid;
     if (kind === "place") { const type = this.tool.slice(6), def = BUILDINGS[type]; this.say(w.place(type, x - Math.floor((def.w - 1) / 2), y - Math.floor((def.h - 1) / 2))); return; }
-    if (this.tool === "demolish") { this.say(w.demolish(x, y)); return; }
     // Select: the nearest animal under the cursor, else the exhibit.
     const a = w.state.animals.find(a => Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
     this.selected = a || null;

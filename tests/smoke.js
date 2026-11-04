@@ -44,10 +44,12 @@ const result = await page.evaluate(() => {
     w.buyAnimal("dime", a.id), w.buyAnimal("dime", a.id), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id),
     w.hire("keeper"), w.hire("mechanic"));
   w.advance(720 * 3);
+  const sold = w.state.money; why.push(w.bulldoze([[ex - 20, 40]]));   // the far end of the path
+  const refunded = w.state.money > sold;
   window.__ppt.ui.selectedEx = a.id;
   const cam = window.__ppt.cam; cam.zoom = 2; cam.x = (ex - 22) * 16; cam.y = 24 * 16;   // frame both pens for the screenshot
   return { why: why.filter(Boolean), day: w.state.day, guests: w.state.books.last.visitors, escaped: w.state.animals.filter(x => x.escaped).length,
-           hungry: w.state.animals.filter(x => x.need.hunger > 90).length };
+           hungry: w.state.animals.filter(x => x.need.hunger > 90).length, refunded };
 });
 await page.waitForTimeout(800);
 if (result.why.length) fails.push("refused commands: " + result.why.join(" | "));
@@ -55,6 +57,20 @@ if (result.day !== 4) fails.push("day is " + result.day);
 if (!result.guests) fails.push("no guests visited");
 if (result.escaped) fails.push(result.escaped + " animals escaped from stone/palisade");
 if (result.hungry) fails.push(result.hungry + " animals starving");
+if (!result.refunded) fails.push("bulldozing gave nothing back");
+// Bulldoze through the page: drag over a path tile, check it went.
+const gone = await page.evaluate(async () => {
+  const { ui, world: w, cam } = window.__ppt, g = w.state.grid, ex = Math.floor(g.w / 2), c = document.getElementById("view");
+  document.querySelector('[data-tool="bulldoze"]').click();
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const at = (x, y) => ({ clientX: r.left + ((x + 0.5) * 16 - cam.x) * cam.zoom / dpr, clientY: r.top + ((y + 0.5) * 16 - cam.y) * cam.zoom / dpr, pointerId: 1, button: 0, bubbles: true });
+  c.dispatchEvent(new PointerEvent("pointerdown", at(ex + 18, 40))); c.dispatchEvent(new PointerEvent("pointermove", at(ex + 20, 40)));
+  const marked = (ui.preview || []).length;
+  c.dispatchEvent(new PointerEvent("pointerup", at(ex + 20, 40)));
+  document.querySelector('[data-tool="select"]').click();
+  return { marked, left: [18, 19, 20].filter(d => g.struct[40 * g.w + ex + d]).length };
+});
+if (gone.marked !== 3 || gone.left) fails.push("bulldoze tool: " + JSON.stringify(gone));
 const panel = await page.textContent("#side");
 if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open");
 

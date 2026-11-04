@@ -1,16 +1,17 @@
 // The world: the saved state, the derived data rebuilt from it, the event bus, the commands that change it,
 // and the fixed-step tick. The UI and the tests only ever go through these commands.
 import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
-         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, SAVE_VERSION } from "./config.js";
+         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SAVE_VERSION } from "./config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES } from "./data.js";
-import { newGrid, inside, idx, setFence, clearTile, isFence } from "./grid.js";
+import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
+import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
 import { newAnimal, dropIn, animalTick, updateHappiness, settleAnimals, animalsIn } from "./animals.js";
-import { planJobs, staffTick, hire, wages } from "./staff.js";
+import { planJobs, staffTick, hire, wages, reroute } from "./staff.js";
 import { guestTick } from "./guests.js";
 import { Bus } from "./events.js";
 
-const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, animals: 0, visitors: 0, eaten: {} });
+const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, animals: 0, visitors: 0, eaten: {} });
 
 export function newState(seed = 12345) {
   return {
@@ -50,8 +51,8 @@ export class World {
 
   // ---- commands. Each returns "" when it worked, or a short reason when it was refused. ----
 
-  // Paint a tool over a list of [x, y] tiles. Tools: path, erase, water:shallow, water:deep, water:none,
-  // fence:<type>, gate, chute.
+  // Paint a tool over a list of [x, y] tiles. Tools: path, water:shallow, water:deep, water:none,
+  // fence:<type>, gate, chute. Bulldoze takes things away.
   paint(tool, tiles) {
     const g = this.state.grid;
     let cost = 0, done = 0, why = "";
@@ -60,11 +61,10 @@ export class World {
       if (!inside(g, x, y)) continue;
       const i = idx(g, x, y), s = g.struct[i];
       if (s === S_BUILDING) { why = "Something is built there."; continue; }
-      if (tool === "path") { if (s !== S_PATH && g.water[i] === W_NONE) { ops.push(() => { clearTile(g, i); g.struct[i] = S_PATH; }); cost += 10; } else if (g.water[i]) why = "Not on water."; }
-      else if (tool === "erase") { if (s) ops.push(() => clearTile(g, i)); else if (g.water[i]) ops.push(() => { g.water[i] = W_NONE; }); }
+      if (tool === "path") { if (s !== S_PATH && g.water[i] === W_NONE) { ops.push(() => { clearTile(g, i); g.struct[i] = S_PATH; }); cost += PRICE.path; } else if (g.water[i]) why = "Not on water."; }
       else if (tool.startsWith("water:")) {
         const w = { none: W_NONE, shallow: W_SHALLOW, deep: W_DEEP }[tool.slice(6)];
-        if (s === 0) { ops.push(() => { g.water[i] = w; }); cost += w ? 15 : 0; } else why = "Clear it first.";   // bare ground only
+        if (s === 0) { ops.push(() => { g.water[i] = w; }); cost += w ? PRICE.water : 0; } else why = "Clear it first.";   // bare ground only
       }
       else if (tool.startsWith("fence:")) {
         const id = tool.slice(6), f = FENCES[id];
@@ -75,7 +75,8 @@ export class World {
       else if (tool === "gate" || tool === "chute") {
         if (s !== S_FENCE) { why = "Gates and chutes go on a fence."; continue; }
         const bit = tool === "gate" ? F_GATE : F_CHUTE;
-        ops.push(() => { g.flags[i] = (g.flags[i] & ~(F_GATE | F_CHUTE)) | bit; }); cost += 50;
+        if (g.flags[i] & bit) continue;
+        ops.push(() => { g.flags[i] = (g.flags[i] & ~(F_GATE | F_CHUTE)) | bit; }); cost += PRICE[tool];
       }
       else return "No such tool.";
     }
@@ -83,7 +84,70 @@ export class World {
     if (!this.spend(cost, "build")) return "Not enough money.";
     for (const op of ops) op();
     this.changed();
+    this.replan(tiles.filter(([x, y]) => inside(g, x, y)).map(([x, y]) => idx(g, x, y)));
     return "";
+  }
+
+  // What bulldozing these tiles would take, and what it gives back. Read only, so the view can show it first.
+  // A single tile on a gate or chute takes just that, and leaves the fence; otherwise everything on the tiles goes,
+  // whole buildings included. ask is set when it needs a yes first: a pen with animals would open, or a building asks.
+  bulldozePlan(tiles) {
+    const g = this.state.grid, plan = { clear: [], flags: [], water: [], blds: [], refund: 0, ask: "", why: "" };
+    const blds = new Set();
+    for (const [x, y] of tiles) {
+      if (!inside(g, x, y)) continue;
+      const i = idx(g, x, y), s = g.struct[i], fl = g.flags[i] & (F_GATE | F_CHUTE);
+      if (s === S_BUILDING) {
+        const b = this.state.buildings.find(b => b.id === g.bld[i]);
+        if (b && BUILDINGS[b.type].fixed) plan.why = "Can't remove that."; else if (b) blds.add(b);
+      } else if (s === S_FENCE && fl && tiles.length === 1) { plan.flags.push(i); plan.refund += PRICE[fl & F_GATE ? "gate" : "chute"]; }
+      else if (s === S_FENCE) { plan.clear.push(i); plan.refund += (FENCES[fenceId(g, i)]?.price || 0) + (fl ? PRICE[fl & F_GATE ? "gate" : "chute"] : 0); }
+      else if (s === S_PATH) { plan.clear.push(i); plan.refund += PRICE.path; }
+      else if (g.water[i]) { plan.water.push(i); plan.refund += PRICE.water; }
+    }
+    plan.blds = [...blds];
+    for (const b of plan.blds) plan.refund += BUILDINGS[b.type].price;
+    plan.refund = Math.round(plan.refund * REFUND);
+    const opens = this.opensPens(plan.clear);
+    if (opens.length) plan.ask = `Open a gap in ${opens.map(e => e.name).join(", ")}?`;
+    else { const b = plan.blds.find(b => BUILDINGS[b.type].ask); if (b) plan.ask = `Bulldoze ${BUILDINGS[b.type].name}?`; }
+    return plan;
+  }
+  // Every tile a plan takes, for the view to mark.
+  planTiles(plan) {
+    const g = this.state.grid, out = [...plan.clear, ...plan.flags, ...plan.water];
+    for (const b of plan.blds) { const d = BUILDINGS[b.type]; for (let y = b.y; y < b.y + d.h; y++) for (let x = b.x; x < b.x + d.w; x++) out.push(idx(g, x, y)); }
+    return out.map(i => xy(g, i));
+  }
+  // The exhibits holding animals that would open to the park if these fence tiles went.
+  opensPens(fenceTiles) {
+    if (!fenceTiles.length) return [];
+    const g = this.state.grid, struct = g.struct.slice();
+    for (const i of fenceTiles) struct[i] = 0;
+    const { region, list } = findRegions({ w: g.w, h: g.h, struct });
+    return this.state.exhibits.filter(e => this.state.animals.some(a => a.ex === e.id && !a.escaped && !a.crated && list[region[Math.floor(a.y) * g.w + Math.floor(a.x)]]?.edge));
+  }
+  bulldoze(tiles) {
+    const g = this.state.grid, plan = this.bulldozePlan(tiles);
+    if (!plan.clear.length && !plan.flags.length && !plan.water.length && !plan.blds.length) return plan.why || "Nothing to bulldoze.";
+    for (const i of plan.clear) { clearTile(g, i); delete this.state.testing[i]; }
+    for (const i of plan.flags) g.flags[i] &= ~(F_GATE | F_CHUTE);
+    for (const i of plan.water) g.water[i] = W_NONE;
+    for (const b of plan.blds) for (let k = 0; k < g.bld.length; k++) if (g.bld[k] === b.id) { g.bld[k] = 0; g.struct[k] = 0; }
+    this.state.buildings = this.state.buildings.filter(b => !plan.blds.includes(b));
+    this.state.jobs = this.state.jobs.filter(j => !(j.kind === "repair" && plan.clear.includes(j.tile)));
+    this.state.money += plan.refund; this.state.books.today.sold += plan.refund;
+    this.changed();
+    this.replan(this.planTiles(plan).map(([x, y]) => idx(g, x, y)));
+    return "";
+  }
+  // Tiles changed under walkers: anyone whose route crosses one, or who can't stand where they are, picks again.
+  replan(changed) {
+    const s = this.state, g = s.grid, hit = new Set(changed);
+    const stale = (m, who) => m.path && m.path.some(i => hit.has(i) && !walkable(g, i, who));
+    for (const gst of s.guests) if (stale(gst, "guest")) { gst.path = []; gst.plan = ""; gst.t = 0; }
+    for (const a of s.animals) if (!a.crated && stale(a, SPECIES[a.sp].moves)) { a.path = []; a.act = "idle"; a.t = 0; }
+    for (const st of s.staff) if (stale(st, "staff")) reroute(s, this.derived, st);
   }
 
   place(type, x, y) {
@@ -112,16 +176,6 @@ export class World {
     this.state.buildings.push(b);
     return b;
   }
-  demolish(x, y) {
-    const g = this.state.grid, i = idx(g, x, y), id = g.bld[i], b = this.state.buildings.find(b => b.id === id);
-    if (!b) return "Nothing to remove.";
-    if (BUILDINGS[b.type].fixed) return "Can't remove that.";
-    for (let k = 0; k < g.bld.length; k++) if (g.bld[k] === id) { g.bld[k] = 0; g.struct[k] = 0; }
-    this.state.buildings = this.state.buildings.filter(o => o !== b);
-    this.changed();
-    return "";
-  }
-
   setBiome(exId, biome) {
     const e = this.state.exhibits.find(e => e.id === exId);
     if (!e || !BIOMES[biome]) return "No such exhibit.";

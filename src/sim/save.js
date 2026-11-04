@@ -36,6 +36,7 @@ export function migrate(s) {
   s.testing = s.testing || {};
   s.bell = s.bell || [];
   s.openPens = s.openPens || [];
+  for (const b of [s.books.today, s.books.last]) if (b) b.sold = b.sold || 0;
   s.version = SAVE_VERSION;
   return s;
 }
