@@ -67,10 +67,28 @@ const gone = await page.evaluate(async () => {
   c.dispatchEvent(new PointerEvent("pointerdown", at(ex + 18, 40))); c.dispatchEvent(new PointerEvent("pointermove", at(ex + 20, 40)));
   const marked = (ui.preview || []).length;
   c.dispatchEvent(new PointerEvent("pointerup", at(ex + 20, 40)));
-  document.querySelector('[data-tool="select"]').click();
-  return { marked, left: [18, 19, 20].filter(d => g.struct[40 * g.w + ex + d]).length };
+  document.querySelector('[data-tool="bulldoze"]').click();   // pressing it again goes back to Select
+  return { tool: ui.tool, marked, left: [18, 19, 20].filter(d => g.struct[40 * g.w + ex + d]).length };
 });
-if (gone.marked !== 3 || gone.left) fails.push("bulldoze tool: " + JSON.stringify(gone));
+if (gone.marked !== 3 || gone.left || gone.tool !== "select") fails.push("bulldoze tool: " + JSON.stringify(gone));
+// The build menu: a category opens its tray, a list head opens its bar above, a tool in it picks that tool; Esc backs out.
+const menu = await page.evaluate(() => {
+  const { ui } = window.__ppt, q = s => document.querySelector(s), shown = el => !!el && el.getClientRects().length > 0;
+  const esc = () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  q('[data-cat="exhibits"]').click();
+  const tray = shown(q('[data-tray="exhibits"]')), barBefore = shown(q('[data-tool="fence:stone"]'));
+  q('[data-tray="exhibits"] .srow.head').click();
+  const bar = shown(q('[data-tool="fence:stone"]'));
+  q('[data-tool="fence:stone"]').click();
+  const picked = ui.tool, pressed = q('[data-tool="fence:stone"]').getAttribute("aria-pressed");
+  esc(); const afterEsc1 = ui.tool, trayStill = shown(q('[data-tray="exhibits"]'));
+  esc(); esc(); const closed = !shown(q('[data-tray="exhibits"]'));
+  q('[data-cat="build"]').click(); const shopPrice = q('[data-tray="build"]').textContent.includes("$1,500");
+  q('[data-cat="build"]').click();
+  return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice };
+});
+const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
+if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));
 const panel = await page.textContent("#side");
 if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open");
 

@@ -51,10 +51,10 @@ export const FOOD_TYPES = ["greens", "meat", "fish", "bugs"];
 export const DANGEROUS = 3;   // a pen holding an animal of this danger or more is fed only through a chute
 
 // Buildings. w and h in tiles. Feeders stand inside exhibits; everything else on park ground.
-// fixed: can't be built or bulldozed. ask: bulldozing it asks first.
+// fixed: can't be built or bulldozed. ask: bulldozing it asks first. menu: the build menu group (guest, staff, exhibits). tip: its tooltip there.
 export const BUILDINGS = {
   entrance: { name: "Entrance",   w: 3, h: 2, price: 0, fixed: true, color: "#c9a16a" },
-  shed:     { name: "Food Shed",  w: 2, h: 2, price: 2500, ask: true, color: "#8a6a4a" },
-  feeder:   { name: "Feeder",     w: 1, h: 1, price: 300, inside: true, color: "#c2a35a" },
-  snack:    { name: "Snack Stand", w: 2, h: 2, price: 1500, serves: "hunger", sale: 6, cost: 2, color: "#d27a4a" },
+  shed:     { name: "Food Shed",  w: 2, h: 2, price: 2500, ask: true, menu: "staff", tip: "Keepers fetch food here. Restocked every night.", color: "#8a6a4a" },
+  feeder:   { name: "Feeder",     w: 1, h: 1, price: 300, inside: true, menu: "exhibits", tip: "Goes inside an exhibit. Keepers fill it.", color: "#c2a35a" },
+  snack:    { name: "Snack Stand", w: 2, h: 2, price: 1500, serves: "hunger", sale: 6, cost: 2, menu: "guest", tip: "Feeds hungry guests. Put it beside a path.", color: "#d27a4a" },
 };

@@ -1,27 +1,17 @@
-// The HUD, the tool bar, the side panel and mouse/keyboard input. Every change goes through a world command;
+// The HUD, the status bar, the side panel and mouse/keyboard input (the build menu is menu.js). Every change goes through a world command;
 // a refused command shows its reason in the tool bar.
 import { TILE } from "./display.js";
-import { FENCES, BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
+import { BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
 import { DAY_MIN, STAFF } from "../sim/config.js";
 import { habitatScore } from "../sim/habitat.js";
 import { animalsIn } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
+import { BuildMenu, TOOL_KIND } from "./menu.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const $ = id => document.getElementById(id);
 const fmtMoney = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const fmtClock = c => { const h = Math.floor(c / 60) + 4, m = Math.floor(c % 60); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h % 24 < 12 ? "AM" : "PM"}`; };
-
-// Tools: [id, label, kind]. kind: "rect" fills the dragged box, "ring" outlines it, "tile" is one tile, "place" a building.
-const TOOLS = [
-  ["select", "Select", "click"],
-  ["path", "Path", "rect"],
-  ...Object.entries(FENCES).map(([id, f]) => [`fence:${id}`, f.name, "ring"]),
-  ["gate", "Gate", "tile"], ["chute", "Chute", "tile"],
-  ["water:shallow", "Shallow", "rect"], ["water:deep", "Deep", "rect"],
-  ["place:feeder", "Feeder", "place"], ["place:shed", "Food Shed", "place"], ["place:snack", "Snack Stand", "place"],
-  ["bulldoze", "Bulldoze", "rect"],
-];
 
 export class UI {
   constructor(world, canvas, cam, hooks) {
@@ -34,17 +24,22 @@ export class UI {
 
   say(why) { $("why").textContent = why || ""; clearTimeout(this.whyT); if (why) this.whyT = setTimeout(() => ($("why").textContent = ""), 2500); }
 
+  // The status bar under the map: why a click was refused, the money back while bulldozing, a yes/cancel when it asks.
   buildTools() {
     const bar = $("tools");
-    bar.innerHTML = TOOLS.map(([id, label]) => `<button data-tool="${id}" aria-pressed="${id === this.tool}">${esc(label)}</button>`).join("")
-      + `<span class="sep"></span><button data-hire="keeper">Hire Keeper</button><button data-hire="mechanic">Hire Mechanic</button><button data-hire="guard">Hire Guard</button><span id="why"></span><span id="stat"></span><span id="ask"></span>`;
+    bar.innerHTML = `<span id="why"></span><span id="stat"></span><span id="ask"></span>`;
     bar.onclick = e => {
       const b = e.target.closest("button"); if (!b) return;
-      if (b.dataset.tool) { this.tool = b.dataset.tool; this.cancelAsk(); bar.querySelectorAll("[data-tool]").forEach(x => x.setAttribute("aria-pressed", x === b)); }
-      if (b.dataset.hire) this.say(this.world.hire(b.dataset.hire));
       if (b.dataset.yes !== undefined) { const t = this.asking; this.cancelAsk(); if (t) this.say(this.world.bulldoze(t)); }
       if (b.dataset.no !== undefined) this.cancelAsk();
     };
+    this.menu = new BuildMenu($("build"), tool => this.setTool(tool));
+  }
+  // Pick a tool; picking the one already on goes back to Select.
+  setTool(tool) {
+    this.tool = tool === this.tool ? "select" : tool;
+    this.cancelAsk(); this.preview = null; this.drag = null;
+    this.menu.setTool(this.tool);
   }
 
   // Bulldoze: mark what would go and show the money back; a plan that asks first waits for Yes in the tool bar.
@@ -82,7 +77,7 @@ export class UI {
     c.addEventListener("pointerdown", e => {
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.tool === "select" && e.shiftKey) { this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y }; return; }
-      const t = this.tileAt(e), kind = TOOLS.find(x => x[0] === this.tool)[2];
+      const t = this.tileAt(e), kind = TOOL_KIND[this.tool];
       if (kind === "click" || kind === "place") { this.click(t, kind); this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, click: true }; return; }
       this.cancelAsk();
       this.drag = { from: t, kind };
@@ -117,7 +112,10 @@ export class UI {
       if (k === "arrowleft" || k === "a") this.cam.x -= step; else if (k === "arrowright" || k === "d") this.cam.x += step;
       else if (k === "arrowup" || k === "w") this.cam.y -= step; else if (k === "arrowdown" || k === "s") this.cam.y += step;
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
-      else if (k === "escape") { this.tool = "select"; this.preview = null; this.buildTools(); this.cancelAsk(); this.selected = null; this.selectedEx = 0; }
+      else if (k === "escape") {   // drop the tool first, then close the menu, then the panel
+        if (this.tool !== "select") this.setTool("select");
+        else if (!this.menu.back()) { this.selected = null; this.selectedEx = 0; }
+      }
       else return;
       this.hooks.clamp();
     });
@@ -139,11 +137,12 @@ export class UI {
       <span id="h-stars"></span><span>Guests <b id="h-guests"></b></span>
       <span>Ticket <button data-t="-5">−</button> <b id="h-ticket"></b> <button data-t="5">+</button></span>
       <span>${[0, 1, 2, 4].map(v => `<button data-speed="${v}">${v ? v + "×" : "❚❚"}</button>`).join("")}</span>
-      <span>Staff <b id="h-staff"></b></span><span class="muted">Today <span id="h-in"></span> in</span>
+      <span>Staff <b id="h-staff"></b> <button data-hire="keeper" title="Hire a keeper">+Keeper</button><button data-hire="mechanic" title="Hire a mechanic">+Mechanic</button><button data-hire="guard" title="Hire a guard">+Guard</button></span><span class="muted">Today <span id="h-in"></span> in</span>
       <button data-bell id="h-bell">Messages</button><button data-power id="h-power">Power</button><button data-new>New Park</button>`;
     $("hud").onclick = e => {
       const t = e.target.closest("button"), s = this.world.state; if (!t) return;
       if (t.dataset.t) this.world.setTicket(s.ticket + Number(t.dataset.t));
+      if (t.dataset.hire) this.say(this.world.hire(t.dataset.hire));
       if (t.dataset.speed) this.speed = Number(t.dataset.speed);
       if (t.dataset.bell !== undefined) $("bell").hidden = !$("bell").hidden;
       if (t.dataset.power !== undefined) this.world.setPower(!s.power.on);
