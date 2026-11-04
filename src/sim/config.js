@@ -14,6 +14,10 @@ export const W_NONE = 0, W_SHALLOW = 1, W_DEEP = 2;
 // Bits of the flags layer (fence tiles only):
 export const F_GATE = 1, F_CHUTE = 2;
 
+// Prices a tile. Fences and buildings carry their own price in data.js.
+export const PRICE = { path: 10, water: 15, gate: 50, chute: 50 };
+export const REFUND = 0.25;   // share of what something cost that bulldozing it gives back
+
 // Fence condition, 0 to 100.
 export const COND = { worn: 50, damaged: 25 };
 export const WEAR = {
@@ -38,6 +42,20 @@ export const FOOD = {
   shedCap: 400,          // units of each food type a shed holds
   price: { greens: 2, meat: 6, fish: 5, bugs: 3 },   // per unit, paid on the nightly delivery
   firstDelivery: 120,    // units of each type a new shed starts with
+};
+
+// The labs (science.js). Times in park days.
+export const SCIENCE = {
+  crew: { researcher: { lab: "research", hire: 3000, wage: 250 }, geneticist: { lab: "genetics", hire: 3500, wage: 350 } },
+  research: { first: 1, growth: 1.6 },   // days a track's first step takes with one researcher; each next step this many times longer
+  drones: { max: 5, price: 15000, growth: 1.5 },   // the Time Travel Lab comes with one; each next costs growth times the last
+  sizeLen: [1, 12],      // body length (m) treated as smallest and largest for the numbers below
+  fail: [0.1, 0.35],     // chance an expedition comes back empty, smallest to largest, before the period's risk
+  trips: [2, 8],         // finds a genome takes on average, smallest to largest
+  spread: 0.35,          // a find is worth this share more or less than average
+  costMul: [0.35, 1.3],  // expedition price multiplier on the period's trip, smallest to largest
+  scoutFind: [0.35, 0.65],   // chance a scouting trip spots each animal not yet seen there (big ones are easier)
+  cloneDays: [1, 4],     // days a clone takes, smallest to largest
 };
 
 export const STAFF = {

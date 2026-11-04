@@ -2,6 +2,8 @@
 // Every save carries a version; migrate() brings older saves up to date one version at a time.
 import { SAVE_VERSION } from "./config.js";
 import { newGrid } from "./grid.js";
+import { newScience } from "./science.js";
+import { FENCES, FENCE_IDS } from "./data.js";
 
 const LAYERS = { water: Uint8Array, struct: Uint8Array, fence: Uint8Array, cond: Uint8Array, flags: Uint8Array, bld: Int32Array, ex: Int32Array };
 
@@ -36,6 +38,12 @@ export function migrate(s) {
   s.testing = s.testing || {};
   s.bell = s.bell || [];
   s.openPens = s.openPens || [];
+  for (const b of [s.books.today, s.books.last]) if (b) { b.sold = b.sold || 0; b.science = b.science || 0; }
+  if (!s.science) {   // saves from before the labs keep the fences they already built
+    s.science = newScience();
+    for (const k of new Set(s.grid.fence)) { const f = k && FENCES[FENCE_IDS[k - 1]]; if (f && f.tech) s.science.done.push(f.tech); }
+  }
+  s.science = { ...newScience(), ...s.science };
   s.version = SAVE_VERSION;
   return s;
 }
