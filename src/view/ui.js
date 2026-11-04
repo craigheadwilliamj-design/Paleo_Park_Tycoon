@@ -7,6 +7,7 @@ import { habitatScore } from "../sim/habitat.js";
 import { animalsIn } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
+import { labHtml, labAction } from "./labs.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const $ = id => document.getElementById(id);
@@ -17,7 +18,7 @@ export class UI {
   constructor(world, canvas, cam, hooks) {
     this.world = world; this.canvas = canvas; this.cam = cam; this.hooks = hooks;
     this.tool = "select"; this.drag = null; this.hover = null; this.preview = null; this.previewOk = true;
-    this.selected = null; this.selectedEx = 0; this.speed = 1; this.lastPanel = "";
+    this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.speed = 1; this.lastPanel = "";
     this.buildTools(); this.bindInput();
   }
   get view() { return { preview: this.preview, previewOk: this.previewOk, hover: this.hover, selected: this.selected, selectedEx: this.selectedEx }; }
@@ -143,7 +144,7 @@ export class UI {
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
       else if (k === "escape") {   // drop the tool first, then close the menu, then the panel
         if (this.tool !== "select") this.setTool("select");
-        else if (!this.menu.back()) { this.selected = null; this.selectedEx = 0; }
+        else if (!this.menu.back()) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
       }
       else return;
       this.hooks.clamp();
@@ -153,10 +154,12 @@ export class UI {
   click([x, y], kind) {
     const w = this.world, g = w.state.grid;
     if (kind === "place") { const type = this.tool.slice(6), def = BUILDINGS[type]; this.say(w.place(type, x - Math.floor((def.w - 1) / 2), y - Math.floor((def.h - 1) / 2))); return; }
-    // Select: the nearest animal under the cursor, else the exhibit.
-    const a = w.state.animals.find(a => Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
+    // Select: the nearest animal under the cursor, else a lab, else the exhibit.
+    const a = w.state.animals.find(a => !a.crated && Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
+    const on = x >= 0 && y >= 0 && x < g.w && y < g.h, b = !a && on && w.state.buildings.find(b => b.id === g.bld[y * g.w + x] && BUILDINGS[b.type].lab);
     this.selected = a || null;
-    this.selectedEx = a ? a.ex : (x >= 0 && y >= 0 && x < g.w && y < g.h ? w.derived.exOf[y * g.w + x] : 0);
+    this.selectedBld = b ? b.id : 0;
+    this.selectedEx = a ? a.ex : b ? 0 : on ? w.derived.exOf[y * g.w + x] : 0;
   }
 
   // ---- HUD, bell and panel, refreshed a few times a second ----
@@ -194,22 +197,26 @@ export class UI {
     document.querySelectorAll("#hud [data-speed]").forEach(x => x.setAttribute("aria-pressed", Number(x.dataset.speed) === this.speed));
     const bell = s.bell.slice(0, 20).map(n => `<div class="${n.urgent ? "urgent" : ""}">Day ${n.day} · ${esc(n.text)}</div>`).join("");
     if (bell !== this.lastBell) { $("bell").innerHTML = bell; this.lastBell = bell; }
+    this.menu.refresh(s);
     this.panel();
   }
 
   panel() {
     const w = this.world, s = w.state, side = $("side");
     let html = "";
-    const e = this.selectedEx && s.exhibits.find(e => e.id === this.selectedEx);
-    if (e) html = this.exhibitPanel(e);
+    const e = this.selectedEx && s.exhibits.find(e => e.id === this.selectedEx), lab = this.selectedBld && s.buildings.find(b => b.id === this.selectedBld);
+    if (lab) html = labHtml(this, lab);
+    else if (e) html = this.exhibitPanel(e);
     else if (this.selected) html = this.animalPanel(this.selected);
+    side.classList.toggle("wide", !!lab && BUILDINGS[lab.type].lab === "timetravel");
     if (html === this.lastPanel) return;
     this.lastPanel = html; side.innerHTML = html;
     side.onclick = ev => {
       const b = ev.target.closest("button"); if (!b) return;
       if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
       if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
-      if (b.dataset.close !== undefined) { this.selected = null; this.selectedEx = 0; }
+      if (b.dataset.close !== undefined) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
+      const why = labAction(this, b); if (why) this.say(why);
       this.lastPanel = ""; this.panel();
     };
     side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = ""; this.panel(); } };
@@ -244,7 +251,7 @@ export class UI {
       ${here.length ? `<h4>Animals</h4>` + here.map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><span class="meter"><i style="width:${a.happy}%"></i></span></div>`).join("") : ""}
       ${meters}
       ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}">Release here</button></div>`).join("") : ""}
-      <h4>Buy</h4>${Object.entries(SPECIES).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${s.money < sp.price ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
+      <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${s.money < sp.price ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
   animalPanel(a) {
     const sp = SPECIES[a.sp];

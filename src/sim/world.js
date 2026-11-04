@@ -1,8 +1,10 @@
 // The world: the saved state, the derived data rebuilt from it, the event bus, the commands that change it,
 // and the fixed-step tick. The UI and the tests only ever go through these commands.
 import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
-         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SAVE_VERSION } from "./config.js";
-import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES } from "./data.js";
+         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION } from "./config.js";
+import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES, TRACKS } from "./data.js";
+import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutProblem, expeditionProblem, sendTrip, scoutCost,
+         expeditionCost, cloneProblem, cloneMinutes, nextDronePrice, nowMin, crewOf } from "./science.js";
 import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
 import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
@@ -11,13 +13,13 @@ import { planJobs, staffTick, hire, wages, reroute } from "./staff.js";
 import { guestTick } from "./guests.js";
 import { Bus } from "./events.js";
 
-const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, animals: 0, visitors: 0, eaten: {} });
+const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, science: 0, animals: 0, visitors: 0, eaten: {} });
 
 export function newState(seed = 12345) {
   return {
     version: SAVE_VERSION, seed, nextId: 1, day: 1, clock: 4 * 60, money: START_MONEY, rating: 2.5, ticket: GUESTS.ticket,
     grid: newGrid(MAP_W, MAP_H), exhibits: [], openPens: [], buildings: [], animals: [], staff: [], guests: [], jobs: [],
-    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null },
+    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null }, science: newScience(),
   };
 }
 
@@ -69,6 +71,7 @@ export class World {
       else if (tool.startsWith("fence:")) {
         const id = tool.slice(6), f = FENCES[id];
         if (!f) return "No such fence.";
+        if (!hasTech(this.state, f.tech)) return "Not researched yet.";
         if (g.water[i]) { why = "Not on water."; continue; }
         if (!(s === S_FENCE && g.fence[i] - 1 === Object.keys(FENCES).indexOf(id))) { ops.push(() => setFence(g, i, id)); cost += f.price; }
       }
@@ -153,6 +156,7 @@ export class World {
   place(type, x, y) {
     const def = BUILDINGS[type];
     if (!def || def.fixed) return "Can't build that.";
+    if (def.unique && this.state.buildings.some(b => b.type === type)) return "Only one a park.";
     const why = this.spotProblem(type, x, y);
     if (why) return why;
     if (!this.spend(def.price, "build")) return "Not enough money.";
@@ -198,6 +202,7 @@ export class World {
     const def = BUILDINGS[type], g = this.state.grid;
     const b = { id: this.state.nextId++, type, x, y };
     if (type === "shed") b.stock = Object.fromEntries(FOOD_TYPES.map(t => [t, FOOD.firstDelivery]));
+    if (def.lab === "timetravel" && !this.state.science.drones) this.state.science.drones = 1;   // comes with one drone
     for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) { const i = idx(g, xx, yy); clearTile(g, i); g.struct[i] = S_BUILDING; g.bld[i] = b.id; }
     this.state.buildings.push(b);
     return b;
@@ -212,9 +217,11 @@ export class World {
   }
   rename(exId, name) { const e = this.state.exhibits.find(e => e.id === exId); if (e) e.name = String(name).slice(0, 40); }
 
+  // Partner parks sell the starter species; the rest come from the Genetics Lab.
   buyAnimal(sp, exId) {
     const s = SPECIES[sp], e = this.state.exhibits.find(e => e.id === exId);
     if (!s) return "No such animal.";
+    if (!s.starter) return "Clone it at the Genetics Lab.";
     if (!e) return "Not in an exhibit.";
     if (!this.spend(s.price, "animals")) return "Not enough money.";
     const a = newAnimal(this.state, sp, exId);
@@ -222,6 +229,64 @@ export class World {
     this.state.animals.push(a);
     return "";
   }
+  // For tests and dev: an animal straight into an exhibit, free.
+  spawn(sp, exId) {
+    const a = newAnimal(this.state, sp, exId);
+    dropIn(this.state, this.derived, a); this.state.animals.push(a); return a;
+  }
+
+  // ---- the labs (science.js) ----
+  hireCrew(role) {
+    const c = SCIENCE.crew[role];
+    if (!c) return "No such job.";
+    if (!this.state.buildings.some(b => BUILDINGS[b.type].lab === c.lab)) return `No ${Object.values(BUILDINGS).find(d => d.lab === c.lab).name}.`;
+    if (!this.spend(c.hire, "wages")) return "Not enough money.";
+    this.state.science.crew.push({ id: this.state.nextId++, role, track: "" });
+    return "";
+  }
+  // Let one go: an idle one first, and never a geneticist whose incubator is busy.
+  fireCrew(role) {
+    const sc = this.state.science, list = crewOf(this.state, role);
+    if (!list.length) return "Nobody to let go.";
+    if (role === "geneticist" && sc.clones.length >= list.length) return "Every incubator is busy.";
+    const c = list.find(c => !c.track) || list[list.length - 1];
+    sc.crew = sc.crew.filter(x => x !== c);
+    return "";
+  }
+  // Move a researcher onto a track (+1) or back off it (-1). A track keeps its progress.
+  assign(track, delta) {
+    if (!TRACKS[track]) return "No such track.";
+    const list = crewOf(this.state, "researcher"), c = delta > 0 ? list.find(c => !c.track) : list.find(c => c.track === track);
+    if (!c) return delta > 0 ? "No idle researchers." : "";
+    c.track = delta > 0 ? track : "";
+    return "";
+  }
+  buyDrone() {
+    const sc = this.state.science;
+    if (!this.state.buildings.some(b => BUILDINGS[b.type].lab === "timetravel")) return "No Time Travel Lab.";
+    if (sc.drones >= SCIENCE.drones.max) return "Drone bay full.";
+    if (!this.spend(nextDronePrice(this.state), "build")) return "Not enough money.";
+    sc.drones++; return "";
+  }
+  scout(siteId) {
+    const site = siteById(siteId), why = scoutProblem(this.state, site);
+    if (why) return why;
+    this.spend(scoutCost(site), "science"); sendTrip(this.state, "scout", site); return "";
+  }
+  expedition(siteId, sp) {
+    const site = siteById(siteId), why = expeditionProblem(this.state, site, sp);
+    if (why) return why;
+    this.spend(expeditionCost(site, sp), "science"); sendTrip(this.state, "dig", site, sp); return "";
+  }
+  clone(sp) {
+    const why = cloneProblem(this.state, sp);
+    if (why) return why;
+    this.spend(SPECIES[sp].price, "animals");
+    const start = nowMin(this.state);
+    this.state.science.clones.push({ id: this.state.nextId++, sp, start, end: start + cloneMinutes(this.state, sp) });
+    return "";
+  }
+
   // A darted animal goes back to its exhibit if that pen is closed again, otherwise into a crate.
   caught(id) {
     const a = this.state.animals.find(a => a.id === id);
@@ -256,6 +321,7 @@ export class World {
       animalTick(s, this.derived, this.bus, dt);
       staffTick(s, this.derived, this.bus, dt);
       guestTick(s, this.derived, this.bus, dt);
+      scienceTick(s, this.bus, dt);
       if (Math.floor(s.clock / 60) !== hourBefore) this.hourly();
       if (s.clock >= DAY_MIN) { s.clock -= DAY_MIN; this.night(); }
     }
@@ -268,7 +334,7 @@ export class World {
   // The day rolls over: wages, the nightly food delivery, fence wear, the books.
   night() {
     const s = this.state, g = s.grid, b = s.books.today;
-    const pay = wages(s); s.money -= pay; b.wages += pay;
+    const pay = wages(s) + scienceBill(s); s.money -= pay; b.wages += pay;
     for (const shed of s.buildings.filter(x => x.type === "shed")) {
       const n = s.buildings.filter(x => x.type === "shed").length;
       for (const t of FOOD_TYPES) {
@@ -281,7 +347,7 @@ export class World {
     }
     for (let i = 0; i < g.cond.length; i++) if (isFence(g, i)) {
       const f = FENCES[Object.keys(FENCES)[g.fence[i] - 1]];
-      g.cond[i] = Math.max(0, g.cond[i] - WEAR.perDay * (f ? f.wear : 1));
+      g.cond[i] = Math.max(0, g.cond[i] - WEAR.perDay * (f ? f.wear : 1) * (1 - effect(s, "wearCut")));
     }
     s.books.last = b; s.books.today = emptyBooks(); s.day++;
     this.changed();

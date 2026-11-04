@@ -30,6 +30,7 @@ catch { console.log(["the game never started", ...fails].join("\n")); await brow
 
 const result = await page.evaluate(() => {
   const w = window.__ppt.world, g = w.state.grid, ex = Math.floor(g.w / 2);
+  w.state.science.done = ["stone", "glass", "concrete"];   // research the fences it builds with
   const line = (x0, y0, x1, y1) => { const o = []; for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) o.push([x, y]); return o; };
   const ring = (x0, y0, x1, y1) => line(x0, y0, x1, y1).filter(([x, y]) => x === x0 || x === x1 || y === y0 || y === y1);
   const why = [
@@ -41,7 +42,7 @@ const result = await page.evaluate(() => {
   ];
   const [a, b] = w.state.exhibits;
   why.push(w.setBiome(a.id, "desert"), w.setBiome(b.id, "grassland"), w.place("feeder", ex - 10, 35), w.place("feeder", ex + 10, 35),
-    w.buyAnimal("dime", a.id), w.buyAnimal("dime", a.id), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id),
+    (w.spawn("dime", a.id), w.spawn("dime", a.id), ""), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id), w.buyAnimal("lyst", b.id),
     w.hire("keeper"), w.hire("mechanic"));
   w.advance(720 * 3);
   const sold = w.state.money; why.push(w.bulldoze([[ex - 20, 40]]));   // the far end of the path
@@ -99,10 +100,34 @@ const menu = await page.evaluate(() => {
   q('[data-cat="build"]').click();
   return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice };
 });
+// The labs: each opens its panel when tapped; Time Travel Lab buttons work through the page.
+const labs = await page.evaluate(() => {
+  const { world: w, ui } = window.__ppt, out = {}, keep = ui.selectedEx;
+  w.state.money += 100000;
+  const spots = { research: [4, 4], timetravel: [10, 4], genetics: [16, 4] };
+  for (const [type, [x, y]] of Object.entries(spots)) {
+    out[type + "Placed"] = w.place(type, x, y);
+    ui.click([x + 1, y + 1], "click"); ui.lastPanel = ""; ui.refresh();
+    out[type] = document.getElementById("side").textContent;
+  }
+  ui.click([11, 5], "click"); ui.lastPanel = ""; ui.refresh();
+  document.querySelector('#side [data-period="Permian"]').click(); ui.refresh();
+  document.querySelector('#side [data-scout="texasred"]').click();
+  out.out = w.state.science.trips.length;
+  out.stoneLocked = document.querySelector('[data-tool="fence:hedge"]').classList.contains("locked") === false && document.querySelector('[data-tool="fence:aquarium"]').classList.contains("locked");
+  ui.selectedBld = 0; ui.selectedEx = keep; ui.lastPanel = ""; ui.refresh();
+  return out;
+});
+if (labs.researchPlaced || labs.timetravelPlaced || labs.geneticsPlaced) fails.push("labs not placed: " + JSON.stringify(labs));
+if (!/Researchers/.test(labs.research) || !/Exhibits/.test(labs.research)) fails.push("research panel: " + labs.research.slice(0, 120));
+if (!/Timeline/.test(labs.timetravel) || !/Drones/.test(labs.timetravel)) fails.push("time travel panel: " + labs.timetravel.slice(0, 120));
+if (!/Geneticists/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
+if (labs.out !== 1) fails.push("scout button sent " + labs.out + " drones");
+if (!labs.stoneLocked) fails.push("locked fences not greyed out in the menu");
 const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
 if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));
 const panel = await page.textContent("#side");
-if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open");
+if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open: " + (panel || "").slice(0, 200));
 
 const shot = process.argv.indexOf("--shot");
 if (shot > 0) await page.screenshot({ path: process.argv[shot + 1] });

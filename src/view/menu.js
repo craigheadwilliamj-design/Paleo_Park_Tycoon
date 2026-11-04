@@ -1,8 +1,9 @@
 // The build menu: Bulldoze and Move, then four big category buttons, down from the top left. Each opens a tray along the bottom (menu A);
 // a list in the tray (fence types, water, a building group) opens as a bar above it (menu B), one at a time.
 // Built from data, so names and prices follow data.js and config.js. Tools stay picked and trays stay open while you build.
-import { FENCES, BUILDINGS, PARK_WATER } from "../sim/data.js";
+import { FENCES, BUILDINGS, PARK_WATER, TRACKS } from "../sim/data.js";
 import { PRICE, REFUND } from "../sim/config.js";
+import { hasTech } from "../sim/science.js";
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = n => "$" + Math.round(n).toLocaleString("en-US");
@@ -43,7 +44,9 @@ const fenceTools = () => Object.entries(FENCES).map(([id, f]) => ({ tool: `fence
 const buildingTools = group => Object.entries(BUILDINGS).filter(([, b]) => b.menu === group && !b.fixed)
   .map(([id, b]) => ({ tool: `place:${id}`, label: b.name, cost: b.price, icon: ICON.building(b.color), tip: b.tip }));
 const asList = (label, list, icon) => ({ label, list, icon: icon || list[0].icon });
-const GROUPS = [["guest", "Guest"], ["staff", "Staff"]];
+const GROUPS = [["guest", "Guest"], ["staff", "Staff"], ["science", "Science"]];
+// Steps by id, for the "Research: ..." tooltip on a locked tool.
+const stepName = id => Object.values(TRACKS).flatMap(t => t.steps).find(s => s.id === id)?.name || id;
 
 function categories() {
   return [
@@ -62,7 +65,7 @@ function categories() {
   ];
 }
 
-const toolBtn = t => `<button class="srow" data-tool="${esc(t.tool)}" aria-pressed="false"${t.tip ? ` title="${esc(t.tip)}"` : ""}>${svg(t.icon)}<b>${esc(t.label)}</b><span class="price">${esc(priceOf(t))}</span></button>`;
+const toolBtn = t => `<button class="srow" data-tool="${esc(t.tool)}" aria-pressed="false"${t.tip ? ` title="${esc(t.tip)}" data-tip="${esc(t.tip)}"` : ""}>${svg(t.icon)}<b>${esc(t.label)}</b><span class="price">${esc(priceOf(t))}</span></button>`;
 const entry = (it, k) => it.list
   ? `<div class="sitem" data-list="${k}"><button class="srow head" aria-expanded="false">${svg(it.icon)}<b>${esc(it.label)}</b><span class="price">${esc(priceOf(it))}</span><i class="chev"></i></button>
      <div class="ssub"><button class="xclose" data-close="b" aria-label="Close list">×</button>${it.list.map(toolBtn).join("")}</div></div>`
@@ -107,6 +110,18 @@ export class BuildMenu {
   setTool(tool) {
     this.el.querySelectorAll("[data-tool]").forEach(x => x.setAttribute("aria-pressed", x.dataset.tool === tool));
     this.el.querySelectorAll(".sitem").forEach(x => x.classList.toggle("picked", !!x.querySelector(`[data-tool="${CSS.escape(tool)}"]`)));
+  }
+  // Grey out tools that need research, and one-a-park buildings already built. Cheap enough to run on every HUD refresh.
+  refresh(state) {
+    const key = state.science.done.join() + "|" + state.buildings.map(b => b.type).join();
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+    this.el.querySelectorAll("[data-tool]").forEach(x => {
+      const t = x.dataset.tool, f = t.startsWith("fence:") && FENCES[t.slice(6)], d = t.startsWith("place:") && BUILDINGS[t.slice(6)];
+      const locked = f && !hasTech(state, f.tech), built = d && d.unique && state.buildings.some(b => b.type === t.slice(6));
+      x.classList.toggle("locked", !!(locked || built));
+      x.title = locked ? `Research: ${stepName(f.tech)}.` : built ? "Already built." : x.dataset.tip || "";
+    });
   }
   // Esc: close the open list first, then the tray. Returns false when nothing was open.
   back() {

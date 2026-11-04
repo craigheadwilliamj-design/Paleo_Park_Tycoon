@@ -5,7 +5,12 @@ import { newPark, World } from "../src/sim/world.js";
 import { serialize, deserialize } from "../src/sim/save.js";
 import { idx } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH } from "../src/sim/config.js";
+import { S_PATH, DAY_MIN } from "../src/sim/config.js";
+import { TRACKS, SITES } from "../src/sim/data.js";
+import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
+
+// Every research step done, so tests can build any fence.
+const researchAll = w => { w.state.science.done = Object.values(TRACKS).flatMap(t => t.steps.map(s => s.id)); };
 
 // A rectangle's outline as [x, y] tiles.
 const ring = (x0, y0, x1, y1) => {
@@ -19,6 +24,7 @@ const line = (x0, y0, x1, y1) => { const out = []; for (let x = Math.min(x0, x1)
 // A small park: a path from the entrance up and across, one pen beside it with a gate, a feeder and a pond, a shed.
 function buildPark(fence = "palisade") {
   const w = newPark(7), g = w.state.grid;
+  researchAll(w);
   const ex = Math.floor(g.w / 2);                       // the entrance path column
   assert.equal(w.paint("path", line(ex, 40, ex, g.h - 3)), "");
   assert.equal(w.paint("path", line(ex - 20, 40, ex, 40)), "");
@@ -91,7 +97,7 @@ test("a park runs: keepers feed, guests come and pay, the day rolls over", () =>
 test("a dangerous animal tests a weak fence and breaks out", () => {
   const { w, e } = buildPark("hedge");
   w.setBiome(e.id, "desert");
-  w.buyAnimal("dime", e.id);
+  w.spawn("dime", e.id);
   w.advance(720 * 2);
   assert.ok(w.state.bell.some(n => /testing the fence/.test(n.text)), "the bell warns first");
   assert.ok(w.state.animals[0].escaped, "Dimetrodon (danger 3) gets through a hedge (tier 1)");
@@ -100,7 +106,7 @@ test("a dangerous animal tests a weak fence and breaks out", () => {
 test("keepers feed a dangerous pen only through a chute", () => {
   const { w, e, ex } = buildPark("concrete");
   w.setBiome(e.id, "desert");
-  w.buyAnimal("dime", e.id);
+  w.spawn("dime", e.id);
   w.hire("keeper");
   w.advance(180);
   const job = w.state.jobs.find(j => j.kind === "feed");
@@ -127,7 +133,7 @@ test("save and load round-trip", () => {
 test("a guard darts an escaped animal: back home if the pen is closed again, else a crate", () => {
   const { w, e } = buildPark("hedge");
   w.setBiome(e.id, "desert");
-  w.buyAnimal("dime", e.id);
+  w.spawn("dime", e.id);
   w.hire("guard");
   for (let k = 0; k < 40 && !w.state.animals[0].escaped; k++) w.advance(60);
   const a = w.state.animals[0];
@@ -151,7 +157,7 @@ test("a guard darts an escaped animal: back home if the pen is closed again, els
 test("guests run from a loose predator", () => {
   const { w, e } = buildPark("hedge");
   w.setBiome(e.id, "desert");
-  w.buyAnimal("dime", e.id);
+  w.spawn("dime", e.id);
   w.advance(200);
   const a = w.state.animals[0];
   a.escaped = true; a.ex = 0;
@@ -232,4 +238,69 @@ test("move takes a building to a new spot for free and keeps what it holds", () 
   assert.equal(w.moveBuilding(feeder.id, ex + 10, 50), "Feeders go inside an exhibit.");
   const ent = w.state.buildings.find(b => b.type === "entrance");
   assert.equal(w.moveBuilding(ent.id, 5, 5), "Can't move that.");
+});
+
+test("research: researchers on a track unlock its steps in order; deep steps wait for stars", () => {
+  const w = newPark(11), sc = w.state.science;
+  w.state.money = 1e6;
+  assert.equal(w.paint("fence:stone", [[5, 30]]), "Not researched yet.");
+  assert.equal(w.hireCrew("researcher"), "No Research Lab.");
+  assert.equal(w.place("research", 5, 5), "");
+  assert.equal(w.place("research", 12, 5), "Only one a park.");
+  assert.equal(w.hireCrew("researcher"), "");
+  assert.equal(w.assign("exhibits", 1), "");
+  assert.equal(w.assign("exhibits", 1), "No idle researchers.");
+  w.advance(stepMinutes(0) + 1);
+  assert.ok(sc.done.includes("stone"), "first step done after its time");
+  assert.equal(w.paint("fence:stone", [[5, 30]]), "");
+  assert.equal(trackStep(w.state, "exhibits").step.id, "glass");
+  sc.done.push("glass"); w.state.rating = 1;
+  w.advance(stepMinutes(2) + 1);
+  assert.ok(!sc.done.includes("aquarium"), "the Aquarium Wall waits for 2 stars");
+  assert.ok(w.state.bell.some(n => /Research done: Stone Wall/.test(n.text)));
+});
+
+test("time travel to cloning: scout a site, collect the genome, clone, release", () => {
+  const w = newPark(5), sc = w.state.science, site = siteById("texasred");
+  w.state.money = 1e7;
+  assert.equal(w.scout("texasred"), "No Time Travel Lab.");
+  assert.equal(w.place("timetravel", 5, 5), "");
+  assert.equal(sc.drones, 1, "the lab comes with a drone");
+  assert.equal(w.scout("texasred"), "");
+  assert.equal(w.scout("hellcreek"), "No free drone.");
+  for (let k = 0; k < 12 && !sc.found.dime; k++) { w.advance(DAY_MIN * 2); if (!sc.found.dime) w.scout("texasred"); }
+  assert.ok(sc.found.dime, "scouting discovered Dimetrodon");
+  w.state.rating = 0.5;
+  assert.equal(w.expedition("texasred", "dime"), "Needs 1 stars.");
+  w.state.rating = 1.5;
+  assert.ok(tripOdds(w.state, site, "dime") > 0.4 && tripOdds(w.state, site, "dime") < 0.9);
+  for (let k = 0; k < 60 && (sc.genome.dime || 0) < 100; k++) { assert.equal(w.expedition("texasred", "dime"), ""); w.advance(DAY_MIN * 2); }
+  assert.equal(sc.genome.dime, 100);
+  assert.equal(w.expedition("texasred", "dime"), "Genome complete.");
+  assert.equal(w.buyAnimal("dime", 0), "Clone it at the Genetics Lab.");
+  assert.equal(w.clone("dime"), "No Genetics Lab.");
+  assert.equal(w.place("genetics", 12, 5), "");
+  assert.equal(w.clone("dime"), "No geneticists.");
+  w.hireCrew("geneticist");
+  assert.equal(w.clone("dime"), "");
+  assert.equal(w.clone("dime"), "No free incubator.");
+  w.advance(DAY_MIN * 3);
+  const a = w.state.animals.find(x => x.sp === "dime");
+  assert.ok(a && a.crated, "the clone waits in a crate");
+  assert.ok(w.state.bell.some(n => /clone is ready/.test(n.text)));
+});
+
+test("the labs bill wages and upkeep every night", () => {
+  const w = newPark(5);
+  w.place("research", 5, 5); w.hireCrew("researcher");
+  w.advance(DAY_MIN);
+  assert.equal(w.state.books.last.wages, 3000 + 250 + 120, "hiring fee, a day of wages, a day of upkeep");
+});
+
+test("saves from before the labs keep the fences they built", () => {
+  const { w } = buildPark("stone");
+  delete w.state.science;
+  const w2 = new World(deserialize(serialize(w.state)));
+  assert.ok(w2.state.science.done.includes("stone"));
+  assert.ok(!w2.state.science.done.includes("glass"));
 });
