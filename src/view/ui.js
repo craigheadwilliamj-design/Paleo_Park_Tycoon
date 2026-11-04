@@ -38,7 +38,7 @@ export class UI {
   // Pick a tool; picking the one already on goes back to Select.
   setTool(tool) {
     this.tool = tool === this.tool ? "select" : tool;
-    this.cancelAsk(); this.preview = null; this.drag = null;
+    this.cancelAsk(); this.preview = null; this.drag = null; this.moving = null;
     this.menu.setTool(this.tool);
   }
 
@@ -57,6 +57,31 @@ export class UI {
     $("ask").innerHTML = `${esc(plan.ask)} <button data-yes>Bulldoze</button> <button data-no>Cancel</button>`;
   }
   cancelAsk() { if (this.asking) this.preview = null; this.asking = null; $("ask").innerHTML = ""; $("stat").textContent = ""; }
+
+  // Move: press on a building to pick it up, drag it, let go to put it down. It turns red where it won't fit.
+  buildingAt([x, y]) {
+    const g = this.world.state.grid;
+    if (x < 0 || y < 0 || x >= g.w || y >= g.h) return null;
+    const id = g.bld[y * g.w + x], b = id && this.world.state.buildings.find(b => b.id === id);
+    return b && !BUILDINGS[b.type].fixed ? b : null;
+  }
+  footprint(type, x, y) { const d = BUILDINGS[type], out = []; for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) out.push([xx, yy]); return out; }
+  grab(t) {
+    const b = this.buildingAt(t);
+    if (!b) { const g = this.world.state.grid, id = t[0] >= 0 && t[1] >= 0 && t[0] < g.w && t[1] < g.h && g.bld[t[1] * g.w + t[0]]; this.say(id ? "Can't move that." : "Nothing to move."); return; }
+    this.moving = { id: b.id, type: b.type, dx: t[0] - b.x, dy: t[1] - b.y, x: b.x, y: b.y };
+    this.moveGhost(t);
+  }
+  moveGhost(t) {
+    const m = this.moving; if (!t) return;
+    m.x = t[0] - m.dx; m.y = t[1] - m.dy;
+    this.preview = this.footprint(m.type, m.x, m.y);
+    this.previewOk = !this.world.spotProblem(m.type, m.x, m.y, m.id);
+  }
+  moveHover(t) {
+    const b = t && this.buildingAt(t);
+    this.preview = b ? this.footprint(b.type, b.x, b.y) : null; this.previewOk = true;
+  }
 
   tileAt(ev) {
     const r = this.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -78,6 +103,7 @@ export class UI {
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.tool === "select" && e.shiftKey) { this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y }; return; }
       const t = this.tileAt(e), kind = TOOL_KIND[this.tool];
+      if (kind === "move") { this.grab(t); return; }
       if (kind === "click" || kind === "place") { this.click(t, kind); this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, click: true }; return; }
       this.cancelAsk();
       this.drag = { from: t, kind };
@@ -89,13 +115,16 @@ export class UI {
         const dpr = window.devicePixelRatio || 1, dx = e.clientX - this.pan.x, dy = e.clientY - this.pan.y;
         if (this.pan.click && Math.hypot(dx, dy) < 6) return;
         this.cam.x = this.pan.cx - (dx * dpr) / this.cam.zoom; this.cam.y = this.pan.cy - (dy * dpr) / this.cam.zoom; this.hooks.clamp();
-      } else if (this.drag) {
+      } else if (this.moving) this.moveGhost(this.hover);
+      else if (this.tool === "move") this.moveHover(this.hover);
+      else if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover, this.drag.kind);
         if (this.tool === "bulldoze") this.doomed(tiles); else this.preview = tiles;
       } else if (this.tool === "bulldoze" && !this.asking) this.doomed([this.hover]);
       else if (this.preview && !this.asking) this.preview = null;
     });
     c.addEventListener("pointerup", () => {
+      if (this.moving) { const m = this.moving; this.moving = null; this.preview = null; this.say(this.world.moveBuilding(m.id, m.x, m.y)); }
       if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover || this.drag.from, this.drag.kind);
         if (this.tool === "bulldoze") this.bulldoze(tiles); else this.say(this.world.paint(this.tool, this.preview));
@@ -103,7 +132,7 @@ export class UI {
       }
       this.pan = null;
     });
-    c.addEventListener("pointerleave", () => { this.hover = null; if (!this.drag && !this.asking) { this.preview = null; $("stat").textContent = ""; } });
+    c.addEventListener("pointerleave", () => { this.hover = null; if (!this.drag && !this.asking && !this.moving) { this.preview = null; $("stat").textContent = ""; } });
     c.addEventListener("wheel", e => { e.preventDefault(); this.hooks.zoom(e.deltaY < 0 ? 1 : -1, e); }, { passive: false });
     window.addEventListener("keydown", e => {
       if (e.target.closest && e.target.closest("input,select")) return;

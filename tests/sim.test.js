@@ -213,3 +213,23 @@ test("guests walking over a bulldozed path pick a new way", () => {
   assert.ok(!gst.path.includes(idx(g, x, y)), "the route no longer crosses the gap");
   w.advance(60);
 });
+
+test("move takes a building to a new spot for free and keeps what it holds", () => {
+  const { w, e, ex } = buildPark();
+  const g = w.state.grid, shed = w.state.buildings.find(b => b.type === "shed"), money = w.state.money;
+  shed.stock.meat = 77;
+  assert.equal(w.moveBuilding(shed.id, ex + 6, 44), "");
+  assert.equal(w.state.money, money, "moving is free");
+  assert.equal(g.struct[idx(g, ex + 2, 42)], 0, "the old spot is clear");
+  assert.equal(g.bld[idx(g, ex + 7, 45)], shed.id);
+  assert.equal(shed.stock.meat, 77);
+  assert.equal(w.moveBuilding(shed.id, ex + 6, 45), "", "it can overlap where it stood");
+  assert.equal(w.moveBuilding(shed.id, ex, 44), "Something is in the way.", "not onto a path");
+  assert.equal(w.moveBuilding(shed.id, ex - 12, 33), "Not inside an exhibit.");
+  const feeder = w.state.buildings.find(b => b.type === "feeder");
+  assert.equal(w.moveBuilding(feeder.id, ex - 15, 36), "");
+  assert.equal(w.derived.ex.get(e.id).feeders.length, 1, "still the pen's feeder");
+  assert.equal(w.moveBuilding(feeder.id, ex + 10, 50), "Feeders go inside an exhibit.");
+  const ent = w.state.buildings.find(b => b.type === "entrance");
+  assert.equal(w.moveBuilding(ent.id, 5, 5), "Can't move that.");
+});

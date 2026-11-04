@@ -71,6 +71,18 @@ const gone = await page.evaluate(async () => {
   return { tool: ui.tool, marked, left: [18, 19, 20].filter(d => g.struct[40 * g.w + ex + d]).length };
 });
 if (gone.marked !== 3 || gone.left || gone.tool !== "select") fails.push("bulldoze tool: " + JSON.stringify(gone));
+// Move: drag the snack stand two tiles right.
+const moved = await page.evaluate(() => {
+  const { world: w, cam } = window.__ppt, c = document.getElementById("view"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const at = (x, y) => ({ clientX: r.left + ((x + 0.5) * 16 - cam.x) * cam.zoom / dpr, clientY: r.top + ((y + 0.5) * 16 - cam.y) * cam.zoom / dpr, pointerId: 1, button: 0, bubbles: true });
+  const snack = w.state.buildings.find(b => b.type === "snack"), x0 = snack.x;
+  document.querySelector('[data-tool="move"]').click();
+  c.dispatchEvent(new PointerEvent("pointerdown", at(snack.x, snack.y + 1))); c.dispatchEvent(new PointerEvent("pointermove", at(snack.x - 2, snack.y + 1)));
+  c.dispatchEvent(new PointerEvent("pointerup", at(snack.x - 2, snack.y + 1)));
+  document.querySelector('[data-tool="move"]').click();
+  return snack.x - x0;
+});
+if (moved !== -2) fails.push("move tool moved the stand by " + moved);
 // The build menu: a category opens its tray, a list head opens its bar above, a tool in it picks that tool; Esc backs out.
 const menu = await page.evaluate(() => {
   const { ui } = window.__ppt, q = s => document.querySelector(s), shown = el => !!el && el.getClientRects().length > 0;

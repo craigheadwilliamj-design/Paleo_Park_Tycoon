@@ -151,21 +151,47 @@ export class World {
   }
 
   place(type, x, y) {
-    const def = BUILDINGS[type], g = this.state.grid, d = this.derived;
+    const def = BUILDINGS[type];
     if (!def || def.fixed) return "Can't build that.";
+    const why = this.spotProblem(type, x, y);
+    if (why) return why;
+    if (!this.spend(def.price, "build")) return "Not enough money.";
+    this.putBuilding(type, x, y);
+    this.changed();
+    return "";
+  }
+  // Why a building of this type can't stand with its top left corner at x, y, or "". skip: a building to ignore (the one being moved).
+  spotProblem(type, x, y, skip = 0) {
+    const def = BUILDINGS[type], g = this.state.grid, d = this.derived;
     let ex = null;
     for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) {
       if (!inside(g, xx, yy)) return "Off the map.";
-      const i = idx(g, xx, yy);
-      if (g.struct[i] !== 0 || g.water[i]) return "Something is in the way.";
+      const i = idx(g, xx, yy), own = skip && g.bld[i] === skip;
+      if (!own && (g.struct[i] !== 0 || g.water[i])) return "Something is in the way.";
+      if ([...this.state.animals, ...this.state.staff, ...this.state.guests].some(m => !m.crated && Math.floor(m.x) === xx && Math.floor(m.y) === yy)) return "Someone is standing there.";
       const e = d.exOf[i] || 0;
       if (ex === null) ex = e; else if (ex !== e) return "Something is in the way.";
     }
     if (def.inside && !ex) return "Feeders go inside an exhibit.";
     if (!def.inside && ex) return "Not inside an exhibit.";
-    if (!this.spend(def.price, "build")) return "Not enough money.";
-    this.putBuilding(type, x, y);
+    return "";
+  }
+  // Move a building so its top left corner is at x, y. Free, and it keeps everything it holds.
+  moveBuilding(id, x, y) {
+    const b = this.state.buildings.find(b => b.id === id), g = this.state.grid;
+    if (!b) return "Nothing to move.";
+    const def = BUILDINGS[b.type];
+    if (def.fixed) return "Can't move that.";
+    if (b.x === x && b.y === y) return "";
+    const why = this.spotProblem(b.type, x, y, id);
+    if (why) return why;
+    const before = [];
+    for (let k = 0; k < g.bld.length; k++) if (g.bld[k] === id) { g.bld[k] = 0; g.struct[k] = 0; before.push(k); }
+    b.x = x; b.y = y;
+    for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) { const i = idx(g, xx, yy); g.struct[i] = S_BUILDING; g.bld[i] = id; before.push(i); }
     this.changed();
+    this.replan(before);
+    if (def.serves) for (const gst of this.state.guests) if (gst.plan === "eat") { gst.path = []; gst.plan = ""; gst.t = 0; }   // heading for the old spot
     return "";
   }
   putBuilding(type, x, y) {

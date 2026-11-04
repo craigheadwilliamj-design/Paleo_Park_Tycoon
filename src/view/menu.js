@@ -1,4 +1,4 @@
-// The build menu: Bulldoze and four big category buttons down the left. Each opens a tray along the bottom (menu A);
+// The build menu: Bulldoze and Move, then four big category buttons, down from the top left. Each opens a tray along the bottom (menu A);
 // a list in the tray (fence types, water, a building group) opens as a bar above it (menu B), one at a time.
 // Built from data, so names and prices follow data.js and config.js. Tools stay picked and trays stay open while you build.
 import { FENCES, BUILDINGS, PARK_WATER } from "../sim/data.js";
@@ -8,9 +8,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;"
 const money = n => "$" + Math.round(n).toLocaleString("en-US");
 
 // Every tool and how it takes the pointer: "rect" fills the dragged box, "ring" outlines it, "tile" is one tile,
-// "place" puts a building down, "click" picks.
+// "place" puts a building down, "click" picks, "move" drags a building.
 export const TOOL_KIND = {
-  select: "click", bulldoze: "rect", path: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
+  select: "click", bulldoze: "rect", move: "move", path: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
   ...Object.fromEntries(Object.keys(FENCES).map(id => [`fence:${id}`, "ring"])),
   ...Object.fromEntries(Object.keys(BUILDINGS).filter(id => !BUILDINGS[id].fixed).map(id => [`place:${id}`, "place"])),
 };
@@ -20,6 +20,7 @@ const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = c => Math.
   return "#" + [n >> 16, (n >> 8) & 255, n & 255].map(c => f(c).toString(16).padStart(2, "0")).join(""); };
 const ICON = {
   bulldoze: '<g transform="matrix(-1 0 0 1 24 0)"><path d="M2 9h2.5v11H2z" fill="currentColor"/><path d="M4.5 13l4-1M4.5 17h4" stroke="currentColor" stroke-width="1.6"/><path d="M8 11h4V5h6l2 6h1v6H8z" fill="currentColor"/><rect x="7.5" y="17.5" width="15" height="5" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></g>',
+  move: '<path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2"/><path d="M12 2l-3.5 3.5h7zM12 22l-3.5-3.5h7zM2 12l3.5-3.5v7zM22 12l-3.5-3.5v7z" fill="currentColor"/>',
   path: '<path d="M5 21c1-6 5-6 7-10s2-6 6-8" fill="none" stroke="#c8b48a" stroke-width="5" stroke-linecap="round"/><path d="M5 21c1-6 5-6 7-10s2-6 6-8" fill="none" stroke="#8a7a58" stroke-width="1.2" stroke-dasharray="2 3"/>',
   gate: '<path d="M2 12h6M16 12h6" stroke="#8b8a82" stroke-width="4"/><rect x="8" y="7" width="8" height="10" rx="1" fill="#e9e1c8" stroke="#5a5446" stroke-width="1.4"/>',
   chute: '<path d="M2 12h20" stroke="#8b8a82" stroke-width="7"/><rect x="9" y="9.5" width="6" height="5" fill="#3b2a1a"/>',
@@ -78,7 +79,8 @@ export class BuildMenu {
   render() {
     const cats = categories();
     this.el.innerHTML = `<div class="lefttools">
-        <button class="tbtn sm" data-tool="bulldoze" aria-pressed="false" title="Bulldoze: ${Math.round(REFUND * 100)}% back" aria-label="Bulldoze">${svg(ICON.bulldoze)}</button>
+        <div class="smallrow"><button class="tbtn sm" data-tool="bulldoze" aria-pressed="false" title="Bulldoze: ${Math.round(REFUND * 100)}% back" aria-label="Bulldoze">${svg(ICON.bulldoze)}</button>
+        <button class="tbtn sm" data-tool="move" aria-pressed="false" title="Move: drag a building to a new spot" aria-label="Move">${svg(ICON.move)}</button></div>
         ${cats.map(c => `<button class="tbtn big" data-cat="${c.id}" aria-expanded="false" title="${esc(c.label)}" aria-label="${esc(c.label)}">${svg(ICON[c.id])}</button>`).join("")}
       </div>
       ${cats.map(c => `<section class="tray" data-tray="${c.id}" hidden><div class="tray-tab">${esc(c.label)}</div><button class="xclose a" data-close="a" aria-label="Close menu">×</button>
