@@ -8,8 +8,9 @@ import { newAnimal } from "./animals.js";
 import { rand, chance } from "./rng.js";
 
 export const newScience = () => ({
-  done: [], tracks: {}, crew: [], drones: 0, seen: {}, found: {}, genome: {}, trips: [], clones: [],
+  done: [], tracks: {}, crew: [], drones: 0, seen: {}, found: {}, genome: {}, trips: [], clones: [], reports: [],
 });
+const REPORTS_KEPT = 12;
 
 // Park minutes since day 1 began: the clock every job is stamped with.
 export const nowMin = state => (state.day - 1) * DAY_MIN + state.clock;
@@ -17,11 +18,23 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const period = id => PERIODS.find(p => p.id === id);
 export const siteById = id => SITES.find(s => s.id === id);
 export const sitesShown = () => SITES.filter(s => s.fauna.some(sp => SPECIES[sp]));
-// A period's epochs as {name, from, to, map}: years ago it began and ended, and the map it shows.
-export function epochsOf(periodId) {
-  const all = PERIODS.flatMap(p => p.epochs.map(([name, from]) => ({ name, from, period: p.id })));
-  return all.map((e, i) => ({ ...e, to: i + 1 < all.length ? all[i + 1].from : TIMELINE_FLOOR, map: TIMELINE_MAPS[e.name] || TIMELINE_MAPS[e.period] }))
-    .filter(e => e.period === periodId);
+// Every epoch, oldest first: {name, from, to (years ago), period, pi (period index), ej (epoch index in its period), map}.
+// Each ends where the next begins, the last at TIMELINE_FLOOR.
+export const EPOCHS = PERIODS.flatMap((p, pi) => p.epochs.map(([name, from], ej) => ({ name, from, period: p.id, pi, ej })))
+  .map((e, i, all) => ({ ...e, to: i + 1 < all.length ? all[i + 1].from : TIMELINE_FLOOR, map: TIMELINE_MAPS[e.name] || TIMELINE_MAPS[e.period] }));
+export const epochsOf = periodId => EPOCHS.filter(e => e.period === periodId);
+export const epochOf = years => EPOCHS.find(e => years <= e.from && years > e.to) || EPOCHS[EPOCHS.length - 1];
+// The timeline slider: u from 0 (the oldest) to 1 (today). One equal bar a period, split equally into its epochs,
+// a log scale of years inside each epoch.
+export function yearsAt(u) {
+  u = Math.max(0, Math.min(1 - 1e-9, u));
+  const n = PERIODS.length, pi = Math.floor(u * n), k = PERIODS[pi].epochs.length, f = (u * n - pi) * k, ej = Math.floor(f);
+  const e = EPOCHS.find(x => x.pi === pi && x.ej === ej);
+  return { years: e.from * Math.pow(e.to / e.from, f - ej), epoch: e };
+}
+export function uAt(years) {
+  const e = epochOf(years), t = Math.log(years / e.from) / Math.log(e.to / e.from);
+  return (e.pi + (e.ej + t) / PERIODS[e.pi].epochs.length) / PERIODS.length;
 }
 // The sites that show in an epoch: their window touches it, and the epoch's map has a marker for them.
 export const sitesIn = ep => sitesShown().filter(s => s.from > ep.to && s.to < ep.from && s.at && s.at[ep.map]);
@@ -61,6 +74,8 @@ export function sizeOf(sp) {
   return Math.max(0, Math.min(1, Math.log(l / a) / Math.log(b / a)));
 }
 const tripDays = (state, p) => p.days * (1 - effect(state, "tripTime"));
+export const siteTripDays = (state, site) => tripDays(state, period(site.period));
+export const siteComplete = (state, site) => !!state.science.seen[site.id] && site.fauna.every(sp => !SPECIES[sp] || state.science.found[sp]);
 export const scoutCost = site => period(site.period).trip;
 export const expeditionCost = (site, sp) => Math.round(period(site.period).trip * lerp(...SCIENCE.costMul, sizeOf(sp)) / 10) * 10;
 // Chance an expedition for sp at this site brings back genome.
@@ -82,7 +97,7 @@ export function scoutProblem(state, site) {
   if (!site) return "No such site.";
   const why = tripProblem(state); if (why) return why;
   if (state.science.trips.some(t => t.kind === "scout" && t.site === site.id)) return "A drone is already scouting it.";
-  if (state.science.seen[site.id] && site.fauna.every(sp => !SPECIES[sp] || state.science.found[sp])) return "Site complete.";
+  if (siteComplete(state, site)) return "Site complete.";
   if (state.money < scoutCost(site)) return "Not enough money.";
   return "";
 }
@@ -96,9 +111,17 @@ export function expeditionProblem(state, site, sp) {
   if (state.money < expeditionCost(site, sp)) return "Not enough money.";
   return "";
 }
+// The lowest number (from 0) not in use: which drone flies a trip, which incubator grows a clone.
+export const freeSlot = list => { let i = 0; while (list.some(x => x.slot === i)) i++; return i; };
 export function sendTrip(state, kind, site, sp) {
-  const p = period(site.period), start = nowMin(state);
-  state.science.trips.push({ id: state.nextId++, kind, site: site.id, sp: sp || "", start, end: start + tripDays(state, p) * DAY_MIN });
+  const p = period(site.period), start = nowMin(state), trips = state.science.trips;
+  trips.push({ id: state.nextId++, kind, site: site.id, sp: sp || "", slot: freeSlot(trips), start, end: start + tripDays(state, p) * DAY_MIN });
+}
+// A trip's report waits in the Time Travel Lab until dismissed: lines are [text, big].
+function report(state, t, lines) {
+  const sc = state.science;
+  sc.reports.unshift({ id: state.nextId++, kind: t.kind, site: t.site, slot: t.slot || 0, day: state.day, lines });
+  sc.reports.length = Math.min(sc.reports.length, REPORTS_KEPT);
 }
 
 // A drone lands: scouting lights the site and may spot its animals; an expedition may bring back genome.
@@ -109,15 +132,18 @@ function land(state, bus, t) {
     sc.seen[site.id] = true;
     const spotted = site.fauna.filter(sp => SPECIES[sp] && !sc.found[sp] && chance(state, lerp(...SCIENCE.scoutFind, sizeOf(sp))));
     for (const sp of spotted) sc.found[sp] = true;
-    const names = spotted.map(sp => SPECIES[sp].name).join(", ");
+    const names = spotted.map(sp => SPECIES[sp].name).join(", "), left = site.fauna.filter(sp => SPECIES[sp] && !sc.found[sp]).length;
+    report(state, t, [...spotted.map(sp => [`${SPECIES[sp].name} Discovered`, true]), ...(spotted.length ? [] : [["No new animals found."]]),
+      ...(left ? [[`${left} still undiscovered.`]] : [["Site Complete", true]])]);
     bus.emit("notify", { text: names ? `${site.name}: ${names} discovered.` : first ? `${site.name} scouted. Nothing found yet.` : `${site.name}: nothing new found.` });
     return;
   }
   const s = SPECIES[t.sp];
-  if (!chance(state, tripOdds(state, site, t.sp))) { bus.emit("notify", { text: `${site.name}: came back empty handed.` }); return; }
+  if (!chance(state, tripOdds(state, site, t.sp))) { report(state, t, [["Came back empty handed."]]); bus.emit("notify", { text: `${site.name}: came back empty handed.` }); return; }
   const avg = 100 / lerp(...SCIENCE.trips, sizeOf(t.sp)), gain = avg * (1 + (rand(state) * 2 - 1) * SCIENCE.spread);
   const before = genomeOf(state, t.sp), after = Math.min(100, before + gain);
   sc.genome[t.sp] = Math.round(after * 10) / 10;
+  report(state, t, [[`${s.name} Sample Found`, true], [`Genome ${Math.floor(before)}% to ${Math.floor(after)}%.`], ...(after >= 100 ? [[`${s.name} Genome Complete`, true]] : [])]);
   bus.emit("notify", { text: after >= 100 ? `${s.name} genome complete.` : `${site.name}: ${s.name} sample found (${Math.floor(after)}%).` });
 }
 

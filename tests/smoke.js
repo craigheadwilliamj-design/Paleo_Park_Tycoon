@@ -100,32 +100,67 @@ const menu = await page.evaluate(() => {
   q('[data-cat="build"]').click();
   return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice };
 });
-// The labs: each opens its panel when tapped; Time Travel Lab buttons work through the page.
+// The labs: each opens its panel when tapped, full size; the Time Travel Lab's slider, chips and buttons work through the page.
 const labs = await page.evaluate(async () => {
-  const { world: w, ui } = window.__ppt, out = {}, keep = ui.selectedEx;
+  const { world: w, ui } = window.__ppt, out = {};
+  out.keep = ui.selectedEx;
   w.state.money += 100000;
   const spots = { research: [4, 4], timetravel: [10, 4], genetics: [16, 4] };
   for (const [type, [x, y]] of Object.entries(spots)) {
     out[type + "Placed"] = w.place(type, x, y);
     ui.click([x + 1, y + 1], "click"); ui.lastPanel = ""; ui.refresh();
     out[type] = document.getElementById("side").textContent;
+    out[type + "Full"] = document.getElementById("side").classList.contains("full");
   }
+  // Research: hire one and start the Exhibits track's next step from its row.
+  ui.click([5, 5], "click"); ui.lastPanel = ""; ui.refresh();
+  document.querySelector('#side [data-hire-crew="researcher"]').click();
+  document.querySelector('#side [data-assign="exhibits"]').click();
+  out.onTrack = w.state.science.crew.filter(c => c.track === "exhibits").length;
+  out.bay = /Research bays \(1 of 1 busy\)/.test(document.getElementById("side").textContent);
   ui.click([11, 5], "click"); ui.lastPanel = ""; ui.refresh();
-  document.querySelector('#side [data-period="Permian"]').click(); ui.refresh();
-  out.mapOk = await new Promise(r => { const img = document.querySelector("#side .ttmap img"); if (!img) return r(false); if (img.complete) return r(img.naturalWidth === 260); img.onload = () => r(img.naturalWidth === 260); img.onerror = () => r(false); });
-  out.marks = document.querySelectorAll("#side .ttmap .mark").length;
-  document.querySelector('#side [data-scout="texasred"]').click();
-  out.out = w.state.science.trips.length;
-  out.stoneLocked = document.querySelector('[data-tool="fence:hedge"]').classList.contains("locked") === false && document.querySelector('[data-tool="fence:aquarium"]').classList.contains("locked");
-  ui.selectedBld = 0; ui.selectedEx = keep; ui.lastPanel = ""; ui.refresh();
+  const { uAt, EPOCHS } = await import("/src/sim/science.js");
+  const cis = EPOCHS.find(e => e.name === "Cisuralian"), r = document.querySelector("#side .gt-track").getBoundingClientRect();
+  out.dragX = r.left + r.width * uAt(Math.sqrt(cis.from * cis.to)); out.dragY = r.top + r.height / 2;
   return out;
 });
+// Drag the slider from the far left to the Cisuralian with the real mouse.
+await page.mouse.move(labs.dragX - 200, labs.dragY); await page.mouse.down();
+await page.mouse.move(labs.dragX - 100, labs.dragY, { steps: 4 });
+const midDrag = await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("gt-track"));
+await page.mouse.move(labs.dragX, labs.dragY, { steps: 4 }); await page.mouse.up();
+await page.waitForTimeout(400);   // a refresh or two: the panel must not throw the slider away
+Object.assign(labs, await page.evaluate(async (keep) => {
+  const { world: w, ui } = window.__ppt, out = {}, side = document.getElementById("side");
+  out.epoch = side.querySelector(".gt-epoch").textContent;
+  out.stillFocused = document.activeElement && document.activeElement.classList.contains("gt-track");
+  const href = side.querySelector(".gt-map image").getAttribute("href");
+  out.mapOk = await new Promise(r => { const img = new Image(); img.onload = () => r(img.naturalWidth === 260); img.onerror = () => r(false); img.src = href; });
+  out.marks = side.querySelectorAll(".gt-map .gt-site").length;
+  side.querySelector('.gt-chip[data-site="texasred"]').click();
+  side.querySelector('[data-scout="texasred"]').click();
+  out.out = w.state.science.trips.length;
+  out.droneCard = /Scouting for animals/.test(side.textContent);
+  w.advance(720 * 2); ui.refresh();
+  out.reports = w.state.science.reports.length;
+  side.querySelector('[data-tab="tt"][data-k="reports"]').click();
+  out.reportShown = /Scouting report/.test(side.textContent);
+  side.querySelector("[data-report]").click();
+  out.reportsAfter = w.state.science.reports.length;
+  out.stoneLocked = document.querySelector('[data-tool="fence:hedge"]').classList.contains("locked") === false && document.querySelector('[data-tool="fence:aquarium"]').classList.contains("locked");
+  ui.ttTab = "lab"; ui.selectedBld = 0; ui.selectedEx = keep; ui.lastPanel = ""; ui.refresh();
+  return out;
+}, labs.keep));
 if (labs.researchPlaced || labs.timetravelPlaced || labs.geneticsPlaced) fails.push("labs not placed: " + JSON.stringify(labs));
-if (!/Researchers/.test(labs.research) || !/Exhibits/.test(labs.research)) fails.push("research panel: " + labs.research.slice(0, 120));
+if (!labs.researchFull || !labs.timetravelFull || !labs.geneticsFull) fails.push("lab panels not full size");
+if (!/Researchers/.test(labs.research) || !/Exhibits/.test(labs.research) || !/Research bays/.test(labs.research)) fails.push("research panel: " + labs.research.slice(0, 120));
+if (labs.onTrack !== 1 || !labs.bay) fails.push(`research row: ${labs.onTrack} on the track, bay shown ${labs.bay}`);
 if (!/Timeline/.test(labs.timetravel) || !/Drones/.test(labs.timetravel)) fails.push("time travel panel: " + labs.timetravel.slice(0, 120));
-if (!/Geneticists/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
+if (!/Geneticists/.test(labs.genetics) || !/Genome library/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
+if (labs.epoch !== "Cisuralian" || !midDrag || !labs.stillFocused) fails.push(`timeline slider: at ${labs.epoch}, focused mid-drag ${midDrag}, after ${labs.stillFocused}`);
 if (!labs.mapOk || labs.marks !== 1) fails.push(`time travel map: loaded ${labs.mapOk}, ${labs.marks} markers in the Cisuralian`);
-if (labs.out !== 1) fails.push("scout button sent " + labs.out + " drones");
+if (labs.out !== 1 || !labs.droneCard) fails.push(`scout button sent ${labs.out} drones, drone card ${labs.droneCard}`);
+if (labs.reports !== 1 || !labs.reportShown || labs.reportsAfter !== 0) fails.push(`trip reports: ${labs.reports} made, shown ${labs.reportShown}, ${labs.reportsAfter} after Done`);
 if (!labs.stoneLocked) fails.push("locked fences not greyed out in the menu");
 const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
 if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));

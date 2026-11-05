@@ -4,7 +4,7 @@ import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FEN
          F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION } from "./config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES, TRACKS } from "./data.js";
 import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutProblem, expeditionProblem, sendTrip, scoutCost,
-         expeditionCost, cloneProblem, cloneMinutes, nextDronePrice, nowMin, crewOf } from "./science.js";
+         expeditionCost, cloneProblem, cloneMinutes, nextDronePrice, nowMin, crewOf, freeSlot } from "./science.js";
 import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
 import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
@@ -253,10 +253,10 @@ export class World {
     sc.crew = sc.crew.filter(x => x !== c);
     return "";
   }
-  // Move a researcher onto a track (+1) or back off it (-1). A track keeps its progress.
-  assign(track, delta) {
+  // Move a researcher onto a track (+1) or back off it (-1; that one, given its id). A track keeps its progress.
+  assign(track, delta, crewId) {
     if (!TRACKS[track]) return "No such track.";
-    const list = crewOf(this.state, "researcher"), c = delta > 0 ? list.find(c => !c.track) : list.find(c => c.track === track);
+    const list = crewOf(this.state, "researcher"), c = delta > 0 ? list.find(c => !c.track) : list.find(c => c.track === track && (!crewId || c.id === crewId));
     if (!c) return delta > 0 ? "No idle researchers." : "";
     c.track = delta > 0 ? track : "";
     return "";
@@ -283,8 +283,14 @@ export class World {
     if (why) return why;
     this.spend(SPECIES[sp].price, "animals");
     const start = nowMin(this.state);
-    this.state.science.clones.push({ id: this.state.nextId++, sp, start, end: start + cloneMinutes(this.state, sp) });
+    const clones = this.state.science.clones;
+    clones.push({ id: this.state.nextId++, sp, slot: freeSlot(clones), start, end: start + cloneMinutes(this.state, sp) });
     return "";
+  }
+  dismissReport(id) {
+    const sc = this.state.science;
+    if (!sc.reports.some(r => r.id === id)) return "No such report.";
+    sc.reports = sc.reports.filter(r => r.id !== id); return "";
   }
 
   // A darted animal goes back to its exhibit if that pen is closed again, otherwise into a crate.

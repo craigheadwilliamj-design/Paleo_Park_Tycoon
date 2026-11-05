@@ -7,7 +7,7 @@ import { habitatScore } from "../sim/habitat.js";
 import { animalsIn } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
-import { labHtml, labAction } from "./labs.js";
+import { labHtml, labAction, labLive, labBind } from "./labs.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const $ = id => document.getElementById(id);
@@ -136,7 +136,7 @@ export class UI {
     c.addEventListener("pointerleave", () => { this.hover = null; if (!this.drag && !this.asking && !this.moving) { this.preview = null; $("stat").textContent = ""; } });
     c.addEventListener("wheel", e => { e.preventDefault(); this.hooks.zoom(e.deltaY < 0 ? 1 : -1, e); }, { passive: false });
     window.addEventListener("keydown", e => {
-      if (e.target.closest && e.target.closest("input,select")) return;
+      if (e.target.closest && e.target.closest("input,select,.gt-track")) return;
       const step = 48 / this.cam.zoom;
       const k = e.key.toLowerCase();
       if (k === "arrowleft" || k === "a") this.cam.x -= step; else if (k === "arrowright" || k === "d") this.cam.x += step;
@@ -203,23 +203,27 @@ export class UI {
 
   panel() {
     const w = this.world, s = w.state, side = $("side");
+    if (!this.labBound) { labBind(this, side); this.labBound = true; }
+    if (this.holdPanel) { labLive(this, side); return; }   // the timeline slider is being dragged
     let html = "";
     const e = this.selectedEx && s.exhibits.find(e => e.id === this.selectedEx), lab = this.selectedBld && s.buildings.find(b => b.id === this.selectedBld);
     if (lab) html = labHtml(this, lab);
     else if (e) html = this.exhibitPanel(e);
     else if (this.selected) html = this.animalPanel(this.selected);
-    side.classList.toggle("wide", !!lab && BUILDINGS[lab.type].lab === "timetravel");
-    if (html === this.lastPanel) return;
-    this.lastPanel = html; side.innerHTML = html;
-    side.onclick = ev => {
-      const b = ev.target.closest("button"); if (!b) return;
-      if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
-      if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
-      if (b.dataset.close !== undefined) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
-      const why = labAction(this, b); if (why) this.say(why);
-      this.lastPanel = ""; this.panel();
-    };
-    side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = ""; this.panel(); } };
+    side.classList.toggle("full", !!lab);   // the labs open full size over the map
+    if (html !== this.lastPanel) {
+      this.lastPanel = html; side.innerHTML = html;
+      side.onclick = ev => {
+        const b = ev.target.closest("button, input[data-pick]"); if (!b || b.disabled) return;
+        if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
+        if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
+        if (b.dataset.close !== undefined) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
+        const why = labAction(this, b); if (why) this.say(why);
+        this.lastPanel = ""; this.panel();
+      };
+      side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = ""; this.panel(); } };
+    }
+    if (lab) labLive(this, side);
   }
 
   exhibitPanel(e) {
