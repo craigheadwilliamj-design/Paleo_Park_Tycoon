@@ -117,6 +117,8 @@ const labs = await page.evaluate(async () => {
   document.querySelector('#side [data-scout="texasred"]').click();
   out.out = w.state.science.trips.length;
   out.stoneLocked = document.querySelector('[data-tool="fence:hedge"]').classList.contains("locked") === false && document.querySelector('[data-tool="fence:aquarium"]').classList.contains("locked");
+  document.querySelector("#side [data-close]").click(); ui.refresh();   // the ✕ closes it, with a trip out ticking the panel
+  out.closed = document.getElementById("side").innerHTML === "" && !ui.selectedBld;
   ui.selectedBld = 0; ui.selectedEx = keep; ui.lastPanel = ""; ui.refresh();
   return out;
 });
@@ -126,6 +128,7 @@ if (!/Timeline/.test(labs.timetravel) || !/Drones/.test(labs.timetravel)) fails.
 if (!/Geneticists/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
 if (!labs.mapOk || labs.marks !== 1) fails.push(`time travel map: loaded ${labs.mapOk}, ${labs.marks} markers in the Cisuralian`);
 if (labs.out !== 1) fails.push("scout button sent " + labs.out + " drones");
+if (!labs.closed) fails.push("the panel's close button left it open");
 if (!labs.stoneLocked) fails.push("locked fences not greyed out in the menu");
 const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
 if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));

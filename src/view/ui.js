@@ -18,8 +18,8 @@ export class UI {
   constructor(world, canvas, cam, hooks) {
     this.world = world; this.canvas = canvas; this.cam = cam; this.hooks = hooks;
     this.tool = "select"; this.drag = null; this.hover = null; this.preview = null; this.previewOk = true;
-    this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.speed = 1; this.lastPanel = "";
-    this.buildTools(); this.bindInput();
+    this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.speed = 1; this.lastPanel = null;
+    this.buildTools(); this.bindInput(); this.bindPanel();
   }
   get view() { return { preview: this.preview, previewOk: this.previewOk, hover: this.hover, selected: this.selected, selectedEx: this.selectedEx }; }
 
@@ -144,7 +144,7 @@ export class UI {
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
       else if (k === "escape") {   // drop the tool first, then close the menu, then the panel
         if (this.tool !== "select") this.setTool("select");
-        else if (!this.menu.back()) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
+        else if (!this.menu.back()) { if (!$("bell").hidden) $("bell").hidden = true; else this.closePanel(); }
       }
       else return;
       this.hooks.clamp();
@@ -195,14 +195,20 @@ export class UI {
     $("h-bell").textContent = "Messages" + (s.bell.some(n => n.urgent && n.day === s.day) ? " ●" : "");
     $("h-power").setAttribute("aria-pressed", s.power.on);
     document.querySelectorAll("#hud [data-speed]").forEach(x => x.setAttribute("aria-pressed", Number(x.dataset.speed) === this.speed));
-    const bell = s.bell.slice(0, 20).map(n => `<div class="${n.urgent ? "urgent" : ""}">Day ${n.day} · ${esc(n.text)}</div>`).join("");
+    const bell = `<div class="row bellhead"><b>Messages</b><button class="xclose" data-bellclose aria-label="Close">×</button></div>` + (s.bell.slice(0, 20).map(n => `<div class="${n.urgent ? "urgent" : ""}">Day ${n.day} · ${esc(n.text)}</div>`).join("") || `<div class="muted">No messages.</div>`);
     if (bell !== this.lastBell) { $("bell").innerHTML = bell; this.lastBell = bell; }
     this.menu.refresh(s);
     this.panel();
   }
 
+  // Close whatever panel is open (its ✕, Esc, or a click on empty ground).
+  closePanel() { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.lastPanel = null; this.panel(); }
+
+  // The panel is rebuilt when its HTML changes (a lab with a trip out changes every refresh). Never mid-press: a button
+  // replaced between pointerdown and pointerup loses its click. lastPanel = null forces the next rebuild.
   panel() {
     const w = this.world, s = w.state, side = $("side");
+    if (this.pressing) return;
     let html = "";
     const e = this.selectedEx && s.exhibits.find(e => e.id === this.selectedEx), lab = this.selectedBld && s.buildings.find(b => b.id === this.selectedBld);
     if (lab) html = labHtml(this, lab);
@@ -211,15 +217,23 @@ export class UI {
     side.classList.toggle("wide", !!lab && BUILDINGS[lab.type].lab === "timetravel");
     if (html === this.lastPanel) return;
     this.lastPanel = html; side.innerHTML = html;
+  }
+  bindPanel() {
+    const side = $("side");
+    $("bell").onclick = ev => { if (ev.target.closest("[data-bellclose]")) $("bell").hidden = true; };
+    side.addEventListener("pointerdown", () => { this.pressing = true; });
+    window.addEventListener("pointerup", () => { if (this.pressing) setTimeout(() => { this.pressing = false; }, 0); }, true);
+    window.addEventListener("pointercancel", () => { this.pressing = false; });
     side.onclick = ev => {
+      this.pressing = false;
       const b = ev.target.closest("button"); if (!b) return;
-      if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
-      if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
-      if (b.dataset.close !== undefined) { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; }
+      if (b.dataset.close !== undefined) { this.closePanel(); return; }
+      if (b.dataset.buy) this.say(this.world.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
+      if (b.dataset.release) this.say(this.world.release(Number(b.dataset.release), Number(b.dataset.ex)));
       const why = labAction(this, b); if (why) this.say(why);
-      this.lastPanel = ""; this.panel();
+      this.lastPanel = null; this.panel();
     };
-    side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = ""; this.panel(); } };
+    side.onchange = ev => { if (ev.target.dataset.biome) { this.say(this.world.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = null; this.panel(); } };
   }
 
   exhibitPanel(e) {
@@ -242,7 +256,7 @@ export class UI {
         ["biome", "space", "water", "group"].map(k => `<div class="row"><span>${k[0].toUpperCase() + k.slice(1)}</span><span class="meter"><i style="width:${Math.round(h[k] * 100)}%"></i></span></div>`).join("");
     }).join("");
     const food = Object.entries(e.food || {}).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${Math.round(n)}`).join(", ") || "none";
-    return `<div class="row"><h3>${esc(e.name)}</h3><button data-close>✕</button></div>
+    return `<div class="row"><h3>${esc(e.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
       <div class="row"><span>Biome</span><select data-biome="${e.id}">${Object.entries(BIOMES).map(([id, b]) => `<option value="${id}" ${id === e.biome ? "selected" : ""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="row"><span>Size</span><b>${t.tiles.length} tiles · ${Math.round(100 * (t.shallow + t.deep) / Math.max(1, t.tiles.length))}% water</b></div>
       <div class="row"><span>Security</span><b>Tier ${t.security}${weak && weak !== "good" ? " · " + weak : ""}</b></div>
@@ -255,7 +269,7 @@ export class UI {
   }
   animalPanel(a) {
     const sp = SPECIES[a.sp];
-    return `<div class="row"><h3>${esc(sp.name)}</h3><button data-close>✕</button></div>
+    return `<div class="row"><h3>${esc(sp.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
       <div>${a.escaped ? `<span class="chip bad">Escaped</span>` : ""}<span class="chip">${esc(a.act)}</span></div>
       ${["hunger", "thirst", "rest"].map(k => `<div class="row"><span>${k}</span><span class="meter"><i style="width:${Math.round(100 - a.need[k])}%"></i></span></div>`).join("")}
       <div class="row"><span>Happiness</span><span class="meter"><i style="width:${a.happy}%"></i></span></div>`;

@@ -14,7 +14,7 @@ const daysLeft = (state, end) => { const d = (end - nowMin(state)) / DAY_MIN; re
 const mya = y => y >= 1e6 ? +(y / 1e6).toFixed(y >= 1e7 ? 0 : 1) : y;
 const ago = s => `${mya(s.from)}–${mya(s.to)} million years ago`;
 const epAgo = e => e.from < 1e6 ? `${Math.round(e.from).toLocaleString("en-US")} years ago to today` : e.to < 1e6 ? `${mya(e.from)} million to ${Math.round(e.to).toLocaleString("en-US")} years ago` : ago(e);
-const head = (name, wide) => `<div class="row"><h3>${esc(name)}</h3><button data-close>✕</button></div>`;
+const head = (name, wide) => `<div class="row"><h3>${esc(name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>`;
 const crewRow = (state, role, label) => {
   const c = SCIENCE.crew[role], n = crewOf(state, role).length;
   return `<div class="row"><span>${label} <b>${n}</b></span><span class="muted">${money(c.wage)}/day each</span></div>
