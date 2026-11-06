@@ -36,10 +36,13 @@ export class UI {
     };
     this.menu = new BuildMenu($("build"), tool => this.setTool(tool));
   }
-  // Pick a tool; picking the one already on goes back to Select.
+  // Pick a tool; picking the one already on goes back to Select. The cursor says which: an arrow for Select, a hand for Move, a crosshair to build.
   setTool(tool) {
-    this.tool = tool === this.tool ? "select" : tool;
+    const next = tool === this.tool ? "select" : tool;
+    if (next === this.tool && tool === "select") return;
+    this.tool = next;
     this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; $("stat").textContent = "";
+    this.canvas.style.cursor = this.tool === "select" ? "default" : this.tool === "move" ? "grab" : "crosshair";
     this.menu.setTool(this.tool);
   }
 
@@ -150,8 +153,8 @@ export class UI {
       if (k === "arrowleft" || k === "a") this.cam.x -= step; else if (k === "arrowright" || k === "d") this.cam.x += step;
       else if (k === "arrowup" || k === "w") this.cam.y -= step; else if (k === "arrowdown" || k === "s") this.cam.y += step;
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
-      else if (k === "escape") {   // drop the tool first, then close the menu, then the panel
-        if (this.tool !== "select") this.setTool("select");
+      else if (k === "escape") {   // drop Bulldoze or Move first, then close the list, then the tray (a tool in them goes with it), then the panel
+        if (this.tool === "bulldoze" || this.tool === "move") this.setTool("select");
         else if (!this.menu.back()) { if (!$("bell").hidden) $("bell").hidden = true; else this.closePanel(); }
       }
       else return;

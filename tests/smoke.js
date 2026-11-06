@@ -95,10 +95,15 @@ const menu = await page.evaluate(() => {
   q('[data-tool="fence:stone"]').click();
   const picked = ui.tool, pressed = q('[data-tool="fence:stone"]').getAttribute("aria-pressed");
   esc(); const afterEsc1 = ui.tool, trayStill = shown(q('[data-tray="exhibits"]'));
-  esc(); esc(); const closed = !shown(q('[data-tray="exhibits"]'));
+  esc(); const closed = !shown(q('[data-tray="exhibits"]'));
+  // Select is the default: a tray tool lasts only while its menu is open; closing the tray (or switching category) drops it.
+  q('[data-cat="exhibits"]').click(); q('[data-tool="gate"]').click(); const gateOn = ui.tool === "gate", crossCursor = q("#view").style.cursor === "crosshair";
+  q('[data-tray="exhibits"] [data-close="a"]').click(); const dropOnClose = ui.tool === "select" && q("#view").style.cursor === "default";
+  q('[data-cat="exhibits"]').click(); q('[data-tool="gate"]').click(); q('[data-cat="paths"]').click(); const dropOnSwitch = ui.tool === "select";
+  q('[data-cat="paths"]').click();
   q('[data-cat="build"]').click(); const shopPrice = q('[data-tray="build"]').textContent.includes("$1,500");
   q('[data-cat="build"]').click();
-  return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice };
+  return { tray, barBefore, bar, picked, pressed, afterEsc1, trayStill, closed, shopPrice, gateOn, crossCursor, dropOnClose, dropOnSwitch };
 });
 // The labs: each opens its panel when tapped, full size; the Time Travel Lab's slider, chips and buttons work through the page.
 const labs = await page.evaluate(async () => {
@@ -165,7 +170,7 @@ if (labs.out !== 1 || !labs.droneCard) fails.push(`scout button sent ${labs.out}
 if (labs.reports !== 1 || !labs.reportShown || labs.reportsAfter !== 0) fails.push(`trip reports: ${labs.reports} made, shown ${labs.reportShown}, ${labs.reportsAfter} after Done`);
 if (!labs.closed) fails.push("the lab panel's close button left it open");
 if (!labs.stoneLocked) fails.push("locked fences not greyed out in the menu");
-const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice;
+const okMenu = menu.tray && !menu.barBefore && menu.bar && menu.picked === "fence:stone" && menu.pressed === "true" && menu.afterEsc1 === "select" && menu.trayStill && menu.closed && menu.shopPrice && menu.gateOn && menu.crossCursor && menu.dropOnClose && menu.dropOnSwitch;
 if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));
 const panel = await page.textContent("#side");
 if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open: " + (panel || "").slice(0, 200));
