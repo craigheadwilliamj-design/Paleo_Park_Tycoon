@@ -9,13 +9,13 @@ import { walk, tileOf, placeAt } from "./movers.js";
 import { habitatScore } from "./habitat.js";
 import { rand, range, pick } from "./rng.js";
 
-export const NEEDS = ["hunger", "thirst", "rest", "enrich"];
+export const NEEDS = ["hunger", "thirst", "enrich"];
 // The needs this species has: swimmers never get thirsty.
 export const needsOf = s => NEEDS.filter(k => k !== "thirst" || s.moves !== "swim");
 
 export function newAnimal(state, sp, exId) {
   return { id: state.nextId++, sp, ex: exId, x: 0, y: 0, face: 1, path: [], act: "idle", t: 0,
-           need: { hunger: 20, thirst: 20, rest: 10, enrich: 20 }, stress: 0, health: 100, happy: 70, escaped: false };
+           need: { hunger: 20, thirst: 20, enrich: 20 }, stress: 0, health: 100, happy: 70, escaped: false };
 }
 
 export const animalsIn = (state, exId) => state.animals.filter(a => a.ex === exId && !a.escaped);
@@ -90,10 +90,10 @@ const ACTIONS = {
     start(a, c) { const spots = waterSpots(c.state, c.derived, a); if (!spots.length || !goTo(c.state, c.derived, a, spots)) return false; a.t = 5; return true; },
     finish(a) { a.need.thirst = 0; },
   },
-  rest: {
-    score: a => a.need.rest * 0.9,
-    start(a, c) { a.path = []; a.t = range(c.state, 30, 70); return true; },
-    finish(a) { a.need.rest = Math.max(0, a.need.rest - 60); },
+  rest: {   // lie down for a while: not a need, just more likely in its off hours, on each animal's own rolls so the park never naps at once
+    score: (a, c) => (offHours(c.state, c.s) ? ANIMAL.lie.asleep : ANIMAL.lie.awake) + rand(c.state) * 20,
+    start(a, c) { a.path = []; a.t = range(c.state, ...ANIMAL.lie.nap); return true; },
+    finish() {},
   },
   play: {   // an enrichment prop in the pen
     score: (a, c) => (c.t && c.t.props.length ? a.need.enrich : 0),
@@ -132,9 +132,9 @@ export function animalTick(state, derived, bus, dt) {
   const g = state.grid;
   for (const a of state.animals) {
     if (a.crated) continue;
-    const s = SPECIES[a.sp], off = offHours(state, s);
+    const s = SPECIES[a.sp];
     for (const k of needsOf(s)) {
-      const rate = (100 / (ANIMAL.fullDays[k] * DAY_MIN)) * ((s.drain && s.drain[k]) || 1) * (k === "rest" && off ? ANIMAL.offHoursRest : 1);
+      const rate = (100 / (ANIMAL.fullDays[k] * DAY_MIN)) * ((s.drain && s.drain[k]) || 1);
       a.need[k] = Math.min(100, a.need[k] + rate * dt);
     }
     if (!walk(g, a, SPEED.animal, dt)) continue;

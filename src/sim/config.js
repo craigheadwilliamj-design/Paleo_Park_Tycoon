@@ -28,9 +28,9 @@ export const WEAR = {
 
 // Animals (animals.js). Needs run 0 (met) to 100 (desperate).
 export const ANIMAL = {
-  fullDays: { hunger: 3, thirst: 2, rest: 1, enrich: 2 },   // park days for a need to go from met to desperate
+  fullDays: { hunger: 3, thirst: 2, enrich: 2 },   // park days for a need to go from met to desperate
   daylight: [120, 600],  // park minutes of the day that count as day; night is the rest
-  offHoursRest: 1.6,     // rest drains this much faster outside the species' active hours
+  lie: { awake: 8, asleep: 28, nap: [30, 70] },   // how much an animal wants to lie down in its active and off hours (wander scores 25 to 35), and nap minutes
   bored: 60,             // enrichment need over this makes testing the fence likelier
   stress: { needs: 1.5, habitat: 0.8, loose: 0.6, ease: 0.3 },   // weights toward the stress target, and the share of the way it moves an hour
   health: { starveFrom: 90, starve: 1.5, stressed: 0.5, stressFrom: 70, heal: 2, weak: 30 },   // hunger or thirst over starveFrom costs health, ramping up to starve points an hour at 100; stressed: lost an hour under high stress; heal: gained an hour when all is well

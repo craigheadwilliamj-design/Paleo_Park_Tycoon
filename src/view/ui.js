@@ -298,7 +298,7 @@ export class UI {
     if (a.stress >= H.stressFrom) chips.push(["Stressed.", "bad"]);
     chips.push([a.act, ""]);
     const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i style="width:${Math.round(full)}%"></i></span></div>`;
-    const names = { hunger: "Fed", thirst: "Water", rest: "Rested", enrich: "Enrichment" };
+    const names = { hunger: "Fed", thirst: "Water", enrich: "Enrichment" };
     return `<div class="row"><h3>${esc(sp.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
       <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
       ${meter("Health", a.health)}${meter("Happiness", a.happy)}${meter("Calm", 100 - a.stress)}
