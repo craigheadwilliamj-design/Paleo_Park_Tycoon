@@ -41,8 +41,8 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // the four diagonals northeast..southwest and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
 // bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle).
-// Optional: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park minutes) and
-// rest (lying loop: frames, s), from <name>-idle|lie|rest-<facing>.png. Without them: the standing frame.
+// Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
+// minutes) and rest (lying loop: frames, s), from <name>-idle|lie|rest-<facing>.png. Without them: the standing frame.
 // None: a placeholder block.
 export const SPECIES = {
   arth: { name: "Arthropleura", size: 2, active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
@@ -52,7 +52,8 @@ export const SPECIES = {
   dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
           sprite: { name: "dimetrodon", frame: [96, 56], frames: 8, anchor: [48, 48], cycle: 1.05,
-                    box: { east: [9, 13, 78, 50], west: [18, 13, 87, 50] } } },
+                    idle: { frames: 8, s: 3.2 }, lie: { frames: 7, min: 1.5 }, rest: { frames: 6, s: 4.0 },
+                    box: { east: [8, 13, 78, 50], west: [18, 13, 88, 50] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,

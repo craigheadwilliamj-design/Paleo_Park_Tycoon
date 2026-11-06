@@ -1,18 +1,38 @@
 """Turn an animal's source frames into the game's sprite strips.
 
-Source: art/source/<name>/walk-0.png .. walk-N.png, a side-view walk facing east (PixelLab
-animate-pixminimax from the v1 drawing, with that drawing as both first and last frame, so the
-last frame repeats the first and is dropped). Output, in art/animals/:
-  <name>-walk-east.png / -walk-west.png   one row of frames
-  <name>-stand-east.png / -stand-west.png  frame 0
-West is east mirrored about the anchor, so one anchor works for both. Prints the data.js sprite fields.
+Source: art/source/<name>/<strip>-0.png .. <strip>-N.png for the strips walk (required), idle, lie and
+rest, side views facing east. They come from PixelLab's animate-pixminimax run on the v1 drawing:
+loops (walk, idle, rest) use the same frame as first and last frame, so a last frame that repeats the
+first is dropped; frames that repeat the one before at the end (lie, which settles and holds) are
+dropped too. Output, in art/animals/:
+  <name>-<strip>-east.png / -west.png   one row of frames
+  <name>-stand-east.png / -west.png     walk frame 0
+West is east mirrored about the anchor, so one anchor works for both. Prints the frame counts and the
+box for data.js.
 
   python3 tools/sprites/strips.py dimetrodon --shift -4 --anchor-y 48
 """
 import argparse, glob, os, re
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
+STRIPS = ("walk", "idle", "lie", "rest")
+
+
+def same(a, b, tol=40):
+    """Nearly the same frame: under `tol` pixels differ."""
+    d = ImageChops.difference(a, b).convert("L").point(lambda v: 255 if v > 10 else 0)
+    return sum(d.histogram()[255:]) < tol
+
+
+def load(src, strip):
+    paths = sorted(glob.glob(os.path.join(src, f"{strip}-*.png")), key=lambda p: int(re.findall(r"(\d+)\.png$", p)[0]))
+    frames = [Image.open(p).convert("RGBA") for p in paths]
+    while len(frames) > 2 and same(frames[-1], frames[-2]):
+        frames.pop()
+    if len(frames) > 2 and same(frames[-1], frames[0]):
+        frames.pop()
+    return frames
 
 
 def main():
@@ -20,32 +40,32 @@ def main():
     ap.add_argument("name")
     ap.add_argument("--shift", type=int, default=0, help="move the art right (+) or left (-) so the body sits on the frame's center")
     ap.add_argument("--anchor-y", type=int, required=True, help="the ground line in a frame (the feet)")
-    ap.add_argument("--keep-last", action="store_true", help="the last frame is not a repeat of the first")
     a = ap.parse_args()
     src = os.path.join(ROOT, "art", "source", a.name)
-    paths = sorted(glob.glob(os.path.join(src, "walk-*.png")), key=lambda p: int(re.findall(r"(\d+)\.png$", p)[0]))
-    frames = [Image.open(p).convert("RGBA") for p in paths]
-    if not a.keep_last:
-        frames = frames[:-1]
-    W, H = frames[0].size
-    east = []
-    for f in frames:
-        c = Image.new("RGBA", (W, H))
-        c.paste(f, (a.shift, 0))
-        east.append(c)
-    west = [f.transpose(Image.FLIP_LEFT_RIGHT) for f in east]
     out = os.path.join(ROOT, "art", "animals")
     os.makedirs(out, exist_ok=True)
-    box = {}
-    for facing, fr in (("east", east), ("west", west)):
-        strip = Image.new("RGBA", (W * len(fr), H))
-        for i, f in enumerate(fr):
-            strip.paste(f, (i * W, 0))
-        strip.save(os.path.join(out, f"{a.name}-walk-{facing}.png"))
-        fr[0].save(os.path.join(out, f"{a.name}-stand-{facing}.png"))
-        bb = [min(f.getbbox()[0] for f in fr), min(f.getbbox()[1] for f in fr), max(f.getbbox()[2] for f in fr), max(f.getbbox()[3] for f in fr)]
-        box[facing] = bb
-    print(f"frame: [{W}, {H}], frames: {len(east)}, anchor: [{W // 2}, {a.anchor_y}], box: {box}")
+    counts, boxes = {}, {"east": [], "west": []}
+    for strip in STRIPS:
+        frames = load(src, strip)
+        if not frames:
+            continue
+        W, H = frames[0].size
+        east = []
+        for f in frames:
+            c = Image.new("RGBA", (W, H))
+            c.paste(f, (a.shift, 0))
+            east.append(c)
+        counts[strip] = len(east)
+        for facing, fr in (("east", east), ("west", [f.transpose(Image.FLIP_LEFT_RIGHT) for f in east])):
+            row = Image.new("RGBA", (W * len(fr), H))
+            for i, f in enumerate(fr):
+                row.paste(f, (i * W, 0))
+            row.save(os.path.join(out, f"{a.name}-{strip}-{facing}.png"))
+            if strip == "walk":
+                fr[0].save(os.path.join(out, f"{a.name}-stand-{facing}.png"))
+            boxes[facing] += [f.getbbox() for f in fr]
+    box = {k: [min(b[0] for b in v), min(b[1] for b in v), max(b[2] for b in v), max(b[3] for b in v)] for k, v in boxes.items()}
+    print(f"frame: [{W}, {H}], anchor: [{W // 2}, {a.anchor_y}], frames: {counts}, box: {box}")
 
 
 if __name__ == "__main__":
