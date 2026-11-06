@@ -13,6 +13,7 @@ Run with Blender's Python (the `bpy` wheel): see tools/blender/README.md.
 """
 import math
 import bpy
+from mathutils import Vector
 
 TILE_PX = 16
 LIGHT = (-0.55, 0.35, 1.0)   # from the top left of the screen: west, a little north, mostly above
@@ -124,3 +125,21 @@ def _lin(rgb):
 def render(sc, path):
     sc.render.filepath = path
     bpy.ops.render.render(write_still=True)
+
+
+def view_camera(sc, rot_deg, w_px, h_px, center):
+    """A plain orthographic camera at 16 px a metre (square pixels): rot_deg is its Euler rotation,
+    center the 3D point at the image centre. (90, 0, 0) looks north from the side; (0, 0, 0) looks down."""
+    sc.render.resolution_x, sc.render.resolution_y = w_px, h_px
+    sc.render.pixel_aspect_x = sc.render.pixel_aspect_y = 1.0
+    cam = bpy.data.cameras.new("view")
+    cam.type = "ORTHO"
+    cam.clip_start, cam.clip_end = 0.1, 200
+    cam.ortho_scale = max(w_px, h_px) / TILE_PX
+    ob = bpy.data.objects.new("view", cam)
+    sc.collection.objects.link(ob)
+    sc.camera = ob
+    ob.rotation_euler = tuple(math.radians(a) for a in rot_deg)
+    d = ob.rotation_euler.to_matrix() @ Vector((0, 0, -1))
+    ob.location = tuple(c - dc * 50 for c, dc in zip(center, d))
+    return ob
