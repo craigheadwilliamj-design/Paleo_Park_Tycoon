@@ -117,15 +117,19 @@ def gif(frames, path, ms, zoom=ZOOM, bg=None):
 
 
 # Facings, as yaws (the model faces +x; the camera looks north): east and west in profile, the four
-# diagonals, and north and south each in two views turned "ns_turn" degrees (species file) off the
-# vertical, head leaning right (_r) or left (_l) on screen: straight on, a sail is edge-on. A species
-# file's "facings" can limit which are rendered.
+# diagonals, and north and south. With "ns_turn" (species file, degrees) north and south come in two
+# views turned that far off the vertical, head leaning right (_r) or left (_l) on screen; at 0 (the
+# default) they're straight up and down. A species file's "facings" can limit which are rendered.
 def facings(turn):
-    return {"east": 0, "west": 180, "northeast": 45, "northwest": 135, "southeast": -45, "southwest": -135,
-            "north_r": 90 - turn, "north_l": 90 + turn, "south_r": -90 + turn, "south_l": -90 - turn}
+    out = {"east": 0, "west": 180, "northeast": 45, "northwest": 135, "southeast": -45, "southwest": -135}
+    if turn:
+        out.update({"north_r": 90 - turn, "north_l": 90 + turn, "south_r": -90 + turn, "south_l": -90 - turn})
+    else:
+        out.update({"north": 90, "south": -90})
+    return out
 
 
-FACINGS = facings(20)
+FACINGS = facings(0)
 G = 64                   # game frame size (px)
 G_CENTER = (0, 0.25)     # ground point at the frame's centre (m): puts the feet at G_ANCHOR
 G_ANCHOR = (32, 36)
@@ -138,7 +142,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     sp = A.load(species)
     global FACINGS
-    every = facings(sp.get("ns_turn", 20))
+    every = facings(sp.get("ns_turn", 0))
     FACINGS = {k: every[k] for k in sp.get("facings", every)}
     low = sp["name"].lower()
     n = sp["walk"]["frames"]

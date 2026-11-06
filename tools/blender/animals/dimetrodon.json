@@ -14,7 +14,6 @@
     "#1a0c07": ["ink", 0]
   },
   "sail_ramp": "sail",
-  "ns_turn": 20,
   "width": [
     { "from": -99, "to": 44, "ratio": 0.9,  "note": "tail: round, tapering with the drawing" },
     { "from": 44,  "to": 67, "ratio": 1.0,  "note": "trunk: deep ribcage about as wide as deep" },

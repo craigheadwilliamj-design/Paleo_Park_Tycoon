@@ -38,7 +38,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // active: "day" or "night", when it is awake (it lies down more the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
 // sprite: game sprites from tools/blender/walk.py --export (art/animals/<name>-walk|stand-<facing>.png; facings east, west, the four diagonals
-// northeast..southwest, and north_r, north_l, south_r, south_l: up or down the map with the head leaning right or left): frame size, frames in the walk, anchor (the feet in a frame), box (each facing's drawn bounds, for the selection
+// northeast..southwest, and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head leaning right or left): frame size, frames in the walk, anchor (the feet in a frame), box (each facing's drawn bounds, for the selection
 // outline; the facings it has: without north/south ones it walks up and down the map in profile), cycle (tiles walked per walk cycle).
 // None: a placeholder block.
 export const SPECIES = {
@@ -50,8 +50,7 @@ export const SPECIES = {
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
           sprite: { name: "dimetrodon", frame: 64, frames: 8, anchor: [32, 36], cycle: 0.543,
                     box: { east: [12, 20, 52, 41], west: [12, 20, 52, 41], northeast: [16, 15, 47, 49], northwest: [17, 15, 48, 49],
-                           southeast: [16, 18, 47, 48], southwest: [17, 18, 48, 48], north_r: [23, 10, 41, 53], north_l: [23, 10, 41, 53],
-                           south_r: [23, 14, 41, 50], south_l: [23, 14, 41, 50] } } },
+                           southeast: [16, 18, 47, 48], southwest: [17, 18, 48, 48], north: [26, 9, 38, 54], south: [26, 14, 38, 51] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,

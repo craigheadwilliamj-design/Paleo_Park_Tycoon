@@ -111,10 +111,10 @@ const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
 // Animal sprites rendered by tools/blender: art/animals/<name>-walk-<facing>.png (a strip of `frames`
 // square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings follow the
-// step (fx, fy): east and west in profile, the four diagonals, and straight up or down the map a view
-// turned a little to one side (north_r/north_l, south_r/south_l). That side alternates with each new
-// run up or down, so they don't all lean the same way. Views the sprite lacks (its box lists the ones
-// it has) fall back to the profile.
+// step (fx, fy): east and west in profile, the four diagonals, and straight up or down the map north or
+// south. A sprite may instead have up/down views turned a little to one side (north_r/north_l,
+// south_r/south_l); that side alternates with each new run up or down. Views the sprite lacks (its box
+// lists the ones it has) fall back to the profile.
 const spriteImgs = new Map();
 function spriteImg(path) {
   let im = spriteImgs.get(path);
@@ -127,13 +127,13 @@ function facingOf(m, sp, w) {
   if (m.fy && m.fx) { w.fy = 0; v = ns + (m.fx > 0 ? "east" : "west"); }
   else if (m.fy) {
     if (m.fy !== w.fy) { w.fy = m.fy; w.lean = -w.lean; }   // a new run up or down: lean the other way
-    v = ns + (w.lean > 0 ? "_r" : "_l");
+    v = sp.box[ns] ? ns : ns + (w.lean > 0 ? "_r" : "_l");
   } else w.fy = 0;
   return sp.box[v] ? v : side;
 }
 // Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
 const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.7, -0.7], northwest: [-0.7, -0.7], southeast: [0.7, 0.7], southwest: [-0.7, 0.7],
-                north_r: [0.35, -0.95], north_l: [-0.35, -0.95], south_r: [0.35, 0.95], south_l: [-0.35, 0.95] };
+                north: [0, -1], south: [0, 1], north_r: [0.35, -0.95], north_l: [-0.35, -0.95], south_r: [0.35, 0.95], south_l: [-0.35, 0.95] };
 // The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
 // slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
 // group doesn't step in time.
