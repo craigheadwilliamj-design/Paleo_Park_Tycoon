@@ -2,9 +2,11 @@
 
 Headless Blender through its Python module (`bpy`, from PyPI). No Blender app or window needed.
 
+Cloud sessions in the `paleo_park_tycoon` environment get it from the setup script, at `/opt/bvenv`. Elsewhere:
+
 ```bash
-python3 -m venv /tmp/bvenv && /tmp/bvenv/bin/pip install bpy pillow numpy
-/tmp/bvenv/bin/python tools/blender/calibrate.py out/
+python3 -m venv /opt/bvenv && /opt/bvenv/bin/pip install bpy==5.2.3 pillow numpy
+/opt/bvenv/bin/python tools/blender/calibrate.py out/
 ```
 
 `bpy` needs the Python version it was built for (bpy 5.2 wants 3.13) and is about 400 MB, so keep the venv outside the repo.
@@ -16,10 +18,10 @@ python3 -m venv /tmp/bvenv && /tmp/bvenv/bin/pip install bpy pillow numpy
 - `turnaround.py`: the review sheet: drawing vs model side view with a silhouette diff, front, top, both 3/4 facings, and game size at a few turn angles.
 
 ```bash
-/tmp/bvenv/bin/python tools/blender/turnaround.py tools/blender/animals/dimetrodon.json out/
+/opt/bvenv/bin/python tools/blender/turnaround.py tools/blender/animals/dimetrodon.json out/
 ```
 - `walk.py`: the walk cycle. A pose per frame bends the model (the UVs keep the rest-pose projection, so the drawing moves with the body instead of sliding): the spine swings in a wave (hips and shoulders opposite, growing toward the tail), diagonal limb pairs step together, feet plant and slide back, then lift and swing; elbows and knees are solved each frame and bent outward to stay sprawled. Numbers live under `"walk"` in the species file. Writes the frame sheet, the game-size sprite strips (`<species>-walk-right.png`, `-left.png`, 48 px frames) and GIF previews.
 
 ```bash
-/tmp/bvenv/bin/python tools/blender/walk.py tools/blender/animals/dimetrodon.json out/
+/opt/bvenv/bin/python tools/blender/walk.py tools/blender/animals/dimetrodon.json out/
 ```
