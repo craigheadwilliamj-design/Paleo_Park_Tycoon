@@ -200,7 +200,7 @@ export class World {
     for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) { const i = idx(g, xx, yy); g.struct[i] = S_BUILDING; g.bld[i] = id; before.push(i); }
     this.changed();
     this.replan(before);
-    if (def.serves) for (const gst of this.state.guests) if (gst.plan === "eat") { gst.path = []; gst.plan = ""; gst.t = 0; }   // heading for the old spot
+    if (def.serves) for (const gst of this.state.guests) if (gst.plan === "use") { gst.path = []; gst.plan = ""; gst.t = 0; }   // heading for the old spot
     return "";
   }
   putBuilding(type, x, y) {

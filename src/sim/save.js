@@ -45,6 +45,11 @@ export function migrate(s) {
   }
   s.science = { ...newScience(), ...s.science };
   for (const list of [s.science.trips, s.science.clones]) list.forEach((x, i) => { if (x.slot === undefined) x.slot = i; });   // drone and incubator numbers
+  for (const gst of s.guests || []) {   // guests from before restrooms and gift stands
+    if (gst.bladder === undefined) gst.bladder = 0;
+    if (gst.gift === undefined) gst.gift = false;
+    if (gst.plan === "eat") { gst.plan = "use"; gst.use = "hunger"; }
+  }
   s.version = SAVE_VERSION;
   return s;
 }
