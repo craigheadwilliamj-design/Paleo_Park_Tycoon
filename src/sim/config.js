@@ -40,7 +40,7 @@ export const ANIMAL = {
 };
 
 // Walking speeds, tiles a park minute.
-export const SPEED = { guest: 1.6, staff: 2.2, animal: 1.2 };
+export const SPEED = { guest: 1.6, staff: 2.2, animal: 0.3 };
 
 export const GUESTS = {
   baseRate: 0.25,        // arrivals a park minute at a 3 star rating and the default ticket

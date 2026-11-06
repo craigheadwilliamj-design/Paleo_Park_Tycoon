@@ -20,8 +20,8 @@ python3 -m venv /opt/bvenv && /opt/bvenv/bin/pip install bpy==5.2.3 pillow numpy
 ```bash
 /opt/bvenv/bin/python tools/blender/turnaround.py tools/blender/animals/dimetrodon.json out/
 ```
-- `walk.py`: the walk cycle. A pose per frame bends the model (the UVs keep the rest-pose projection, so the drawing moves with the body instead of sliding): the spine swings in a wave (hips and shoulders opposite, growing toward the tail), diagonal limb pairs step together, feet plant and slide back, then lift and swing; elbows and knees are solved each frame and bent outward to stay sprawled. Numbers live under `"walk"` in the species file. Writes the frame sheet, the game-size sprite strips (`<species>-walk-right.png`, `-left.png`, 48 px frames) and GIF previews.
+- `walk.py`: the walk cycle. A pose per frame bends the model (the UVs keep the rest-pose projection, so the drawing moves with the body instead of sliding): the spine swings in a wave (hips and shoulders opposite, growing toward the tail), diagonal limb pairs step together, feet plant and slide back, then lift and swing; elbows and knees are solved each frame and bent outward to stay sprawled. Numbers live under `"walk"` in the species file. Facings: east and west in profile, north and south turned 40 degrees toward east or west (`FACINGS`). Writes the frame sheet and GIF previews; with `--export art/animals` also the game sprites (`<species>-walk-<facing>.png` strips and `-stand-<facing>.png`, 64 px frames) and prints the `sprite` entry for data.js.
 
 ```bash
-/opt/bvenv/bin/python tools/blender/walk.py tools/blender/animals/dimetrodon.json out/
+/opt/bvenv/bin/python tools/blender/walk.py tools/blender/animals/dimetrodon.json out/ --export art/animals
 ```

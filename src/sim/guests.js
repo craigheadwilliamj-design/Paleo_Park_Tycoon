@@ -34,7 +34,7 @@ function arrivals(state, derived, dt) {
     state.arrivalAcc -= 1;
     const spots = pathsBeside(state, ent);
     if (!spots.length) return;
-    const gst = { id: state.nextId++, x: 0, y: 0, face: 1, path: [], plan: "arrive", t: 0, fun: 0, hunger: range(state, 0, 40),
+    const gst = { id: state.nextId++, x: 0, y: 0, face: 1, fx: 0, fy: 0, path: [], plan: "arrive", t: 0, fun: 0, hunger: range(state, 0, 40),
                   bladder: range(state, 0, 30), tired: 0, litter: 0, gift: rand(state) < GUESTS.giftChance, seen: [], until: state.clock + range(state, ...GUESTS.stay), at: 0 };
     placeAt(state.grid, gst, spots[Math.floor(rand(state) * spots.length)]);
     state.guests.push(gst);

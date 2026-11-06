@@ -14,7 +14,7 @@ export const NEEDS = ["hunger", "thirst", "enrich"];
 export const needsOf = s => NEEDS.filter(k => k !== "thirst" || s.moves !== "swim");
 
 export function newAnimal(state, sp, exId) {
-  return { id: state.nextId++, sp, ex: exId, x: 0, y: 0, face: 1, path: [], act: "idle", t: 0,
+  return { id: state.nextId++, sp, ex: exId, x: 0, y: 0, face: 1, fx: 0, fy: 0, path: [], act: "idle", t: 0,
            need: { hunger: 20, thirst: 20, enrich: 20 }, stress: 0, health: 100, happy: 70, escaped: false };
 }
 
@@ -43,7 +43,7 @@ function stayIn(derived, a) { return i => derived.exOf[i] === a.ex; }
 
 function goTo(state, derived, a, goals) {
   const g = state.grid, mv = SPECIES[a.sp].moves;
-  const p = route(g, tileOf(g, a), goals, a.escaped ? "land" : mv, a.escaped ? null : stayIn(derived, a));
+  const p = route(g, tileOf(g, a), goals, a.escaped ? "land" : mv, a.escaped ? null : stayIn(derived, a), true);
   if (!p) return false;
   a.path = p; return true;
 }
