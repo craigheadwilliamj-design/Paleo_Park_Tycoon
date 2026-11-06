@@ -340,8 +340,8 @@ def build_legs(sp, cols, mat, root):
             # the foot: a flat pad from the wrist forward and a little out
             fl = L["foot_len"]
             F0 = (wx - 0.5, Wr[1], 1.0)
-            F1 = (wx + fl - 1.0, Wr[1] + side * 1.0, 0.7)
-            obs.append(_tube(f"{key}_foot{side}", [Wr, F0, F1], [r1, r1 * 0.95, 0.7], mat, root))
+            F1 = (wx + fl - 1.0, Wr[1] + side * 1.0, 1.0)
+            obs.append(_tube(f"{key}_foot{side}", [Wr, F0, F1], [r1, r1, 1.1], mat, root))
     return obs
 
 

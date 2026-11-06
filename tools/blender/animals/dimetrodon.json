@@ -23,7 +23,7 @@
   "legs": {
     "sprawl": 0.75,
     "note": "Sprawling: the upper limb runs out sideways from the body, the lower limb drops near vertical, the foot points forward and a little out.",
-    "front": { "upper": "Front Upper Limb", "lower": "Front Forelimb", "foot": "Front Foot", "r": [2.3, 1.7], "foot_len": 5 },
-    "back":  { "upper": "Back Thigh", "lower": "Back Leg", "foot": "Back Foot", "r": [2.6, 1.8], "foot_len": 5 }
+    "front": { "upper": "Front Upper Limb", "lower": "Front Forelimb", "foot": "Front Foot", "r": [2.9, 2.4], "foot_len": 5 },
+    "back":  { "upper": "Back Thigh", "lower": "Back Leg", "foot": "Back Foot", "r": [3.3, 2.6], "foot_len": 5 }
   }
 }

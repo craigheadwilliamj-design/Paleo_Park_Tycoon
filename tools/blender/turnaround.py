@@ -20,8 +20,8 @@ import camera as C   # noqa: E402
 import animal as A   # noqa: E402
 
 K = 0.75
-TURN = 30                # degrees the animal is turned toward the camera in the 3/4 views
-TURNS = (20, 30, 45)     # compared at game size
+TURN = 20                # degrees the animal is turned toward the camera in the 3/4 views
+TURNS = (20, 30)     # compared at game size
 ZOOM = 4
 PARK_GROUND = "#7d8c58"
 BG = (30, 30, 34, 255)
