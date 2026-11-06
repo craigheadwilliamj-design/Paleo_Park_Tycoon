@@ -19,7 +19,7 @@ const tabBar = (key, items, cur) => `<div class="ptabs" role="tablist">${items.m
   `<button role="tab" class="ptab" data-tab="${key}" data-k="${esc(t.key)}" aria-selected="${t.key === cur}" style="--pc:${t.color || "#4B3A8C"}"${t.lock ? ` title="Locked"` : ""}>${t.lock ? LOCK : ""}${esc(t.label)}</button>`).join("")}</div>`;
 // Two columns side by side when the panel is full size, one under the other on narrow screens.
 const fullCols = (left, right, wide) => `<div class="fcols${wide ? " wide" : ""}"><div class="fcol">${left}</div><div class="fcol">${right}</div></div>`;
-const head = (state, type) => `<div class="row"><h2>${esc(BUILDINGS[type].name)}</h2><button data-close>✕</button></div>
+const head = (state, type) => `<div class="row"><h2>${esc(BUILDINGS[type].name)}</h2><button class="xclose" data-close aria-label="Close">×</button></div>
   <div class="row"><span class="muted">${money(BUILDINGS[type].upkeep || 0)} a day</span></div>`;
 const staffHtml = (state, role, plural) => {
   const c = SCIENCE.crew[role], n = crewOf(state, role).length;
