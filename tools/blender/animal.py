@@ -145,10 +145,8 @@ def label_image(lab, name):
 
 # ---------- the label material ----------
 
-def label_material(name, img, root, back=None):
-    """Emission = (label, light band, depth). Labels are projected from the side in root space.
-    back: (label code, normal z) - surfaces facing up more than that take this label instead of the
-    projection, since a side view can't say what the top of the back looks like."""
+def label_material(name, img, root):
+    """Emission = (label, light band, depth). Labels are projected from the side in root space."""
     W, H = img.size
     m = bpy.data.materials.new(name)
     m.use_nodes = True
@@ -185,15 +183,7 @@ def label_material(name, img, root, back=None):
     L(camd.outputs["View Z Depth"], depth.inputs[0]); depth.inputs[1].default_value = 100
 
     rgb = N("ShaderNodeCombineColor")
-    lab = sepc.outputs[0]
-    if back:
-        nrm = N("ShaderNodeSeparateXYZ"); L(tc.outputs["Normal"], nrm.inputs[0])
-        up = N("ShaderNodeMath"); up.operation = "GREATER_THAN"
-        L(nrm.outputs["Z"], up.inputs[0]); up.inputs[1].default_value = back[1]
-        mix = N("ShaderNodeMix"); mix.data_type = "FLOAT"
-        L(up.outputs[0], mix.inputs["Factor"]); L(lab, mix.inputs[2]); mix.inputs[3].default_value = back[0] / 255
-        lab = mix.outputs[0]
-    L(lab, rgb.inputs[0]); L(bandv.outputs[0], rgb.inputs[1]); L(depth.outputs[0], rgb.inputs[2])
+    L(sepc.outputs[0], rgb.inputs[0]); L(bandv.outputs[0], rgb.inputs[1]); L(depth.outputs[0], rgb.inputs[2])
     em = N("ShaderNodeEmission"); L(rgb.outputs[0], em.inputs["Color"])
     out = N("ShaderNodeOutputMaterial"); L(em.outputs[0], out.inputs["Surface"])
     return m
@@ -365,15 +355,11 @@ def build(sp):
 
     root = bpy.data.objects.new(sp["name"], None)
     bpy.context.scene.collection.objects.link(root)
-    trunk_tex = label_image(dilate(strip_silhouette_ink(trunk_lab), 6), "trunk_labels")
-    bk = sp.get("back")
-    back = (sp["_ramp_ids"][bk["ramp"]] * 16 + bk["step"] + 1, bk["facing_up"]) if bk else None
-    tmat = label_material("trunk", trunk_tex, root, back)
-    smat = label_material("sail", trunk_tex, root)
+    tmat = label_material("trunk", label_image(dilate(strip_silhouette_ink(trunk_lab), 6), "trunk_labels"), root)
     lmat = label_material("legs", label_image(dilate(strip_silhouette_ink(legs_lab), 6), "leg_labels"), root)
     # the projection texture is the cell size; tell the material
     build_trunk(sp, cols, tmat, root)
-    build_sail(sp, cols, smat, root)
+    build_sail(sp, cols, tmat, root)
     build_legs(sp, cols, lmat, root)
     return root
 
