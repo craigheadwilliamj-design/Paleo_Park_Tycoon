@@ -240,6 +240,19 @@ test("move takes a building to a new spot for free and keeps what it holds", () 
   assert.equal(w.moveBuilding(ent.id, 5, 5), "Can't move that.");
 });
 
+test("placeProblem says why place would refuse, without changing anything", () => {
+  const w = newPark(12), before = w.state.money;
+  assert.equal(w.placeProblem("shed", 5, 5), "");
+  assert.equal(w.placeProblem("shed", -1, 5), "Off the map.");
+  assert.equal(w.placeProblem("feeder", 5, 5), "Feeders go inside an exhibit.");
+  w.state.money = 0;
+  assert.equal(w.placeProblem("shed", 5, 5), "Not enough money.");
+  w.state.money = before;
+  assert.equal(w.place("research", 5, 5), "");
+  assert.equal(w.placeProblem("research", 12, 5), "Only one a park.");
+  assert.equal(w.placeProblem("shed", 5, 5), "Something is in the way.");
+});
+
 test("research: researchers on a track unlock its steps in order; deep steps wait for stars", () => {
   const w = newPark(11), sc = w.state.science;
   w.state.money = 1e6;

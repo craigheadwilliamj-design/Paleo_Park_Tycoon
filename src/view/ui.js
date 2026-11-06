@@ -17,11 +17,11 @@ const fmtClock = c => { const h = Math.floor(c / 60) + 4, m = Math.floor(c % 60)
 export class UI {
   constructor(world, canvas, cam, hooks) {
     this.world = world; this.canvas = canvas; this.cam = cam; this.hooks = hooks;
-    this.tool = "select"; this.drag = null; this.hover = null; this.preview = null; this.previewOk = true;
+    this.tool = "select"; this.drag = null; this.hover = null; this.preview = null; this.previewOk = true; this.ghost = null;
     this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.speed = 1; this.lastPanel = null;
     this.buildTools(); this.bindInput();
   }
-  get view() { return { preview: this.preview, previewOk: this.previewOk, hover: this.hover, selected: this.selected, selectedEx: this.selectedEx }; }
+  get view() { return { preview: this.preview, previewOk: this.previewOk, ghost: this.ghost, hover: this.hover, selected: this.selected, selectedEx: this.selectedEx }; }
 
   say(why) { $("why").textContent = why || ""; clearTimeout(this.whyT); if (why) this.whyT = setTimeout(() => ($("why").textContent = ""), 2500); }
 
@@ -39,7 +39,7 @@ export class UI {
   // Pick a tool; picking the one already on goes back to Select.
   setTool(tool) {
     this.tool = tool === this.tool ? "select" : tool;
-    this.cancelAsk(); this.preview = null; this.drag = null; this.moving = null;
+    this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; $("stat").textContent = "";
     this.menu.setTool(this.tool);
   }
 
@@ -75,9 +75,16 @@ export class UI {
   }
   moveGhost(t) {
     const m = this.moving; if (!t) return;
-    m.x = t[0] - m.dx; m.y = t[1] - m.dy;
-    this.preview = this.footprint(m.type, m.x, m.y);
-    this.previewOk = !this.world.spotProblem(m.type, m.x, m.y, m.id);
+    m.x = t[0] - m.dx; m.y = t[1] - m.dy; this.preview = null;
+    this.ghost = { id: m.id, type: m.type, x: m.x, y: m.y, ok: !this.world.spotProblem(m.type, m.x, m.y, m.id) };
+  }
+  // Place: the building follows the cursor, centred the way click() puts it down, red with the reason where it won't go.
+  placeCorner(type, [x, y]) { const d = BUILDINGS[type]; return [x - Math.floor((d.w - 1) / 2), y - Math.floor((d.h - 1) / 2)]; }
+  placeGhost(t) {
+    if (!t) { this.ghost = null; $("stat").textContent = ""; return; }
+    const type = this.tool.slice(6), [x, y] = this.placeCorner(type, t), why = this.world.placeProblem(type, x, y);
+    this.ghost = { type, x, y, ok: !why };
+    $("stat").textContent = why;
   }
   moveHover(t) {
     const b = t && this.buildingAt(t);
@@ -117,6 +124,7 @@ export class UI {
         if (this.pan.click && Math.hypot(dx, dy) < 6) return;
         this.cam.x = this.pan.cx - (dx * dpr) / this.cam.zoom; this.cam.y = this.pan.cy - (dy * dpr) / this.cam.zoom; this.hooks.clamp();
       } else if (this.moving) this.moveGhost(this.hover);
+      else if (TOOL_KIND[this.tool] === "place") this.placeGhost(this.hover);
       else if (this.tool === "move") this.moveHover(this.hover);
       else if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover, this.drag.kind);
@@ -125,7 +133,7 @@ export class UI {
       else if (this.preview && !this.asking) this.preview = null;
     });
     c.addEventListener("pointerup", () => {
-      if (this.moving) { const m = this.moving; this.moving = null; this.preview = null; this.say(this.world.moveBuilding(m.id, m.x, m.y)); }
+      if (this.moving) { const m = this.moving; this.moving = null; this.ghost = null; this.say(this.world.moveBuilding(m.id, m.x, m.y)); }
       if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover || this.drag.from, this.drag.kind);
         if (this.tool === "bulldoze") this.bulldoze(tiles); else this.say(this.world.paint(this.tool, this.preview));
@@ -133,7 +141,7 @@ export class UI {
       }
       this.pan = null;
     });
-    c.addEventListener("pointerleave", () => { this.hover = null; if (!this.drag && !this.asking && !this.moving) { this.preview = null; $("stat").textContent = ""; } });
+    c.addEventListener("pointerleave", () => { this.hover = null; if (!this.moving) this.ghost = null; if (!this.drag && !this.asking && !this.moving) { this.preview = null; $("stat").textContent = ""; } });
     c.addEventListener("wheel", e => { e.preventDefault(); this.hooks.zoom(e.deltaY < 0 ? 1 : -1, e); }, { passive: false });
     window.addEventListener("keydown", e => {
       if (e.target.closest && e.target.closest("input,select,.gt-track")) return;
@@ -153,7 +161,7 @@ export class UI {
 
   click([x, y], kind) {
     const w = this.world, g = w.state.grid;
-    if (kind === "place") { const type = this.tool.slice(6), def = BUILDINGS[type]; this.say(w.place(type, x - Math.floor((def.w - 1) / 2), y - Math.floor((def.h - 1) / 2))); return; }
+    if (kind === "place") { const type = this.tool.slice(6); this.say(w.place(type, ...this.placeCorner(type, [x, y]))); this.placeGhost([x, y]); return; }
     // Select: the nearest animal under the cursor, else a lab, else the exhibit.
     const a = w.state.animals.find(a => !a.crated && Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
     const on = x >= 0 && y >= 0 && x < g.w && y < g.h, b = !a && on && w.state.buildings.find(b => b.id === g.bld[y * g.w + x] && BUILDINGS[b.type].lab);

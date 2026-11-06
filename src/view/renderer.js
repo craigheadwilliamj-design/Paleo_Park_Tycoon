@@ -64,13 +64,10 @@ export function draw(ctx, world, cam, ui) {
     if (g.flags[i] & F_CHUTE) { ctx.fillStyle = "#3b2a1a"; ctx.fillRect(px + T * 0.3, py - front + T * 0.35, T * 0.4, T * 0.3); }
   }
 
-  // Buildings: a flat roof and a front face, with a short label.
-  for (const b of state.buildings) {
-    const def = BUILDINGS[b.type], px = sx(b.x), py = sy(b.y), w = def.w * T, h = def.h * T, front = Math.round(h * 0.4);
-    ctx.fillStyle = shade(def.color, -0.3); ctx.fillRect(px, py + h - front, w, front);
-    ctx.fillStyle = def.color; ctx.fillRect(px, py - front * 0.3, w, h - front * 0.7);
-    if (z >= 2 && def.w > 1) { ctx.fillStyle = "#fff8"; ctx.font = `${6 * z}px sans-serif`; ctx.fillText(def.name, px + 2 * z, py + 7 * z); }
-  }
+  // Buildings.
+  // The one being moved draws only as the ghost.
+  const movingId = ui.ghost && ui.ghost.id;
+  for (const b of state.buildings) if (b.id !== movingId) drawBuilding(ctx, BUILDINGS[b.type], sx(b.x), sy(b.y), T, z);
 
   // Walkers, sorted by their feet so nearer ones draw on top.
   const walkers = [
@@ -84,7 +81,14 @@ export function draw(ctx, world, cam, ui) {
 
   // Tool preview and hover.
   if (ui.preview) for (const [x, y] of ui.preview) { ctx.fillStyle = ui.previewOk ? "#ffffff55" : "#ff404055"; ctx.fillRect(sx(x), sy(y), T, T); }
-  if (ui.hover && !ui.preview) { ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(sx(ui.hover[0]) + 0.5, sy(ui.hover[1]) + 0.5, T - 1, T - 1); }
+  // Placement ghost: the footprint tinted (white fits, red doesn't) under a see-through copy of the building.
+  if (ui.ghost) {
+    const gh = ui.ghost, def = BUILDINGS[gh.type], px = sx(gh.x), py = sy(gh.y);
+    ctx.fillStyle = gh.ok ? "#ffffff40" : "#ff404066"; ctx.fillRect(px, py, def.w * T, def.h * T);
+    ctx.save(); ctx.globalAlpha = 0.55; drawBuilding(ctx, def, px, py, T, z); ctx.restore();
+    ctx.strokeStyle = gh.ok ? "#ffffffcc" : "#ff4040"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(px + 0.5, py + 0.5, def.w * T - 1, def.h * T - 1);
+  }
+  if (ui.hover && !ui.preview && !ui.ghost) { ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(sx(ui.hover[0]) + 0.5, sy(ui.hover[1]) + 0.5, T - 1, T - 1); }
   if (ui.selectedEx) {
     const t = derived.ex.get(ui.selectedEx);
     if (t) { ctx.fillStyle = "#ffffff22"; for (const i of t.tiles) ctx.fillRect(sx(i % g.w), sy((i / g.w) | 0), T, T);
@@ -92,6 +96,14 @@ export function draw(ctx, world, cam, ui) {
       if (t.weakest >= 0 && danger > t.security) {   // mark the tile that will give way
         ctx.strokeStyle = "#ff5a3a"; ctx.lineWidth = 2; ctx.strokeRect(sx(t.weakest % g.w) + 1, sy((t.weakest / g.w) | 0) + 1, T - 2, T - 2); } }
   }
+}
+
+// Placeholder building: a flat roof and a front face, with a short label.
+function drawBuilding(ctx, def, px, py, T, z) {
+  const w = def.w * T, h = def.h * T, front = Math.round(h * 0.4);
+  ctx.fillStyle = shade(def.color, -0.3); ctx.fillRect(px, py + h - front, w, front);
+  ctx.fillStyle = def.color; ctx.fillRect(px, py - front * 0.3, w, h - front * 0.7);
+  if (z >= 2 && def.w > 1) { ctx.fillStyle = "#fff8"; ctx.font = `${6 * z}px sans-serif`; ctx.fillText(def.name, px + 2 * z, py + 7 * z); }
 }
 
 const GUEST_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#f79646", "#d9a441", "#4bacc6"];

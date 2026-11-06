@@ -154,15 +154,20 @@ export class World {
   }
 
   place(type, x, y) {
-    const def = BUILDINGS[type];
-    if (!def || def.fixed) return "Can't build that.";
-    if (def.unique && this.state.buildings.some(b => b.type === type)) return "Only one a park.";
-    const why = this.spotProblem(type, x, y);
+    const why = this.placeProblem(type, x, y);
     if (why) return why;
+    const def = BUILDINGS[type];
     if (!this.spend(def.price, "build")) return "Not enough money.";
     this.putBuilding(type, x, y);
     this.changed();
     return "";
+  }
+  // Read only: why place(type, x, y) would be refused, or "". The view's placement ghost turns red on it.
+  placeProblem(type, x, y) {
+    const def = BUILDINGS[type];
+    if (!def || def.fixed) return "Can't build that.";
+    if (def.unique && this.state.buildings.some(b => b.type === type)) return "Only one a park.";
+    return this.spotProblem(type, x, y) || (this.state.money < def.price ? "Not enough money." : "");
   }
   // Why a building of this type can't stand with its top left corner at x, y, or "". skip: a building to ignore (the one being moved).
   spotProblem(type, x, y, skip = 0) {
