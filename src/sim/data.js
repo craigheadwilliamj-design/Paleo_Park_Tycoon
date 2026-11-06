@@ -34,20 +34,21 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // biomes: preferred first; the rest are acceptable. water: share of the pen it wants as water, and which kind.
 // space: tiles per animal. group: [min, max]. food: units a day of foodType. appeal: guest draw.
 // moves: "land", "swim" or "both". sea: lives in sea water (needs a sea exhibit).
+// size: class 1 tiny, 2 small, 3 medium, 4 large, 5 huge (bored big animals attack fences, small ones get sick; later prey and fights).
 // active: "day" or "night", when it is awake (it lies down more the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
 export const SPECIES = {
-  arth: { name: "Arthropleura", active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
+  arth: { name: "Arthropleura", size: 2, active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
           space: 6, group: [1, 6], foodType: "greens", food: 4, appeal: 4, price: 5000, moves: "land", color: "#5a3b2a" },
-  lyst: { name: "Lystrosaurus", active: "day", period: "Permian", stars: 0, starter: true, len: 1.5, danger: 1, biomes: ["grassland", "desert"], water: 0.05,
+  lyst: { name: "Lystrosaurus", size: 2, active: "day", period: "Permian", stars: 0, starter: true, len: 1.5, danger: 1, biomes: ["grassland", "desert"], water: 0.05,
           space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
-  dime: { name: "Dimetrodon", active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
+  dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a" },
-  anom: { name: "Anomalocaris", active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
+  anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
-  tikt: { name: "Tiktaalik", active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
+  tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
           space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
-  trex: { name: "Tyrannosaurus rex", active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
+  trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
           space: 120, group: [1, 2], foodType: "meat", food: 60, appeal: 25, price: 80000, moves: "land", color: "#6a5a3a" },
 };
 export const FOOD_TYPES = ["greens", "meat", "fish", "bugs"];

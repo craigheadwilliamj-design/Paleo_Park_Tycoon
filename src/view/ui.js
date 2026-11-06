@@ -294,7 +294,7 @@ export class UI {
     if (a.health < H.weak) chips.push(["Weak.", "bad"]);
     if (a.need.hunger >= H.starveFrom) chips.push(["Starving.", "bad"]); else if (a.need.hunger >= 80) chips.push(["Hungry.", "bad"]);
     if (sp.moves !== "swim") { if (a.need.thirst >= H.starveFrom) chips.push(["Parched.", "bad"]); else if (a.need.thirst >= 80) chips.push(["Thirsty.", "bad"]); }
-    if (a.need.enrich >= 80) chips.push(["Bored.", "bad"]);
+    if (a.need.enrich >= H.starveFrom && sp.size < ANIMAL.big) chips.push(["Sick from boredom.", "bad"]); else if (a.need.enrich >= 80) chips.push(["Bored.", "bad"]);
     if (a.stress >= H.stressFrom) chips.push(["Stressed.", "bad"]);
     chips.push([a.act, ""]);
     const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i style="width:${Math.round(full)}%"></i></span></div>`;

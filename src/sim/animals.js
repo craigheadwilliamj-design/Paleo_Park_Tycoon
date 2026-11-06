@@ -90,6 +90,18 @@ const ACTIONS = {
     start(a, c) { const spots = waterSpots(c.state, c.derived, a); if (!spots.length || !goTo(c.state, c.derived, a, spots)) return false; a.t = 5; return true; },
     finish(a) { a.need.thirst = 0; },
   },
+  maul: {   // a big bored animal attacks a fence tile: wear only, so a kept-up fence still holds
+    score: (a, c) => (c.t && c.t.fences.length && c.s.size >= ANIMAL.big && a.need.enrich >= ANIMAL.maulFrom ? a.need.enrich * 0.9 : 0),
+    start(a, c) {
+      const g = c.state.grid, f = pick(c.state, c.t.fences);
+      const spots = neighbours(g, f).filter(j => c.derived.exOf[j] === a.ex && walkable(g, j, c.s.moves));
+      if (!spots.length || !goTo(c.state, c.derived, a, spots)) return false;
+      a.fence = f; a.t = 45;
+      if (a.noted !== c.state.day) { a.noted = c.state.day; c.bus.emit("notify", { text: `${c.s.name} is attacking the fence.`, ex: a.ex }); }
+      return true;
+    },
+    finish(a) { a.need.enrich = Math.max(0, a.need.enrich - 30); delete a.fence; },
+  },
   rest: {   // lie down for a while: not a need, just more likely in its off hours, on each animal's own rolls so the park never naps at once
     score: (a, c) => (offHours(c.state, c.s) ? ANIMAL.lie.asleep : ANIMAL.lie.awake) + rand(c.state) * 20,
     start(a, c) { a.path = []; a.t = range(c.state, ...ANIMAL.lie.nap); return true; },
@@ -139,6 +151,7 @@ export function animalTick(state, derived, bus, dt) {
     }
     if (!walk(g, a, SPEED.animal, dt)) continue;
     if (a.act === "test") testFence(state, derived, bus, a, dt);
+    if (a.act === "maul" && a.fence !== undefined) g.cond[a.fence] = Math.max(0, g.cond[a.fence] - (WEAR.mauledPerHour * dt) / 60);
     if ((a.t -= dt) > 0) continue;
     const c = ctxOf(state, derived, bus, a);
     if (ACTIONS[a.act]) ACTIONS[a.act].finish(a, c);
@@ -167,13 +180,15 @@ export function updateWellbeing(state, derived, bus) {
     const s = SPECIES[a.sp], keys = needsOf(s), t = !a.escaped && derived.ex.get(a.ex);
     const here = t ? animalsIn(state, a.ex).filter(b => b.sp === a.sp).length : 0;
     const hab = t ? habitatScore(state, a.sp, t, here).overall : 0;
-    const needPart = keys.reduce((n, k) => n + Math.max(0, (a.need[k] - 70) / 30), 0) / keys.length;
+    const wt = k => S.weights[k] ?? 1, needPart = keys.reduce((n, k) => n + wt(k) * Math.max(0, (a.need[k] - 70) / 30), 0) / keys.reduce((n, k) => n + wt(k), 0);
     const target = 100 * Math.min(1, S.needs * needPart + S.habitat * (1 - hab) + (a.escaped ? S.loose : 0));
     a.stress += (target - a.stress) * S.ease;
     // Hunger and thirst past starveFrom cost health, faster the closer they get to 100.
     const starving = ["hunger", "thirst"].filter(k => keys.includes(k))
       .reduce((n, k) => n + Math.max(0, (a.need[k] - H.starveFrom) / (100 - H.starveFrom)), 0);
-    if (starving || a.stress >= H.stressFrom) a.health -= starving * H.starve + (a.stress >= H.stressFrom ? H.stressed : 0);
+    // Small animals bored past starveFrom get sick (big ones attack the fence instead).
+    const sick = s.size < ANIMAL.big ? Math.max(0, (a.need.enrich - H.starveFrom) / (100 - H.starveFrom)) : 0;
+    if (starving || sick || a.stress >= H.stressFrom) a.health -= starving * H.starve + sick * H.boredSick + (a.stress >= H.stressFrom ? H.stressed : 0);
     else if (a.stress < H.stressFrom / 2) a.health += H.heal;
     a.health = Math.max(0, Math.min(100, a.health));
     if (a.health < H.weak && !a.weak) { a.weak = true; bus.emit("notify", { text: `${s.name} is weak.`, urgent: true }); }

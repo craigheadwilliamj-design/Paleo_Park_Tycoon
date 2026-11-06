@@ -438,3 +438,29 @@ test("version 1 saves get enrichment, stress and health", () => {
   assert.equal(typeof a.need.enrich, "number");
   w2.advance(60);
 });
+
+test("boredom: small animals get sick, slower than starving; big ones attack the fence but it holds", () => {
+  const { w, e } = buildPark();
+  w.setBiome(e.id, "desert");
+  for (let k = 0; k < 4; k++) w.buyAnimal("lyst", e.id);
+  w.hire("keeper");
+  w.advance(DAY_MIN * 5);
+  const lyst = w.state.animals;
+  assert.ok(lyst.every(a => a.need.enrich > 90), "no props: bored");
+  assert.ok(lyst.every(a => a.health < 100 && a.health > 50), "a little sick, nowhere near dead");
+  assert.ok(lyst.every(a => a.stress < 70), "boredom alone doesn't stress a fed herd out");
+
+  const big = buildPark("concrete");
+  big.w.setBiome(big.e.id, "desert");
+  big.w.paint("chute", [[big.ex - 9, 39]]);
+  const d = big.w.spawn("dime", big.e.id);
+  big.w.hire("keeper");
+  big.w.hire("mechanic");
+  const g = big.w.state.grid, fences = big.w.derived.ex.get(big.e.id).fences;
+  let lowest = 100;
+  for (let h = 0; h < 48; h++) { big.w.advance(60); lowest = Math.min(lowest, ...fences.map(f => g.cond[f])); }
+  assert.ok(big.w.state.bell.some(n => /Dimetrodon is attacking the fence/.test(n.text)));
+  assert.ok(lowest < 100 - 4 * 0.4 * 4, "mauled tiles wear faster than the nightly wear alone");
+  assert.equal(d.health, 100, "a big bored animal doesn't get sick");
+  assert.ok(!d.escaped, "concrete, kept up, still holds");
+});
