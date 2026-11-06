@@ -124,7 +124,7 @@ function facingOf(m, sp) {
   return sp.box[v] ? v : side;
 }
 // Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
-const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.6, -0.8], northwest: [-0.6, -0.8], southeast: [0.6, 0.8], southwest: [-0.6, 0.8] };
+const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.35, -0.95], northwest: [-0.35, -0.95], southeast: [0.35, 0.95], southwest: [-0.35, 0.95] };
 // The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
 // slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
 // group doesn't step in time.
