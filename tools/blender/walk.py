@@ -8,6 +8,9 @@ hips and shoulders opposite, growing toward the tail tip; diagonal limb pairs mo
 lifts and swings forward. Elbows and knees are solved each frame (two-bone IK) and pushed out to
 the side, so the limbs stay sprawled. Numbers are in the species file under "walk", in drawing px.
 
+With --export <dir>, also writes the game sprites there (walk strips and a standing frame per
+facing) and prints what data.js needs.
+
 Writes <species>-walk.png (frames at 4x: side and both 3/4 facings at review size, both facings at
 game size, then 1x) and animated previews <species>-walk-*.gif.
 """
@@ -94,7 +97,7 @@ def ik(S, W, L1, L2, side):
 def frame(sp, scale, yaw, cam, out, name, t, gap):
     sc = C.reset_scene()
     A.setup_label_render(sc)
-    root = A.build(sp, lambda sp_, cols: Walk(sp_, cols, t))
+    root = A.build(sp, (lambda sp_, cols: Walk(sp_, cols, t)) if t is not None else None)
     root.scale = (scale,) * 3
     root.rotation_euler = (0, 0, math.radians(yaw))
     cam(sc)
@@ -138,6 +141,9 @@ def main():
         g[name] = [frame(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 48, 48, center=(0, 0.5)),
                          out, f"g{name}{i}", t, 6.0) for i, t in enumerate(ts)]
 
+    stand = {name: frame(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 48, 48, center=(0, 0.5)),
+                         out, f"s{name}", None, 6.0) for name, yaw in (("right", -TURN), ("left", -180 + TURN))}
+
     # the game's sprite strips: one row of frames per facing
     for name, fr in g.items():
         strip = Image.new("RGBA", (48 * n, 48))
@@ -179,6 +185,24 @@ def main():
         game.append(im)
     gif(game, os.path.join(out, f"{low}-walk-game.gif"), ms)
     print("wrote", os.path.join(out, f"{low}-walk.png"), "and the gifs")
+
+    if "--export" in sys.argv:
+        # Game sprites: 48 px frames, the animal's feet (the sim's x, y) at ANCHOR in each frame.
+        dest = sys.argv[sys.argv.index("--export") + 1]
+        os.makedirs(dest, exist_ok=True)
+        for name in ("right", "left"):
+            strip = Image.new("RGBA", (48 * n, 48))
+            for i, f in enumerate(g[name]):
+                strip.paste(f, (48 * i, 0))
+            strip.save(os.path.join(dest, f"{low}-walk-{name}.png"))
+            stand[name].save(os.path.join(dest, f"{low}-stand-{name}.png"))
+        boxes = [f.getbbox() for fr in list(g.values()) + [list(stand.values())] for f in fr]
+        box = [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
+        # The body passes over a planted foot in the stance part of the cycle, so it covers
+        # stride / stance per cycle (drawing px), scaled to game px.
+        step = sp["walk"]["stride"] / sp["walk"]["stance"] * sg * C.TILE_PX
+        print(f"export: frame 48, frames {n}, anchor [24, 32], box {box}, cycle covers {step:.2f} px "
+              f"({step / C.TILE_PX:.3f} tiles)")
 
 
 if __name__ == "__main__":
