@@ -39,6 +39,7 @@ export function migrate(s) {
   s.bell = s.bell || [];
   s.openPens = s.openPens || [];
   s.litter = s.litter || 0;
+  s.sandbox = !!s.sandbox;
   for (const b of [s.books.today, s.books.last]) if (b) { b.sold = b.sold || 0; b.science = b.science || 0; }
   if (!s.science) {   // saves from before the labs keep the fences they already built
     s.science = newScience();

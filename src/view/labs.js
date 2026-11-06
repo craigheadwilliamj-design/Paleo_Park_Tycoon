@@ -4,7 +4,8 @@
 // clones) are filled in place by labLive, so the panel's HTML only changes when something happens.
 import { SPECIES, PERIODS, TRACKS, BUILDINGS, FENCES, PERIOD_COLOR, TIMELINE_MAP_SIZE } from "../sim/data.js";
 import { SCIENCE, DAY_MIN } from "../sim/config.js";
-import { trackStep, trackWhy, stepMinutes, onTrack, crewOf, sitesShown, scoutProblem, expeditionProblem, scoutCost, expeditionCost,
+import { afford } from "../sim/money.js";
+import { hasStars, trackStep, trackWhy, stepMinutes, onTrack, crewOf, sitesShown, scoutProblem, expeditionProblem, scoutCost, expeditionCost,
          tripOdds, nextDronePrice, genomeOf, cloneProblem, cloneMinutes, incubators, nowMin, siteById, sitesIn, siteComplete, siteTripDays,
          EPOCHS, epochOf, yearsAt, uAt } from "../sim/science.js";
 
@@ -13,7 +14,7 @@ const money = n => "$" + Math.round(n).toLocaleString("en-US");
 const meter = (share, live = "") => `<span class="meter"${live ? ` data-p="${live}"` : ""}><i style="width:${Math.round(Math.max(0, Math.min(1, share)) * 100)}%"></i></span>`;
 const chip = (text, k = "") => `<span class="chip ${k}">${esc(text)}</span>`;
 const btn = (label, data, why = "", cls = "buy") => `<button class="${cls}" ${data}${why ? ` disabled title="${esc(why)}"` : ""}>${esc(label)}</button>`;
-const span = days => days < 1 ? `${Math.max(1, Math.round(days * DAY_MIN / 60))} h` : `${+days.toFixed(1)} day${+days.toFixed(1) === 1 ? "" : "s"}`;
+const span = days => days <= 0 ? "Instant" : days < 1 ? `${Math.max(1, Math.round(days * DAY_MIN / 60))} h` : `${+days.toFixed(1)} day${+days.toFixed(1) === 1 ? "" : "s"}`;
 const LOCK = `<svg width="10" height="11" viewBox="0 0 10 11" aria-label="locked"><rect x="1" y="5" width="8" height="6" rx="1" fill="currentColor"/><path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`;
 export const tabBar = (key, items, cur) => `<div class="ptabs" role="tablist">${items.map(t =>
   `<button role="tab" class="ptab" data-tab="${key}" data-k="${esc(t.key)}" aria-selected="${t.key === cur}" style="--pc:${t.color || "#4B3A8C"}"${t.lock ? ` title="Locked"` : ""}>${t.lock ? LOCK : ""}${esc(t.label)}</button>`).join("")}</div>`;
@@ -24,7 +25,7 @@ const head = (state, type) => `<div class="row"><h2>${esc(BUILDINGS[type].name)}
 const staffHtml = (state, role, plural) => {
   const c = SCIENCE.crew[role], n = crewOf(state, role).length;
   return `<section><h3>${plural} (${n})</h3><div class="row"><span class="muted">${money(c.wage)} a day each</span>
-    <span class="btns">${btn("Let go", `data-fire="${role}"`, n ? "" : "Nobody to let go.", "")}${btn(`Hire ${money(c.hire)}`, `data-hire-crew="${role}"`, state.money < c.hire ? "Not enough money." : "")}</span></div></section>`;
+    <span class="btns">${btn("Let go", `data-fire="${role}"`, n ? "" : "Nobody to let go.", "")}${btn(`Hire ${money(c.hire)}`, `data-hire-crew="${role}"`, !afford(state, c.hire) ? "Not enough money." : "")}</span></div></section>`;
 };
 // A bay card: its number, what's in it, a bar and the time left (both filled by labLive from `live`).
 const bayCard = (label, title, sub, live, extra = "") => `<div class="card bay"><div class="bn">${esc(label)}</div><b>${title}</b>${sub ? ` <span class="muted">${sub}</span>` : ""}
@@ -61,8 +62,8 @@ function researchHtml(ui, state) {
     let right;
     if (isDone) right = chip("Researched", "good");
     else if (now) right = btn(n ? "Add researcher" : "Research", `data-assign="${id}" data-d="1"`, idle ? "" : "No idle researchers.");
-    else right = `<span class="muted">${span(stepMinutes(i) / DAY_MIN)}</span>`;
-    const need = [esc(stepText(st)), later ? `Needs ${esc(t.steps[i - 1].name)} first.` : "", !isDone && st.stars ? `Needs ${st.stars}★.` : ""].filter(Boolean).join(" ");
+    else right = `<span class="muted">${span(state.sandbox ? 0 : stepMinutes(i) / DAY_MIN)}</span>`;
+    const need = [esc(stepText(st)), later ? `Needs ${esc(t.steps[i - 1].name)} first.` : "", !isDone && !hasStars(state, st.stars) ? `Needs ${st.stars}★.` : ""].filter(Boolean).join(" ");
     const prog = now ? `<span class="need">${meter(0, `track:${id}`)} <span data-left="track:${id}"></span>${why && why !== "No researchers." ? " " + chip(why, "bad") : ""}</span>` : "";
     return `<li class="${later ? "locked" : ""}"><span class="nm">${esc(st.name)}${now ? ` <span class="per">${i + 1} of ${t.steps.length}</span>` : ""}</span>${right}<span class="need">${need}</span>${prog}</li>`;
   }).join("");
@@ -86,7 +87,7 @@ const markColor = (state, s) => state.science.seen[s.id] ? GT_LIT : GT_MARK;
 // Where the slider opens: on the newest scouted site, else the newest one the park's rating can dig at, else the first.
 function ttStart(state) {
   const shown = sitesShown(), sc = state.science;
-  const s = shown.filter(x => sc.seen[x.id]).pop() || shown.filter(x => x.fauna.some(sp => SPECIES[sp] && SPECIES[sp].stars <= state.rating)).pop() || shown[0];
+  const s = shown.filter(x => sc.seen[x.id]).pop() || shown.filter(x => x.fauna.some(sp => SPECIES[sp] && hasStars(state, SPECIES[sp].stars))).pop() || shown[0];
   return s ? uAt(Math.sqrt(s.from * s.to)) : 0.5;
 }
 function ttHeadHtml(now) {
@@ -112,7 +113,7 @@ function ttChipsHtml(ui, state, now) {
 }
 // One expedition target on a site card: pick it, its genome so far, and its chance of a find.
 function targetRow(ui, state, s, sp) {
-  const g = genomeOf(state, sp), lock = state.rating + 1e-9 < SPECIES[sp].stars, done = g >= 100;
+  const g = genomeOf(state, sp), lock = !hasStars(state, SPECIES[sp].stars), done = g >= 100;
   return `<tr class="${lock || done ? "locked" : ""}"><td><label><input type="radio" name="ttpick" data-pick="${sp}"${ui.ttPick === sp ? " checked" : ""}${lock || done ? " disabled" : ""}> ${esc(SPECIES[sp].name)}${lock ? ` <span class="gt-tag">Needs ${SPECIES[sp].stars}★</span>` : ""}</label></td>`
     + `<td>${Math.floor(g)}%</td><td>${done ? "–" : Math.round(tripOdds(state, s, sp) * 100) + "%"}</td></tr>`;
 }
@@ -168,7 +169,7 @@ function timeTravelHtml(ui, state) {
   if (ui.ttTab === "reports") return h + (sc.reports.length ? `<section>${sc.reports.map(r => reportHtml(state, r)).join("")}</section>` : `<div class="muted">No reports.</div>`);
   const price = nextDronePrice(state);
   const l = `<section class="gt-drones"><h3>Drones <span class="muted">${sc.drones} of ${SCIENCE.drones.max}</span></h3>${Array.from({ length: sc.drones }, (_, i) => droneCard(state, i)).join("")}
-    <div class="row">${sc.drones < SCIENCE.drones.max ? btn(`Buy a drone ${money(price)}`, "data-drone", state.money < price ? "Not enough money." : "") : `<span class="muted">Drone bay full</span>`}</div></section>`;
+    <div class="row">${sc.drones < SCIENCE.drones.max ? btn(`Buy a drone ${money(price)}`, "data-drone", !afford(state, price) ? "Not enough money." : "") : `<span class="muted">Drone bay full</span>`}</div></section>`;
   const now = yearsAt(ui.ttU);
   if (ui.ttSite && !sitesIn(now.epoch).some(s => s.id === ui.ttSite)) { ui.ttSite = ""; ui.ttPick = ""; }
   const r = `<section class="gt"><h3>Timeline</h3><div id="ttHead">${ttHeadHtml(now)}</div><div id="ttMap">${ttMapHtml(ui, state, now)}</div>${ttTrackHtml(ui, now)}
@@ -220,7 +221,7 @@ export function labHtml(ui, b) {
 // Fill the moving bars and times: data-p / data-left name "track:<id>", "trip:<id>" or "clone:<id>".
 export function labLive(ui, side) {
   const state = ui.world.state, sc = state.science, now = nowMin(state);
-  const timed = x => x && [(now - x.start) / (x.end - x.start), (x.end - now) / DAY_MIN];
+  const timed = x => x && [(now - x.start) / ((x.end - x.start) || 1), (x.end - now) / DAY_MIN];
   const of = key => {
     const [k, id] = key.split(":");
     if (k === "trip") { const t = timed(sc.trips.find(x => x.id === +id)); return t && [t[0], `Back in ${span(t[1])}`]; }
