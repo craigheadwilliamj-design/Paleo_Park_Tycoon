@@ -5,7 +5,7 @@
 import { SPECIES, PERIODS, TRACKS, BUILDINGS, FENCES, PERIOD_COLOR, TIMELINE_MAP_SIZE } from "../sim/data.js";
 import { SCIENCE, DAY_MIN } from "../sim/config.js";
 import { afford } from "../sim/money.js";
-import { trackStep, trackWhy, stepMinutes, onTrack, crewOf, sitesShown, scoutProblem, expeditionProblem, scoutCost, expeditionCost,
+import { hasStars, trackStep, trackWhy, stepMinutes, onTrack, crewOf, sitesShown, scoutProblem, expeditionProblem, scoutCost, expeditionCost,
          tripOdds, nextDronePrice, genomeOf, cloneProblem, cloneMinutes, incubators, nowMin, siteById, sitesIn, siteComplete, siteTripDays,
          EPOCHS, epochOf, yearsAt, uAt } from "../sim/science.js";
 
@@ -63,7 +63,7 @@ function researchHtml(ui, state) {
     if (isDone) right = chip("Researched", "good");
     else if (now) right = btn(n ? "Add researcher" : "Research", `data-assign="${id}" data-d="1"`, idle ? "" : "No idle researchers.");
     else right = `<span class="muted">${span(state.sandbox ? 0 : stepMinutes(i) / DAY_MIN)}</span>`;
-    const need = [esc(stepText(st)), later ? `Needs ${esc(t.steps[i - 1].name)} first.` : "", !isDone && st.stars ? `Needs ${st.stars}★.` : ""].filter(Boolean).join(" ");
+    const need = [esc(stepText(st)), later ? `Needs ${esc(t.steps[i - 1].name)} first.` : "", !isDone && !hasStars(state, st.stars) ? `Needs ${st.stars}★.` : ""].filter(Boolean).join(" ");
     const prog = now ? `<span class="need">${meter(0, `track:${id}`)} <span data-left="track:${id}"></span>${why && why !== "No researchers." ? " " + chip(why, "bad") : ""}</span>` : "";
     return `<li class="${later ? "locked" : ""}"><span class="nm">${esc(st.name)}${now ? ` <span class="per">${i + 1} of ${t.steps.length}</span>` : ""}</span>${right}<span class="need">${need}</span>${prog}</li>`;
   }).join("");
@@ -87,7 +87,7 @@ const markColor = (state, s) => state.science.seen[s.id] ? GT_LIT : GT_MARK;
 // Where the slider opens: on the newest scouted site, else the newest one the park's rating can dig at, else the first.
 function ttStart(state) {
   const shown = sitesShown(), sc = state.science;
-  const s = shown.filter(x => sc.seen[x.id]).pop() || shown.filter(x => x.fauna.some(sp => SPECIES[sp] && SPECIES[sp].stars <= state.rating)).pop() || shown[0];
+  const s = shown.filter(x => sc.seen[x.id]).pop() || shown.filter(x => x.fauna.some(sp => SPECIES[sp] && hasStars(state, SPECIES[sp].stars))).pop() || shown[0];
   return s ? uAt(Math.sqrt(s.from * s.to)) : 0.5;
 }
 function ttHeadHtml(now) {
@@ -113,7 +113,7 @@ function ttChipsHtml(ui, state, now) {
 }
 // One expedition target on a site card: pick it, its genome so far, and its chance of a find.
 function targetRow(ui, state, s, sp) {
-  const g = genomeOf(state, sp), lock = state.rating + 1e-9 < SPECIES[sp].stars, done = g >= 100;
+  const g = genomeOf(state, sp), lock = !hasStars(state, SPECIES[sp].stars), done = g >= 100;
   return `<tr class="${lock || done ? "locked" : ""}"><td><label><input type="radio" name="ttpick" data-pick="${sp}"${ui.ttPick === sp ? " checked" : ""}${lock || done ? " disabled" : ""}> ${esc(SPECIES[sp].name)}${lock ? ` <span class="gt-tag">Needs ${SPECIES[sp].stars}★</span>` : ""}</label></td>`
     + `<td>${Math.floor(g)}%</td><td>${done ? "–" : Math.round(tripOdds(state, s, sp) * 100) + "%"}</td></tr>`;
 }

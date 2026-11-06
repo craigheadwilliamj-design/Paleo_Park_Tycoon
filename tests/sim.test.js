@@ -483,15 +483,17 @@ test("sandbox mode: unlimited money, the bank untouched", () => {
 
 test("sandbox mode: trips, clones and research are instant, even paused", () => {
   const w = newPark(5), sc = w.state.science;
-  w.setSandbox(true);
+  w.setSandbox(true); w.state.rating = 0;
   w.place("research", 5, 5); w.hireCrew("researcher");
   assert.equal(w.assign("exhibits", 1), "");
   assert.ok(sc.done.includes("stone"), "the step finishes as the researcher starts");
+  for (const st of TRACKS.exhibits.steps) sc.done.includes(st.id) || w.advance(1);
+  assert.ok(TRACKS.exhibits.steps.every(st => sc.done.includes(st.id)), "starred steps finish at 0 stars");
   w.place("timetravel", 12, 5); w.place("genetics", 19, 5); w.hireCrew("geneticist");
   assert.equal(w.scout("texasred"), "");
   assert.equal(sc.trips.length, 0, "the drone is back already");
   assert.ok(sc.seen.texasred);
-  sc.found.dime = true; w.state.rating = 1.5;
+  sc.found.dime = true; w.state.rating = 0;   // star requirements are off too
   for (let k = 0; k < 200 && (sc.genome.dime || 0) < 100; k++) assert.equal(w.expedition("texasred", "dime"), "");
   assert.equal(sc.genome.dime, 100);
   assert.equal(w.clone("dime"), "");

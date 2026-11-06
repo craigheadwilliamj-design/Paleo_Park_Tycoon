@@ -41,6 +41,8 @@ export function uAt(years) {
 export const sitesIn = ep => sitesShown().filter(s => s.from > ep.to && s.to < ep.from && s.at && s.at[ep.map]);
 
 // ---- research ----
+// The park has the stars for something (always, in sandbox mode).
+export const hasStars = (state, n) => !!state.sandbox || state.rating + 1e-9 >= (n || 0);
 export const hasTech = (state, id) => !id || state.science.done.includes(id);
 // The sum of an effect over every finished step.
 export function effect(state, key) {
@@ -63,7 +65,7 @@ export function trackWhy(state, id) {
   const at = trackStep(state, id);
   if (!at) return "";
   if (!labBuilt(state, "research")) return "No Research Lab.";
-  if (at.step.stars && state.rating < at.step.stars) return `Needs ${at.step.stars} stars.`;
+  if (!hasStars(state, at.step.stars)) return `Needs ${at.step.stars} stars.`;
   if (!onTrack(state, id)) return "No researchers.";
   return "";
 }
@@ -108,7 +110,7 @@ export function expeditionProblem(state, site, sp) {
   const why = tripProblem(state); if (why) return why;
   if (!state.science.seen[site.id] || !state.science.found[sp]) return "Not discovered here.";
   if (genomeOf(state, sp) >= 100) return "Genome complete.";
-  if (state.rating < SPECIES[sp].stars) return `Needs ${SPECIES[sp].stars} stars.`;
+  if (!hasStars(state, SPECIES[sp].stars)) return `Needs ${SPECIES[sp].stars} stars.`;
   if (state.science.trips.some(t => t.kind === "dig" && t.sp === sp)) return "A drone is already on it.";
   if (!afford(state, expeditionCost(site, sp))) return "Not enough money.";
   return "";
