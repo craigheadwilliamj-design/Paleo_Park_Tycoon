@@ -46,7 +46,7 @@ export const SPECIES = {
           space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
   dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
-          sprite: { name: "dimetrodon", frame: 48, frames: 8, anchor: [24, 32], box: [5, 17, 43, 41], cycle: 0.423 } },
+          sprite: { name: "dimetrodon", frame: 48, frames: 8, anchor: [24, 32], box: [5, 17, 43, 41], cycle: 0.543 } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,

@@ -28,7 +28,7 @@
   },
   "walk": {
     "frames": 8, "cycle_s": 1.2,
-    "stride": 7, "lift": 2.0, "stance": 0.6,
+    "stride": 9, "lift": 2.0, "stance": 0.6,
     "sway_trunk": 0.6, "sway_tail": 3.5, "sway_head": 0.3, "bob": 0.4,
     "note": "drawing px. Sprawling walk: spine wave (hips and shoulders opposite, more toward the tail), diagonal pairs, feet plant and slide back."
   }

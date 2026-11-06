@@ -398,7 +398,7 @@ test("a bored animal plays with an enrichment log; without one boredom only grow
   assert.ok(a.need.enrich > 90, "nothing to play with");
   assert.equal(w.place("log", ex - 8, 30), "");
   assert.equal(w.derived.ex.get(e.id).props.length, 1, "the pen counts the log");
-  w.advance(60);
+  w.advance(120);   // time to walk over (animals amble) and play
   assert.ok(a.need.enrich < 60, "played with the log");
   assert.equal(w.placeProblem("log", 5, 5), "Enrichment Logs go inside an exhibit.");
 });
