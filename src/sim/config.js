@@ -34,6 +34,7 @@ export const GUESTS = {
   ticket: 25,            // default ticket price
   stay: [120, 260],      // minutes a guest means to stay
   watchMin: [6, 14],     // minutes spent at a viewing spot
+  giftChance: 0.6,       // share of guests who mean to buy a souvenir
 };
 
 export const FOOD = {

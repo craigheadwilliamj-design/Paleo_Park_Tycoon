@@ -94,6 +94,26 @@ test("a park runs: keepers feed, guests come and pay, the day rolls over", () =>
   assert.notEqual(s.money, money0);
 });
 
+test("guests use restrooms and buy souvenirs", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  for (let k = 0; k < 4; k++) assert.equal(w.buyAnimal("lyst", e.id), "");
+  assert.equal(w.place("restroom", ex + 1, 46), "");
+  assert.equal(w.place("gift", ex - 2, 46), "");
+  w.advance(200);
+  const s = w.state, shops0 = s.books.today.shops;
+  const gst = s.guests.find(x => x.plan === "watch" || x.plan === "leave" || x.plan === "use") || s.guests[0];
+  assert.ok(gst, "a guest is in the park");
+  gst.bladder = 100; gst.gift = true; gst.fun = 50; gst.hunger = 0;
+  const seen = new Set();
+  for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
+  assert.ok(seen.has("bladder"), "the guest went to a restroom");
+  assert.ok(seen.has("gift"), "the guest went to a gift stand");
+  assert.ok(!gst.gift && gst.bladder < 100, "and was served");
+  assert.notEqual(s.books.today.shops, shops0);
+  assert.equal(deserialize(serialize(s)).guests.length, s.guests.length);
+});
+
 test("a dangerous animal tests a weak fence and breaks out", () => {
   const { w, e } = buildPark("hedge");
   w.setBiome(e.id, "desert");
