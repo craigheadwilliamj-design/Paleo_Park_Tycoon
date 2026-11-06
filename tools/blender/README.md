@@ -25,3 +25,8 @@ python3 -m venv /opt/bvenv && /opt/bvenv/bin/pip install bpy==5.2.3 pillow numpy
 ```bash
 /opt/bvenv/bin/python tools/blender/walk.py tools/blender/animals/dimetrodon.json out/ --export art/animals
 ```
+- `idle.py`: standing and resting, from the same model and camera as the walk. `idle` loops a breath (the back and sail rise), a slow tail sway and a look to one side; `lie` goes from standing to lying (the game plays it backwards to get up); `rest` loops a slow breath while lying: each column of the trunk drops until its underside is on the floor (the chin a little higher), feet splay, the tail curls and the head turns aside. Numbers under `"idle"` and `"rest"` in the species file. With `--export art/animals` writes `<species>-idle|lie|rest-<facing>.png` and prints the `idle`/`lie`/`rest` entries for data.js and boxes to merge with the walk's. `--facings east,south` renders only those (for quick looks).
+
+```bash
+/opt/bvenv/bin/python tools/blender/idle.py tools/blender/animals/dimetrodon.json out/ --export art/animals
+```
