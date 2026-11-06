@@ -373,10 +373,18 @@ def build(sp, pose_at=None):
 
     root = bpy.data.objects.new(sp["name"], None)
     bpy.context.scene.collection.objects.link(root)
-    tmat = label_material("trunk", label_image(dilate(strip_silhouette_ink(trunk_lab), 6), "trunk_labels"), root)
+    # Separate maps for the trunk and the sail: with one map, the top of the trunk (seen from above
+    # in the 3/4 views) samples the sail's bottom row and gets stray orange pixels on the back.
+    flat = strip_silhouette_ink(trunk_lab)
+    body_lab, sail_lab = flat.copy(), flat.copy()
+    for x, (_, top, _) in cols.items():
+        body_lab[:top, x] = 0          # above the trunk: grown from the back's own colors instead
+        sail_lab[top:, x] = 0          # the trunk: grown from the sail's colors (the sail is sunk into it)
+    tmat = label_material("trunk", label_image(dilate(body_lab, 6), "trunk_labels"), root)
+    smat = label_material("sail", label_image(dilate(sail_lab, 6), "sail_labels"), root)
     lmat = label_material("legs", label_image(dilate(strip_silhouette_ink(legs_lab), 6), "leg_labels"), root)
     build_trunk(sp, cols, tmat, root, pose)
-    build_sail(sp, cols, tmat, root, pose)
+    build_sail(sp, cols, smat, root, pose)
     build_legs(sp, cols, lmat, root, pose)
     return root
 
