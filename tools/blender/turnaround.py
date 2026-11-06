@@ -160,4 +160,5 @@ def main():
     print("wrote", path)
 
 
-main()
+if __name__ == "__main__":
+    main()

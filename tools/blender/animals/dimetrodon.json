@@ -25,5 +25,11 @@
     "note": "Sprawling: the upper limb runs out sideways from the body, the lower limb drops near vertical, the foot points forward and a little out.",
     "front": { "upper": "Front Upper Limb", "lower": "Front Forelimb", "foot": "Front Foot", "r": [2.9, 2.4], "foot_len": 5 },
     "back":  { "upper": "Back Thigh", "lower": "Back Leg", "foot": "Back Foot", "r": [3.3, 2.6], "foot_len": 5 }
+  },
+  "walk": {
+    "frames": 8, "cycle_s": 1.2,
+    "stride": 7, "lift": 2.0, "stance": 0.6,
+    "sway_trunk": 0.6, "sway_tail": 3.5, "sway_head": 0.3, "bob": 0.4,
+    "note": "drawing px. Sprawling walk: spine wave (hips and shoulders opposite, more toward the tail), diagonal pairs, feet plant and slide back."
   }
 }

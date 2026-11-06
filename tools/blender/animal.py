@@ -146,8 +146,7 @@ def label_image(lab, name):
 # ---------- the label material ----------
 
 def label_material(name, img, root):
-    """Emission = (label, light band, depth). Labels are projected from the side in root space."""
-    W, H = img.size
+    """Emission = (label, light band, depth). Labels come from the drawing through the UVs."""
     m = bpy.data.materials.new(name)
     m.use_nodes = True
     nt = m.node_tree
@@ -155,15 +154,10 @@ def label_material(name, img, root):
     N = nt.nodes.new
     L = nt.links.new
 
-    tc = N("ShaderNodeTexCoord"); tc.object = root
-    sep = N("ShaderNodeSeparateXYZ"); L(tc.outputs["Object"], sep.inputs[0])
-    u = N("ShaderNodeMath"); u.operation = "MULTIPLY_ADD"
-    L(sep.outputs["X"], u.inputs[0]); u.inputs[1].default_value = 1 / W; u.inputs[2].default_value = CX / W
-    v = N("ShaderNodeMath"); v.operation = "MULTIPLY"
-    L(sep.outputs["Z"], v.inputs[0]); v.inputs[1].default_value = 1 / H
-    uv = N("ShaderNodeCombineXYZ"); L(u.outputs[0], uv.inputs[0]); L(v.outputs[0], uv.inputs[1])
+    # UVs hold the rest-pose side projection (see _mesh), so the drawing stays put as the model moves
+    tc = N("ShaderNodeTexCoord")
     tex = N("ShaderNodeTexImage"); tex.image = img; tex.interpolation = "Closest"; tex.extension = "EXTEND"
-    L(uv.outputs[0], tex.inputs["Vector"])
+    L(tc.outputs["UV"], tex.inputs["Vector"])
     sepc = N("ShaderNodeSeparateColor"); L(tex.outputs["Color"], sepc.inputs[0])
 
     geo = N("ShaderNodeNewGeometry")
@@ -191,10 +185,20 @@ def label_material(name, img, root):
 
 # ---------- geometry ----------
 
-def _mesh(name, verts, faces, mat, root):
+CELL = (110, 75)            # the drawing's size; set from the rig in build()
+
+
+def _mesh(name, verts, faces, mat, root, posed=None):
+    """A mesh whose UVs project the drawing from the side at its rest shape (verts), shown in the
+    posed shape (posed, same topology) if given."""
     me = bpy.data.meshes.new(name)
-    me.from_pydata(verts, [], faces)
+    me.from_pydata(posed or verts, [], faces)
     me.update()
+    uv = me.uv_layers.new(name="drawing")
+    W, H = CELL
+    for loop in me.loops:
+        x, _, z = verts[loop.vertex_index]
+        uv.data[loop.index].uv = ((x + CX) / W, z / H)
     me.materials.append(mat)
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
@@ -239,7 +243,7 @@ def trace(sp, lab):
     return cols
 
 
-def build_trunk(sp, cols, mat, root, seg=16, n_exp=2.5):
+def build_trunk(sp, cols, mat, root, pose=None, seg=16, n_exp=2.5):
     xs = sorted(cols)
     rings = []
     for x in xs:
@@ -268,10 +272,10 @@ def build_trunk(sp, cols, mat, root, seg=16, n_exp=2.5):
         for k in range(seg):
             a, b = i * seg + k, i * seg + (k + 1) % seg
             faces.append((a, tip, b) if sign < 0 else (b, tip, a))
-    return _mesh("trunk", verts, faces, mat, root)
+    return _mesh("trunk", verts, faces, mat, root, [pose.body(v) for v in verts] if pose else None)
 
 
-def build_sail(sp, cols, mat, root):
+def build_sail(sp, cols, mat, root, pose=None):
     th = sp["sail_thickness"] / 2
     xs = [x for x in sorted(cols) if cols[x][2] is not None]
     if not xs:
@@ -288,11 +292,17 @@ def build_sail(sp, cols, mat, root):
         a, b = 4 * i, 4 * (i + 1)
         faces += [(a, b, b + 1, a + 1), (a + 1, b + 1, b + 2, a + 2), (a + 2, b + 2, b + 3, a + 3)]
     faces += [(0, 1, 2, 3), (4 * len(pts) - 1, 4 * len(pts) - 2, 4 * len(pts) - 3, 4 * len(pts) - 4)]
-    return _mesh("sail", verts, faces, mat, root)
+    return _mesh("sail", verts, faces, mat, root, [pose.body(v) for v in verts] if pose else None)
 
 
-def _tube(name, pts, radii, mat, root, seg=8):
-    """A tube through points with a radius at each, closed at both ends."""
+def _tube(name, pts, radii, mat, root, posed=None, seg=8):
+    """A tube through points with a radius at each, closed at both ends. posed: the same points
+    moved; the UVs stay with the rest tube."""
+    verts, faces = _tube_geo(pts, radii, seg)
+    return _mesh(name, verts, faces, mat, root, _tube_geo(posed, radii, seg)[0] if posed else None)
+
+
+def _tube_geo(pts, radii, seg):
     verts, faces = [], []
     for i, (p, r) in enumerate(zip(pts, radii)):
         d = np.array(pts[min(i + 1, len(pts) - 1)]) - np.array(pts[max(i - 1, 0)])
@@ -313,10 +323,10 @@ def _tube(name, pts, radii, mat, root, seg=8):
         for k in range(seg):
             a_, b_ = i * seg + k, i * seg + (k + 1) % seg
             faces.append((a_, c, b_) if i == 0 else (b_, c, a_))
-    return _mesh(name, verts, faces, mat, root)
+    return verts, faces
 
 
-def build_legs(sp, cols, mat, root):
+def build_legs(sp, cols, mat, root, pose=None):
     nodes = {n["name"]: n for n in sp["_rig"]["nodes"]}
     sprawl = sp["legs"]["sprawl"]
     obs = []
@@ -336,31 +346,38 @@ def build_legs(sp, cols, mat, root):
             S = (sx, side * half * 0.55, sz)
             E = (ex, side * (half * 0.55 + sprawl * max(upper_len, 3)), ez)
             Wr = (wx, E[1] + side * 0.5, wz)
-            obs.append(_tube(f"{key}_limb{side}", [S, E, Wr], [r0, r1 * 1.1, r1], mat, root))
             # the foot: a flat pad from the wrist forward and a little out
             fl = L["foot_len"]
             F0 = (wx - 0.5, Wr[1], 1.0)
             F1 = (wx + fl - 1.0, Wr[1] + side * 1.0, 1.0)
-            obs.append(_tube(f"{key}_foot{side}", [Wr, F0, F1], [r1, r1, 1.1], mat, root))
+            limb = foot = None
+            if pose:
+                S2, E2, W2, F02, F12 = pose.leg(key, side, S, E, Wr, F0, F1)
+                limb, foot = [S2, E2, W2], [W2, F02, F12]
+            obs.append(_tube(f"{key}_limb{side}", [S, E, Wr], [r0, r1 * 1.1, r1], mat, root, limb))
+            obs.append(_tube(f"{key}_foot{side}", [Wr, F0, F1], [r1, r1, 1.1], mat, root, foot))
     return obs
 
 
-def build(sp):
-    """Make the model under a root empty (model units = drawing pixels). Returns the root."""
+def build(sp, pose_at=None):
+    """Make the model under a root empty (model units = drawing pixels). Returns the root.
+    pose_at(sp, cols) -> a pose (body(v) and leg(...)), e.g. a frame of the walk; None for rest."""
+    global CELL
+    CELL = (sp["_rig"]["cell"]["w"], sp["_rig"]["cell"]["h"])
     trunk_img = rest_image(sp, is_trunk)
     legs_img = rest_image(sp, is_near_leg)
     trunk_lab = labels(sp, trunk_img)
     legs_lab = labels(sp, legs_img)
     cols = trace(sp, trunk_lab)
+    pose = pose_at(sp, cols) if pose_at else None
 
     root = bpy.data.objects.new(sp["name"], None)
     bpy.context.scene.collection.objects.link(root)
     tmat = label_material("trunk", label_image(dilate(strip_silhouette_ink(trunk_lab), 6), "trunk_labels"), root)
     lmat = label_material("legs", label_image(dilate(strip_silhouette_ink(legs_lab), 6), "leg_labels"), root)
-    # the projection texture is the cell size; tell the material
-    build_trunk(sp, cols, tmat, root)
-    build_sail(sp, cols, tmat, root)
-    build_legs(sp, cols, lmat, root)
+    build_trunk(sp, cols, tmat, root, pose)
+    build_sail(sp, cols, tmat, root, pose)
+    build_legs(sp, cols, lmat, root, pose)
     return root
 
 
