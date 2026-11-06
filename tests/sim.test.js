@@ -388,3 +388,51 @@ test("drones and incubators keep their numbers, and every trip leaves a report",
   // The slider maps back to the years it came from.
   for (const y of [500e6, 290e6, 66.5e6, 30000, 100]) assert.ok(Math.abs(yearsAt(uAt(y)).years / y - 1) < 1e-6, y + " years ago");
 });
+
+test("a bored animal plays with an enrichment log; without one boredom only grows", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  const a = w.spawn("lyst", e.id);
+  Object.assign(a.need, { hunger: 0, thirst: 0, rest: 0, enrich: 90 });
+  w.advance(60);
+  assert.ok(a.need.enrich > 90, "nothing to play with");
+  assert.equal(w.place("log", ex - 8, 30), "");
+  assert.equal(w.derived.ex.get(e.id).props.length, 1, "the pen counts the log");
+  w.advance(60);
+  assert.ok(a.need.enrich < 60, "played with the log");
+  assert.equal(w.placeProblem("log", 5, 5), "Enrichment Logs go inside an exhibit.");
+});
+
+test("a neglected animal gets stressed, weak, and dies; a cared-for one stays healthy", () => {
+  const { w, e } = buildPark();
+  w.setBiome(e.id, "desert");
+  const a = w.spawn("lyst", e.id);
+  w.advance(DAY_MIN * 2);
+  assert.ok(a.stress > 30, "hunger piles up into stress");
+  assert.ok(a.health < 100, "starving costs health");
+  for (let d = 0; d < 6 && w.state.animals.length; d++) w.advance(DAY_MIN);
+  assert.ok(w.state.bell.some(n => /Lystrosaurus is weak/.test(n.text)), "the bell warns first");
+  assert.ok(w.state.bell.some(n => /Lystrosaurus has died/.test(n.text)));
+  assert.equal(w.state.animals.length, 0);
+
+  const park = buildPark();
+  park.w.setBiome(park.e.id, "desert");
+  for (let k = 0; k < 4; k++) park.w.buyAnimal("lyst", park.e.id);
+  park.w.hire("keeper");
+  park.w.advance(DAY_MIN * 3);
+  for (const b of park.w.state.animals) assert.ok(b.health > 80, "fed animals stay healthy");
+});
+
+test("version 1 saves get enrichment, stress and health", () => {
+  const { w, e } = buildPark();
+  w.spawn("lyst", e.id);
+  w.state.version = 1;
+  for (const a of w.state.animals) { delete a.need.enrich; delete a.stress; delete a.health; }
+  const w2 = new World(deserialize(serialize(w.state)));
+  const a = w2.state.animals[0];
+  assert.equal(w2.state.version, 2);
+  assert.equal(a.health, 100);
+  assert.equal(a.stress, 0);
+  assert.equal(typeof a.need.enrich, "number");
+  w2.advance(60);
+});

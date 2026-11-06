@@ -1,6 +1,6 @@
 // Tuning that applies everywhere. Content (species, fences, buildings) lives in data.js.
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const MAP_W = 96, MAP_H = 64;     // tiles
 export const DAY_MIN = 720;              // park minutes a day; the day rolls over at minute 0
@@ -24,6 +24,16 @@ export const WEAR = {
   perDay: 4,            // condition lost a day by an ordinary fence tile
   testedPerHour: 6,     // extra loss an hour while an animal tests the tile
   breakHours: 10,       // hours of testing before a tile under its animal's danger breaks
+};
+
+// Animals (animals.js). Needs run 0 (met) to 100 (desperate).
+export const ANIMAL = {
+  fullMin: { hunger: 420, thirst: 300, rest: 540, enrich: 600 },   // park minutes for a need to go from met to desperate
+  daylight: [120, 600],  // park minutes of the day that count as day; night is the rest
+  offHoursRest: 1.6,     // rest drains this much faster outside the species' active hours
+  bored: 60,             // enrichment need over this makes testing the fence likelier
+  stress: { needs: 1.5, habitat: 0.8, loose: 0.6, ease: 0.3 },   // weights toward the stress target, and the share of the way it moves an hour
+  health: { starve: 1.5, stressed: 0.5, stressFrom: 70, heal: 2, weak: 30 },   // points an hour lost at a need of 100 and under high stress, healed when all is well
 };
 
 // Walking speeds, tiles a park minute.

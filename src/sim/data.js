@@ -34,19 +34,20 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // biomes: preferred first; the rest are acceptable. water: share of the pen it wants as water, and which kind.
 // space: tiles per animal. group: [min, max]. food: units a day of foodType. appeal: guest draw.
 // moves: "land", "swim" or "both". sea: lives in sea water (needs a sea exhibit).
+// active: "day" or "night", when it is awake (rest drains faster the rest of the time). drain: per-need multipliers on ANIMAL.fullMin (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
 export const SPECIES = {
-  arth: { name: "Arthropleura", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
+  arth: { name: "Arthropleura", active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
           space: 6, group: [1, 6], foodType: "greens", food: 4, appeal: 4, price: 5000, moves: "land", color: "#5a3b2a" },
-  lyst: { name: "Lystrosaurus", period: "Permian", stars: 0, starter: true, len: 1.5, danger: 1, biomes: ["grassland", "desert"], water: 0.05,
+  lyst: { name: "Lystrosaurus", active: "day", period: "Permian", stars: 0, starter: true, len: 1.5, danger: 1, biomes: ["grassland", "desert"], water: 0.05,
           space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
-  dime: { name: "Dimetrodon", period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
+  dime: { name: "Dimetrodon", active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a" },
-  anom: { name: "Anomalocaris", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
+  anom: { name: "Anomalocaris", active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
-  tikt: { name: "Tiktaalik", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
+  tikt: { name: "Tiktaalik", active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
           space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
-  trex: { name: "Tyrannosaurus rex", period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
+  trex: { name: "Tyrannosaurus rex", active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
           space: 120, group: [1, 2], foodType: "meat", food: 60, appeal: 25, price: 80000, moves: "land", color: "#6a5a3a" },
 };
 export const FOOD_TYPES = ["greens", "meat", "fish", "bugs"];
@@ -54,11 +55,12 @@ export const DANGEROUS = 3;   // a pen holding an animal of this danger or more 
 
 // Buildings. w and h in tiles. Feeders stand inside exhibits; everything else on park ground.
 // fixed: can't be built or bulldozed. ask: bulldozing it asks first. menu: the build menu group (guest, staff, science, exhibits).
-// serves: the guest need it answers; stay: minutes a guest spends there (default 4). tip: its tooltip there. unique: one a park. lab: which lab it is (science.js). upkeep: paid every night.
+// enrich: an enrichment prop, played with by bored animals (inside an exhibit). serves: the guest need it answers; stay: minutes a guest spends there (default 4). tip: its tooltip there. unique: one a park. lab: which lab it is (science.js). upkeep: paid every night.
 export const BUILDINGS = {
   entrance: { name: "Entrance",   w: 3, h: 2, price: 0, fixed: true, color: "#c9a16a" },
   shed:     { name: "Food Shed",  w: 2, h: 2, price: 2500, ask: true, menu: "staff", tip: "Keepers fetch food here. Restocked every night.", color: "#8a6a4a" },
   feeder:   { name: "Feeder",     w: 1, h: 1, price: 300, inside: true, menu: "exhibits", tip: "Goes inside an exhibit. Keepers fill it.", color: "#c2a35a" },
+  log:      { name: "Enrichment Log", w: 1, h: 1, price: 200, inside: true, enrich: 1, menu: "exhibits", tip: "Goes inside an exhibit. Animals play with it when they're bored.", color: "#7a5a3a" },
   research: { name: "Research Lab", w: 4, h: 3, price: 9000, upkeep: 120, unique: true, lab: "research", ask: true, menu: "science", tip: "Researchers work down the research tracks here.", color: "#5a4a8c" },
   timetravel: { name: "Time Travel Lab", w: 4, h: 3, price: 15000, upkeep: 200, unique: true, lab: "timetravel", ask: true, menu: "science", tip: "Drones scout fossil sites and bring back genomes. Comes with one drone.", color: "#2f7a7e" },
   genetics: { name: "Genetics Lab", w: 4, h: 3, price: 12000, upkeep: 160, unique: true, lab: "genetics", ask: true, menu: "science", tip: "Geneticists clone animals with a complete genome.", color: "#8e3a46" },

@@ -2,9 +2,9 @@
 // a refused command shows its reason in the tool bar.
 import { TILE } from "./display.js";
 import { BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
-import { DAY_MIN, STAFF } from "../sim/config.js";
+import { DAY_MIN, STAFF, ANIMAL } from "../sim/config.js";
 import { habitatScore } from "../sim/habitat.js";
-import { animalsIn } from "../sim/animals.js";
+import { animalsIn, needsOf } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
 import { labHtml, labAction, labLive, labBind } from "./labs.js";
@@ -263,6 +263,10 @@ export class UI {
     const danger = Math.max(0, ...here.map(a => SPECIES[a.sp].danger));
     if (danger > t.security) chips.push(["Fence too weak.", "bad"]);
     else if (here.length) chips.push(["Secure", "good"]);
+    for (const sp of new Set(here.map(a => a.sp))) {
+      const n = here.filter(a => a.sp === sp).length, [lo, hi] = SPECIES[sp].group;
+      if (n < lo) chips.push([`Too few ${SPECIES[sp].name}.`, "bad"]); else if (n > hi) chips.push([`Too many ${SPECIES[sp].name}.`, "bad"]);
+    }
     for (const j of s.jobs.filter(j => j.ex === e.id && j.why)) chips.push([j.why, "bad"]);
     const weak = t.weakest >= 0 ? condition(s.grid.cond[t.weakest]) : "";
     const species = [...new Set(here.map(a => a.sp))];
@@ -284,10 +288,20 @@ export class UI {
       <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${s.money < sp.price ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
   animalPanel(a) {
-    const sp = SPECIES[a.sp];
+    const sp = SPECIES[a.sp], H = ANIMAL.health;
+    const chips = [];
+    if (a.escaped) chips.push(["Escaped", "bad"]);
+    if (a.health < H.weak) chips.push(["Weak.", "bad"]);
+    if (a.need.hunger >= 80) chips.push(["Hungry.", "bad"]);
+    if (a.need.thirst >= 80 && sp.moves !== "swim") chips.push(["Thirsty.", "bad"]);
+    if (a.need.enrich >= 80) chips.push(["Bored.", "bad"]);
+    if (a.stress >= H.stressFrom) chips.push(["Stressed.", "bad"]);
+    chips.push([a.act, ""]);
+    const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i style="width:${Math.round(full)}%"></i></span></div>`;
+    const names = { hunger: "Fed", thirst: "Water", rest: "Rested", enrich: "Enrichment" };
     return `<div class="row"><h3>${esc(sp.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
-      <div>${a.escaped ? `<span class="chip bad">Escaped</span>` : ""}<span class="chip">${esc(a.act)}</span></div>
-      ${["hunger", "thirst", "rest"].map(k => `<div class="row"><span>${k}</span><span class="meter"><i style="width:${Math.round(100 - a.need[k])}%"></i></span></div>`).join("")}
-      <div class="row"><span>Happiness</span><span class="meter"><i style="width:${a.happy}%"></i></span></div>`;
+      <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
+      ${meter("Health", a.health)}${meter("Happiness", a.happy)}${meter("Calm", 100 - a.stress)}
+      <h4>Needs</h4>${needsOf(sp).map(k => meter(names[k], 100 - a.need[k])).join("")}`;
   }
 }
