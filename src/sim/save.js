@@ -38,6 +38,7 @@ export function migrate(s) {
   s.testing = s.testing || {};
   s.bell = s.bell || [];
   s.openPens = s.openPens || [];
+  s.litter = s.litter || 0;
   for (const b of [s.books.today, s.books.last]) if (b) { b.sold = b.sold || 0; b.science = b.science || 0; }
   if (!s.science) {   // saves from before the labs keep the fences they already built
     s.science = newScience();
@@ -48,6 +49,8 @@ export function migrate(s) {
   for (const gst of s.guests || []) {   // guests from before restrooms and gift stands
     if (gst.bladder === undefined) gst.bladder = 0;
     if (gst.gift === undefined) gst.gift = false;
+    if (gst.tired === undefined) gst.tired = 0;
+    if (gst.litter === undefined) gst.litter = 0;
     if (gst.plan === "eat") { gst.plan = "use"; gst.use = "hunger"; }
   }
   s.version = SAVE_VERSION;

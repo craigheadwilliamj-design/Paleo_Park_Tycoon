@@ -54,7 +54,7 @@ export const DANGEROUS = 3;   // a pen holding an animal of this danger or more 
 
 // Buildings. w and h in tiles. Feeders stand inside exhibits; everything else on park ground.
 // fixed: can't be built or bulldozed. ask: bulldozing it asks first. menu: the build menu group (guest, staff, science, exhibits).
-// tip: its tooltip there. unique: one a park. lab: which lab it is (science.js). upkeep: paid every night.
+// serves: the guest need it answers; stay: minutes a guest spends there (default 4). tip: its tooltip there. unique: one a park. lab: which lab it is (science.js). upkeep: paid every night.
 export const BUILDINGS = {
   entrance: { name: "Entrance",   w: 3, h: 2, price: 0, fixed: true, color: "#c9a16a" },
   shed:     { name: "Food Shed",  w: 2, h: 2, price: 2500, ask: true, menu: "staff", tip: "Keepers fetch food here. Restocked every night.", color: "#8a6a4a" },
@@ -64,6 +64,8 @@ export const BUILDINGS = {
   genetics: { name: "Genetics Lab", w: 4, h: 3, price: 12000, upkeep: 160, unique: true, lab: "genetics", ask: true, menu: "science", tip: "Geneticists clone animals with a complete genome.", color: "#8e3a46" },
   snack:    { name: "Snack Stand", w: 2, h: 2, price: 1500, serves: "hunger", sale: 6, cost: 2, menu: "guest", tip: "Feeds hungry guests. Put it beside a path.", color: "#d27a4a" },
   restroom: { name: "Restroom",   w: 2, h: 2, price: 1200, serves: "bladder", sale: 0, cost: 1, upkeep: 15, menu: "guest", tip: "Guests relieve themselves here. Put it beside a path.", color: "#6f8fa8" },
+  bench:    { name: "Bench",      w: 1, h: 1, price: 150, serves: "tired", stay: 14, sale: 0, cost: 0, menu: "guest", tip: "Tired guests sit here. Put it beside a path.", color: "#9a7448" },
+  bin:      { name: "Trash Bin",  w: 1, h: 1, price: 80, serves: "litter", stay: 1, sale: 0, cost: 0, menu: "guest", tip: "Guests bin their rubbish. Without one it ends up on the path. Put it beside a path.", color: "#5f6b66" },
   gift:     { name: "Gift Stand", w: 2, h: 2, price: 2000, serves: "gift", sale: 14, cost: 4, menu: "guest", tip: "Guests who've seen something buy a souvenir. Put it beside a path.", color: "#b5538c" },
 };
 

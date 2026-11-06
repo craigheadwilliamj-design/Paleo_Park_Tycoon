@@ -35,7 +35,7 @@ function arrivals(state, derived, dt) {
     const spots = pathsBeside(state, ent);
     if (!spots.length) return;
     const gst = { id: state.nextId++, x: 0, y: 0, face: 1, path: [], plan: "arrive", t: 0, fun: 0, hunger: range(state, 0, 40),
-                  bladder: range(state, 0, 30), gift: rand(state) < GUESTS.giftChance, seen: [], until: state.clock + range(state, ...GUESTS.stay), at: 0 };
+                  bladder: range(state, 0, 30), tired: 0, litter: 0, gift: rand(state) < GUESTS.giftChance, seen: [], until: state.clock + range(state, ...GUESTS.stay), at: 0 };
     placeAt(state.grid, gst, spots[Math.floor(rand(state) * spots.length)]);
     state.guests.push(gst);
     state.money += state.ticket; state.books.today.tickets += state.ticket;
@@ -45,12 +45,13 @@ function arrivals(state, derived, dt) {
 function decide(state, derived, gst) {
   const g = state.grid, here = tileOf(g, gst);
   // A pressing need first, the worst one that has a stand it can reach. A souvenir is a want, not a need: only after seeing something.
-  const wants = [["hunger", gst.hunger], ["bladder", gst.bladder], ["gift", gst.gift && gst.fun > 0 ? 71 : 0]].filter(w => w[1] > 70).sort((a, b) => b[1] - a[1]);
+  const wants = [["hunger", gst.hunger], ["bladder", gst.bladder], ["tired", gst.tired], ["litter", gst.litter], ["gift", gst.gift && gst.fun > 0 ? 71 : 0]].filter(w => w[1] > 70).sort((a, b) => b[1] - a[1]);
   for (const [serves] of wants) {
     const stands = state.buildings.filter(b => BUILDINGS[b.type].serves === serves);
     const p = stands.length && route(g, here, stands.flatMap(b => pathsBeside(state, b)), "guest");
-    if (p) { gst.path = p; gst.plan = "use"; gst.use = serves; gst.t = 4; return; }
+    if (p) { gst.path = p; gst.plan = "use"; gst.use = serves; gst.t = Object.values(BUILDINGS).find(d => d.serves === serves).stay ?? 4; return; }
     if (serves === "gift") gst.gift = false;   // no stand to reach: stop wanting one
+    if (serves === "litter") { gst.litter = 0; state.litter = (state.litter || 0) + 1; }   // no bin to reach: it goes on the path
   }
   if (state.clock < gst.until) {
     const options = state.exhibits.filter(e => !gst.seen.includes(e.id) && derived.ex.get(e.id)?.viewing.length && exhibitDraw(state, e.id) > 0)
@@ -78,6 +79,7 @@ export function guestTick(state, derived, bus, dt) {
     }
     gst.hunger = Math.min(100, gst.hunger + dt * 100 / 300);
     gst.bladder = Math.min(100, (gst.bladder || 0) + dt * 100 / 360);
+    gst.tired = Math.min(100, (gst.tired || 0) + dt * 100 / GUESTS.tiredMin);
     if (!walk(g, gst, SPEED.guest, dt)) continue;
     if ((gst.t -= dt) > 0) continue;
     if (gst.plan === "watch") {
@@ -86,6 +88,7 @@ export function guestTick(state, derived, bus, dt) {
       const def = Object.values(BUILDINGS).find(d => d.serves === gst.use), net = def.sale - def.cost;
       if (gst.use === "gift") gst.gift = false; else gst[gst.use] = 0;
       state.money += net; state.books.today.shops += net;
+      if (gst.use === "hunger") gst.litter = 71;   // a wrapper to get rid of
     } else if (gst.plan === "leave") { gone.push(gst); continue; }
     decide(state, derived, gst);
   }
@@ -95,7 +98,7 @@ export function guestTick(state, derived, bus, dt) {
 // A guest going home rates the visit: fun had against what the ticket cost.
 function leave(state, gst) {
   const worth = gst.fun / Math.max(10, state.ticket * 0.8);
-  const stars = gst.panic ? 0.5 : Math.max(0.5, Math.min(5, 1 + worth * 2.5 - (gst.hunger > 80 ? 0.5 : 0) - (gst.bladder > 80 ? 0.5 : 0)));
+  const stars = gst.panic ? 0.5 : Math.max(0.5, Math.min(5, 1 + worth * 2.5 - (gst.hunger > 80 ? 0.5 : 0) - (gst.bladder > 80 ? 0.5 : 0) - (gst.tired > 80 ? 0.5 : 0) - Math.min(0.5, (state.litter || 0) / GUESTS.litterMax)));
   state.rating = state.rating * 0.97 + stars * 0.03;
   state.books.today.visitors++;
   state.guests = state.guests.filter(x => x !== gst);
