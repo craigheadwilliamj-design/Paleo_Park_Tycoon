@@ -34,7 +34,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // biomes: preferred first; the rest are acceptable. water: share of the pen it wants as water, and which kind.
 // space: tiles per animal. group: [min, max]. food: units a day of foodType. appeal: guest draw.
 // moves: "land", "swim" or "both". sea: lives in sea water (needs a sea exhibit).
-// active: "day" or "night", when it is awake (rest drains faster the rest of the time). drain: per-need multipliers on ANIMAL.fullMin (config.js).
+// active: "day" or "night", when it is awake (rest drains faster the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
 export const SPECIES = {
   arth: { name: "Arthropleura", active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,

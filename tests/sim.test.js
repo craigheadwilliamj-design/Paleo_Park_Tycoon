@@ -105,7 +105,7 @@ test("guests use restrooms and buy souvenirs", () => {
   const gst = s.guests.find(x => x.plan === "watch" || x.plan === "leave" || x.plan === "use") || s.guests[0];
   assert.ok(gst, "a guest is in the park");
   gst.bladder = 100; gst.gift = true; gst.fun = 50; gst.hunger = 0;
-  const seen = new Set();
+  const seen = new Set(gst.plan === "use" ? [gst.use] : []);   // it may already be on its way to a stand
   for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
   assert.ok(seen.has("bladder"), "the guest went to a restroom");
   assert.ok(seen.has("gift"), "the guest went to a gift stand");
@@ -125,7 +125,7 @@ test("guests sit on benches and bin their rubbish", () => {
   assert.ok(gst, "a guest is in the park");
   gst.tired = 100; gst.litter = 71; gst.fun = 50; gst.hunger = 0; gst.bladder = 0;
   gst.path = []; gst.plan = ""; gst.t = 0; gst.until = s.clock + 300;   // decide afresh
-  const seen = new Set();
+  const seen = new Set(gst.plan === "use" ? [gst.use] : []);   // it may already be on its way to a stand
   for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
   assert.ok(seen.has("tired") && seen.has("litter"), "the guest used the bench and the bin");
   assert.equal(s.litter, 0, "nothing hit the path");
@@ -408,9 +408,11 @@ test("a neglected animal gets stressed, weak, and dies; a cared-for one stays he
   w.setBiome(e.id, "desert");
   const a = w.spawn("lyst", e.id);
   w.advance(DAY_MIN * 2);
+  assert.ok(a.health === 100 && w.state.animals.length === 1, "two days without food: hungry, not starving yet");
+  w.advance(DAY_MIN * 2);
   assert.ok(a.stress > 30, "hunger piles up into stress");
   assert.ok(a.health < 100, "starving costs health");
-  for (let d = 0; d < 6 && w.state.animals.length; d++) w.advance(DAY_MIN);
+  for (let d = 0; d < 10 && w.state.animals.length; d++) w.advance(DAY_MIN);
   assert.ok(w.state.bell.some(n => /Lystrosaurus is weak/.test(n.text)), "the bell warns first");
   assert.ok(w.state.bell.some(n => /Lystrosaurus has died/.test(n.text)));
   assert.equal(w.state.animals.length, 0);

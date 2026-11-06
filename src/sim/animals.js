@@ -1,7 +1,7 @@
 // Animals: needs that drain, and a utility picker that does whatever fixes the most urgent one.
 // Every species runs the same ACTIONS table; data (moves, danger, foodType, water, active, drain) decides what each one means.
 // Hourly, updateWellbeing turns needs and the habitat score into stress, health and happiness.
-import { SPEED, WEAR, W_NONE, ANIMAL } from "./config.js";
+import { SPEED, WEAR, W_NONE, ANIMAL, DAY_MIN } from "./config.js";
 import { SPECIES } from "./data.js";
 import { neighbours, walkable, idx } from "./grid.js";
 import { route } from "./paths.js";
@@ -82,7 +82,7 @@ const ACTIONS = {
       if (!c.ex) return;
       const meal = Math.min(c.ex.food[c.s.foodType] || 0, c.s.food / 2), eaten = c.state.books.today.eaten;
       c.ex.food[c.s.foodType] -= meal; eaten[c.s.foodType] = (eaten[c.s.foodType] || 0) + meal;
-      a.need.hunger = Math.max(0, a.need.hunger - (meal / (c.s.food / 2)) * 70);
+      a.need.hunger = Math.max(0, a.need.hunger - (meal / c.s.food) * (100 / ANIMAL.fullDays.hunger));   // a day's food takes off a day's hunger
     },
   },
   drink: {
@@ -134,7 +134,7 @@ export function animalTick(state, derived, bus, dt) {
     if (a.crated) continue;
     const s = SPECIES[a.sp], off = offHours(state, s);
     for (const k of needsOf(s)) {
-      const rate = (100 / ANIMAL.fullMin[k]) * ((s.drain && s.drain[k]) || 1) * (k === "rest" && off ? ANIMAL.offHoursRest : 1);
+      const rate = (100 / (ANIMAL.fullDays[k] * DAY_MIN)) * ((s.drain && s.drain[k]) || 1) * (k === "rest" && off ? ANIMAL.offHoursRest : 1);
       a.need[k] = Math.min(100, a.need[k] + rate * dt);
     }
     if (!walk(g, a, SPEED.animal, dt)) continue;
@@ -170,7 +170,9 @@ export function updateWellbeing(state, derived, bus) {
     const needPart = keys.reduce((n, k) => n + Math.max(0, (a.need[k] - 70) / 30), 0) / keys.length;
     const target = 100 * Math.min(1, S.needs * needPart + S.habitat * (1 - hab) + (a.escaped ? S.loose : 0));
     a.stress += (target - a.stress) * S.ease;
-    const starving = ["hunger", "thirst"].filter(k => keys.includes(k) && a.need[k] >= 100).length;
+    // Hunger and thirst past starveFrom cost health, faster the closer they get to 100.
+    const starving = ["hunger", "thirst"].filter(k => keys.includes(k))
+      .reduce((n, k) => n + Math.max(0, (a.need[k] - H.starveFrom) / (100 - H.starveFrom)), 0);
     if (starving || a.stress >= H.stressFrom) a.health -= starving * H.starve + (a.stress >= H.stressFrom ? H.stressed : 0);
     else if (a.stress < H.stressFrom / 2) a.health += H.heal;
     a.health = Math.max(0, Math.min(100, a.health));
