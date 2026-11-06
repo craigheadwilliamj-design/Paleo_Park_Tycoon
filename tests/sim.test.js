@@ -313,3 +313,19 @@ test("every site shows on a map in its own period, and every map exists", async 
   for (const p of PERIODS) for (const e of epochsOf(p.id)) assert.ok(existsSync(new URL(`../art/timeline/${e.map}.png`, import.meta.url)), e.map);
   assert.equal(new Set(Object.values(TIMELINE_MAPS)).size, 16);
 });
+
+test("drones and incubators keep their numbers, and every trip leaves a report", async () => {
+  const { yearsAt, uAt } = await import("../src/sim/science.js");
+  const w = newPark(5), sc = w.state.science;
+  w.state.money = 1e7; w.state.rating = 5;
+  w.place("timetravel", 5, 5); w.buyDrone(); w.buyDrone();
+  assert.equal(w.scout("texasred"), ""); assert.equal(w.scout("karoolate"), ""); assert.equal(w.scout("hellcreek"), "");
+  assert.deepEqual(sc.trips.map(t => t.slot), [0, 1, 2]);
+  sc.trips[1].end = 0;   // drone 2 lands first
+  w.advance(1);
+  assert.equal(sc.reports.length, 1); assert.equal(sc.reports[0].slot, 1);
+  assert.equal(w.scout("burgess"), ""); assert.equal(sc.trips.find(t => t.site === "burgess").slot, 1, "the free drone flies it");
+  assert.equal(w.dismissReport(sc.reports[0].id), ""); assert.equal(sc.reports.length, 0);
+  // The slider maps back to the years it came from.
+  for (const y of [500e6, 290e6, 66.5e6, 30000, 100]) assert.ok(Math.abs(yearsAt(uAt(y)).years / y - 1) < 1e-6, y + " years ago");
+});

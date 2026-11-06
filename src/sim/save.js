@@ -44,6 +44,7 @@ export function migrate(s) {
     for (const k of new Set(s.grid.fence)) { const f = k && FENCES[FENCE_IDS[k - 1]]; if (f && f.tech) s.science.done.push(f.tech); }
   }
   s.science = { ...newScience(), ...s.science };
+  for (const list of [s.science.trips, s.science.clones]) list.forEach((x, i) => { if (x.slot === undefined) x.slot = i; });   // drone and incubator numbers
   s.version = SAVE_VERSION;
   return s;
 }

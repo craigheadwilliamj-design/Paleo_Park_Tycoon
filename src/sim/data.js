@@ -97,6 +97,12 @@ export const PERIODS = [
     epochs: [["Pleistocene", 2.58e6], ["Holocene", 11700]] },
 ];
 
+// Each period's color on the timeline and tabs (the ICS chart colors, as in v1).
+export const PERIOD_COLOR = {
+  Cambrian: "#7FA056", Ordovician: "#009270", Silurian: "#B3E1B6", Devonian: "#C28A4D", Carboniferous: "#67A599", Permian: "#F04028",
+  Triassic: "#812B92", Jurassic: "#34B2C9", Cretaceous: "#7FC64E", Paleogene: "#FD9A52", Neogene: "#F2D32A", Quaternary: "#E8E27A",
+};
+
 export const TIMELINE_FLOOR = 10;
 // The map an epoch shows (by its name, else its period's): art/timeline/<name>.png, 260 x 130 Mollweide, from v1's
 // tools/timeline/genmaps.py, drafted from the PALEOMAP PaleoDEMs (Scotese & Wright 2018, CC BY 4.0; credited in the panel).
