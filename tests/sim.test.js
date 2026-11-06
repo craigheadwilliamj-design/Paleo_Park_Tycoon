@@ -114,6 +114,32 @@ test("guests use restrooms and buy souvenirs", () => {
   assert.equal(deserialize(serialize(s)).guests.length, s.guests.length);
 });
 
+test("guests sit on benches and bin their rubbish", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  for (let k = 0; k < 4; k++) assert.equal(w.buyAnimal("lyst", e.id), "");
+  assert.equal(w.place("bench", ex + 1, 46), "");
+  assert.equal(w.place("bin", ex - 1, 46), "");
+  w.advance(200);
+  const s = w.state, gst = s.guests.find(x => x.plan === "watch" || x.plan === "leave" || x.plan === "use") || s.guests[0];
+  assert.ok(gst, "a guest is in the park");
+  gst.tired = 100; gst.litter = 71; gst.fun = 50; gst.hunger = 0; gst.bladder = 0;
+  gst.path = []; gst.plan = ""; gst.t = 0; gst.until = s.clock + 300;   // decide afresh
+  const seen = new Set();
+  for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
+  assert.ok(seen.has("tired") && seen.has("litter"), "the guest used the bench and the bin");
+  assert.equal(s.litter, 0, "nothing hit the path");
+  // With no bin the rubbish ends up on the path.
+  assert.equal(w.bulldoze([[ex - 1, 46]]), "");
+  w.advance(30);
+  const g2 = s.guests.find(x => x !== gst);
+  assert.ok(g2, "another guest is in the park");
+  g2.litter = 71; g2.path = []; g2.plan = ""; g2.t = 0; g2.until = s.clock + 300;
+  w.advance(2);
+  assert.ok(s.litter > 0 && g2.litter === 0, "with no bin it ends up on the path");
+  assert.equal(deserialize(serialize(s)).litter, s.litter);
+});
+
 test("a dangerous animal tests a weak fence and breaks out", () => {
   const { w, e } = buildPark("hedge");
   w.setBiome(e.id, "desert");

@@ -35,6 +35,8 @@ export const GUESTS = {
   stay: [120, 260],      // minutes a guest means to stay
   watchMin: [6, 14],     // minutes spent at a viewing spot
   giftChance: 0.6,       // share of guests who mean to buy a souvenir
+  tiredMin: 420,         // park minutes for a guest to go from fresh to worn out
+  litterMax: 40,         // litter on the paths in a day that costs every leaving guest half a star
 };
 
 export const FOOD = {

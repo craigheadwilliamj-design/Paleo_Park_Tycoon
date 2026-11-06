@@ -19,7 +19,7 @@ export function newState(seed = 12345) {
   return {
     version: SAVE_VERSION, seed, nextId: 1, day: 1, clock: 4 * 60, money: START_MONEY, rating: 2.5, ticket: GUESTS.ticket,
     grid: newGrid(MAP_W, MAP_H), exhibits: [], openPens: [], buildings: [], animals: [], staff: [], guests: [], jobs: [],
-    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null }, science: newScience(),
+    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null }, science: newScience(), litter: 0,
   };
 }
 
@@ -360,6 +360,7 @@ export class World {
       const f = FENCES[Object.keys(FENCES)[g.fence[i] - 1]];
       g.cond[i] = Math.max(0, g.cond[i] - WEAR.perDay * (f ? f.wear : 1) * (1 - effect(s, "wearCut")));
     }
+    s.litter = 0;   // swept up overnight until custodians exist
     s.books.last = b; s.books.today = emptyBooks(); s.day++;
     this.changed();
     this.bus.emit("dayEnded", { day: s.day });
