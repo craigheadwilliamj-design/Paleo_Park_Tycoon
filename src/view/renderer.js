@@ -111,15 +111,18 @@ const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
 // Animal sprites rendered by tools/blender: art/animals/<name>-walk-<facing>.png (a strip of `frames`
 // square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings: east and
-// west in profile; walking up or down the map, north or south turned 40 degrees toward the side it
-// last faced (straight on, the sail is edge-on).
+// west in profile; walking up or down the map, north or south turned toward the side it last faced,
+// if the sprite has those views (its box lists them), else it stays in profile.
 const spriteImgs = new Map();
 function spriteImg(path) {
   let im = spriteImgs.get(path);
   if (!im) { im = new Image(); im.src = path; spriteImgs.set(path, im); }
   return im.complete && im.naturalWidth ? im : null;
 }
-const facingOf = m => (m.fy < 0 ? "north" : m.fy > 0 ? "south" : "") + ((m.face || 1) > 0 ? "east" : "west");
+function facingOf(m, sp) {
+  const side = (m.face || 1) > 0 ? "east" : "west", v = (m.fy < 0 ? "north" : m.fy > 0 ? "south" : "") + side;
+  return sp.box[v] ? v : side;
+}
 // Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
 const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.6, -0.8], northwest: [-0.6, -0.8], southeast: [0.6, 0.8], southwest: [-0.6, 0.8] };
 // The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
@@ -136,7 +139,7 @@ function walkFrame(a, sp) {
 function drawAnimal(ctx, a, fx, fy, z, sel) {
   const s = SPECIES[a.sp], sp = s.sprite;
   if (sp) {
-    const moving = a.path && a.path.length > 0, facing = facingOf(a), f = walkFrame(a, sp);
+    const moving = a.path && a.path.length > 0, facing = facingOf(a, sp), f = walkFrame(a, sp);
     const im = spriteImg(`art/animals/${sp.name}-${moving ? "walk" : "stand"}-${facing}.png`);
     if (im) {
       const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box[facing];

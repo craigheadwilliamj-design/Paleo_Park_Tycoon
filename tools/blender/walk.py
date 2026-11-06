@@ -116,10 +116,12 @@ def gif(frames, path, ms, zoom=ZOOM, bg=None):
     imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=ms, loop=0)
 
 
-# Facings the game uses, as yaws (the model faces +x; the camera looks north). North and south
-# are turned 40 degrees off the axis toward the side the animal last faced: straight on, the
-# sail is edge-on and the animal reads as a stick.
-FACINGS = {"east": 0, "west": 180, "northeast": 50, "northwest": 130, "southeast": -50, "southwest": -130}
+# Facings, as yaws (the model faces +x; the camera looks north). North and south are turned 40
+# degrees toward the side the animal last faced. A species file's "facings" picks which it uses:
+# the Dimetrodon keeps to east and west (its north/south views didn't read: straight on the sail
+# is edge-on, and turned it still looked wrong), so it walks up and down the map in profile.
+ALL_FACINGS = {"east": 0, "west": 180, "northeast": 50, "northwest": 130, "southeast": -50, "southwest": -130}
+FACINGS = ALL_FACINGS
 G = 64                   # game frame size (px)
 G_CENTER = (0, 0.25)     # ground point at the frame's centre (m): puts the feet at G_ANCHOR
 G_ANCHOR = (32, 36)
@@ -131,6 +133,8 @@ def main():
     species, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
     sp = A.load(species)
+    global FACINGS
+    FACINGS = {k: ALL_FACINGS[k] for k in sp.get("facings", ALL_FACINGS)}
     low = sp["name"].lower()
     n = sp["walk"]["frames"]
     ms = round(1000 * sp["walk"]["cycle_s"] / n)
