@@ -1,38 +1,35 @@
-"""Turnaround sheet for one animal: the model beside the drawing it came from.
+"""Turnaround sheet for one animal.
 
     python tools/blender/turnaround.py tools/blender/animals/dimetrodon.json out/
 
-Rows (all shown at 4x):
-1. the drawing, the model from the side at the same scale, and where they differ
-2. front, top and both 3/4 facings at the drawing's scale (K = 0.75 for the 3/4s)
-3. both 3/4 facings at game size (the size curve) on the park ground, and the same at 1x
+Rows (shown at 4x): side, front and top at review size; both 3/4 facings at review size (K = 0.75);
+both facings at game size (the size curve) on the park ground at a few turn angles, then 1x.
 """
 import math
 import os
 import sys
 
-import bpy
-import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(__file__))
-import camera as C   # noqa: E402
-import animal as A   # noqa: E402
+import camera as C      # noqa: E402
+import creature as A    # noqa: E402
 
 K = 0.75
-TURN = 30                # degrees the animal is turned toward the camera in the 3/4 views
-TURNS = (20, 30, 45)     # compared at game size
+TURN = 20                # the 3/4 turn toward the camera at review size
+TURNS = (20, 30)         # compared at game size
+REVIEW_PX = 96           # review size: the animal's length in px
 ZOOM = 4
 PARK_GROUND = "#7d8c58"
 BG = (30, 30, 34, 255)
+GAP_M = 0.1              # a depth step this big (real metres) gets an inner outline
 
 
-def display_px(m):               # src/view/display.js
+def display_px(m):       # src/view/display.js
     return max(7, round(28 * (m / 1.75) ** 0.6))
 
 
-def render_view(sp, scale, yaw, cam, out, name, gap=3.0):
-    """Build the model, place it, set the camera with cam(sc), render labels and finish to palette."""
+def render_view(sp, scale, yaw, cam, out, name):
     sc = C.reset_scene()
     A.setup_label_render(sc)
     root = A.build(sp)
@@ -41,7 +38,9 @@ def render_view(sp, scale, yaw, cam, out, name, gap=3.0):
     cam(sc)
     path = os.path.join(out, f"_labels_{name}.png")
     C.render(sc, path)
-    return A.finish(sp, path, outline_gap=gap * scale)
+    img = A.finish(sp, path, outline_gap=GAP_M * scale)
+    os.remove(path)
+    return img
 
 
 def ground(w, h):
@@ -55,12 +54,6 @@ def ground(w, h):
     return img
 
 
-def on(bg, fg):
-    bg = bg.copy()
-    bg.alpha_composite(fg)
-    return bg
-
-
 def checker(w, h):
     img = Image.new("RGBA", (w, h), (236, 236, 236, 255))
     d = ImageDraw.Draw(img)
@@ -71,19 +64,15 @@ def checker(w, h):
     return img
 
 
-def diff(a, b):
-    """Silhouette difference: grey where both, red only in the drawing, blue only in the model."""
-    A_, B_ = np.array(a)[..., 3] > 127, np.array(b)[..., 3] > 127
-    out = np.zeros(A_.shape + (4,), np.uint8)
-    out[A_ & B_] = (150, 150, 150, 255)
-    out[A_ & ~B_] = (220, 50, 50, 255)
-    out[~A_ & B_] = (60, 110, 230, 255)
-    return Image.fromarray(out, "RGBA"), int((A_ & ~B_).sum()), int((~A_ & B_).sum()), int(A_.sum())
+def on(bg, fg):
+    bg = bg.copy()
+    bg.alpha_composite(fg)
+    return bg
 
 
-def row(images, captions):
+def row(images, captions, zoom=ZOOM):
     pad, cap = 10, 16
-    tiles = [im.resize((im.width * ZOOM, im.height * ZOOM), Image.NEAREST) for im in images]
+    tiles = [im.resize((im.width * zoom, im.height * zoom), Image.NEAREST) for im in images]
     w = sum(t.width for t in tiles) + pad * (len(tiles) + 1)
     h = max(t.height for t in tiles) + cap + pad
     r = Image.new("RGBA", (w, h), BG)
@@ -100,63 +89,41 @@ def main():
     species, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
     sp = A.load(species)
-    rig = sp["_rig"]
-    W, H = rig["cell"]["w"], rig["cell"]["h"]
-    s1 = 1 / C.TILE_PX                       # 1 model unit = 1 px: the drawing's own scale
+    low = sp["name"].lower()
+    sr = A.scale_for_px(sp, REVIEW_PX)
+    W = REVIEW_PX + 16
 
-    # 1. side by side with the drawing
-    drawing = A.rest_image(sp, lambda n: True)
-    side = render_view(sp, s1, 0, lambda sc: C.view_camera(
-        sc, (90, 0, 0), W, H, ((W / 2 - A.CX) * s1, 0, H / 2 * s1)), out, "side")
-    dimg, only_d, only_m, total = diff(drawing, side)
-    print(f"side silhouette: {only_d} px only in the drawing, {only_m} only in the model, of {total}")
-    r1 = row([on(checker(W, H), drawing), on(checker(W, H), side), dimg],
-             ["your drawing (v1 rig, rest pose)", "model, side view, same scale",
-              f"difference: red = drawing only ({only_d}), blue = model only ({only_m})"])
+    side = render_view(sp, sr, 0, lambda sc: C.view_camera(sc, (90, 0, 0), W, 64, (0, 0, 0.75 * sr)), out, "side")
+    front = render_view(sp, sr, -90, lambda sc: C.view_camera(sc, (90, 0, 0), 48, 64, (0, 0, 0.75 * sr)), out, "front")
+    top = render_view(sp, sr, 0, lambda sc: C.view_camera(sc, (0, 0, 0), W, 48, (0, 0, 0)), out, "top")
+    r1 = row([on(checker(W, 64), side), on(checker(48, 64), front), on(checker(W, 48), top)], ["side", "front", "top"])
 
-    # 2. front, top, 3/4 at the drawing's scale
-    front = render_view(sp, s1, -90, lambda sc: C.view_camera(sc, (90, 0, 0), 48, 56, (0, 0, 22 * s1)), out, "front")
-    top = render_view(sp, s1, 0, lambda sc: C.view_camera(sc, (0, 0, 0), 84, 40, (0, 0, 0)), out, "top")
-    q_se = render_view(sp, s1, -TURN, lambda sc: C.park_camera(sc, K, 84, 72, center=(0, 1.0)), out, "se")
-    q_sw = render_view(sp, s1, -180 + TURN, lambda sc: C.park_camera(sc, K, 84, 72, center=(0, 1.0)), out, "sw")
-    r2 = row([on(checker(48, 56), front), on(checker(84, 40), top), on(checker(84, 72), q_se), on(checker(84, 72), q_sw)],
-             ["front", "top", f"3/4 front-right (K 0.75, turned {TURN} deg)", "3/4 front-left"])
+    q = [render_view(sp, sr, yaw, lambda sc: C.park_camera(sc, K, W, 88, center=(0, 0.9 * sr)), out, f"q{i}")
+         for i, yaw in enumerate((-TURN, -180 + TURN))]
+    r2 = row([on(checker(W, 88), im) for im in q],
+             [f"3/4 front-right (K 0.75, turned {TURN} deg)", "3/4 front-left"])
 
-    # 3. game size, at a few turns
     gpx = display_px(sp["len_m"])
-    sg = A.scale_for(sp, gpx)
-    tiles, caps, ones = [], [], []
+    sg = A.scale_for_px(sp, gpx)
+    pairs = []
     for t in TURNS:
-        pair = Image.new("RGBA", (96, 48))
+        pair = Image.new("RGBA", (112, 48))
         for i, yaw in enumerate((-t, -180 + t)):
-            g = render_view(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 48, 48, center=(0, 0.5)),
-                            out, f"game{t}_{i}", gap=6.0)
-            pair.paste(on(ground(48, 48), g), (48 * i, 0))
-            g.save(os.path.join(out, f"{sp['name'].lower()}-game-turn{t}-{'se' if i == 0 else 'sw'}.png"))
-        tiles.append(pair)
-        caps.append(f"game size {gpx} px, turned {t} deg")
-        ones.append(pair)
-    r3 = row(tiles, caps)
-    actual = Image.new("RGBA", (r3.width, 64), BG)
-    x = 10
-    for o in ones:
-        actual.paste(o, (x, 8))
-        x += 96 + 24
-    ImageDraw.Draw(actual).text((x + 10, 26), "<- the same at 1x (game zoom 1)", fill=(225, 225, 225, 255))
+            g = render_view(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 56, 48, center=(0, 0.4)), out, f"g{t}{i}")
+            pair.paste(on(ground(56, 48), g), (56 * i, 0))
+            g.save(os.path.join(out, f"{low}-game-turn{t}-{'right' if i == 0 else 'left'}.png"))
+        pairs.append(pair)
+    r3 = row(pairs, [f"game size ({gpx} px long), turned {t} deg" for t in TURNS])
+    r4 = row(pairs, ["the same at 1x"] + [""] * (len(pairs) - 1), zoom=1)
 
-    rows = [r1, r2, r3, actual]
+    rows = [r1, r2, r3, r4]
     sheet = Image.new("RGBA", (max(r.width for r in rows), sum(r.height for r in rows)), BG)
     y = 0
     for r in rows:
         sheet.paste(r, (0, y))
         y += r.height
-    path = os.path.join(out, f"{sp['name'].lower()}-turnaround.png")
+    path = os.path.join(out, f"{low}-turnaround.png")
     sheet.save(path)
-    for f in os.listdir(out):
-        if f.startswith("_labels_"):
-            os.remove(os.path.join(out, f))
-    for name, im in (("side", side), ("se", q_se), ("sw", q_sw)):
-        im.save(os.path.join(out, f"{sp['name'].lower()}-{name}.png"))
     print("wrote", path)
 
 
