@@ -1,6 +1,7 @@
 // The build menu: Bulldoze and Move, then four big category buttons, down from the top left. Each opens a tray along the bottom (menu A);
 // a list in the tray (fence types, water, a building group) opens as a bar above it (menu B), one at a time.
-// Built from data, so names and prices follow data.js and config.js. Tools stay picked and trays stay open while you build.
+// Built from data, so names and prices follow data.js and config.js. Select is always on underneath: a tool from a tray or list stays
+// picked while its tray and list are open, and closing them (×, Esc, another category or list) goes back to Select.
 import { FENCES, BUILDINGS, PARK_WATER, TRACKS } from "../sim/data.js";
 import { PRICE, REFUND } from "../sim/config.js";
 import { hasTech } from "../sim/science.js";
@@ -74,7 +75,7 @@ const entry = (it, k) => it.list
 export class BuildMenu {
   // el: the element to fill. pick(tool) is called when a tool button is pressed.
   constructor(el, pick) {
-    this.el = el; this.pick = pick; this.cat = null;
+    this.el = el; this.pick = pick; this.cat = null; this.tool = "select";
     this.render();
     el.addEventListener("click", e => this.onClick(e));
     el.addEventListener("wheel", e => { const bar = e.target.closest(".traya, .ssub"); if (bar && !e.shiftKey && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { bar.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
@@ -91,7 +92,7 @@ export class BuildMenu {
   }
   onClick(e) {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.cat) this.open(this.cat === b.dataset.cat ? null : b.dataset.cat);
+    if (b.dataset.cat) { if (this.el.querySelector(`.lefttools [data-tool="${CSS.escape(this.tool)}"]`)) this.pick("select"); this.open(this.cat === b.dataset.cat ? null : b.dataset.cat); }
     else if (b.dataset.close === "a") this.open(null);
     else if (b.dataset.close === "b") this.openList(null);
     else if (b.classList.contains("head")) { const it = b.parentNode; this.openList(it.classList.contains("open") ? null : it); }
@@ -105,9 +106,17 @@ export class BuildMenu {
   }
   openList(item) {
     this.el.querySelectorAll(".sitem").forEach(x => { x.classList.toggle("open", x === item); x.firstElementChild.setAttribute("aria-expanded", x === item); });
+    if (!this.showing(this.tool)) this.pick("select");
+  }
+  // Is this tool's button on screen: in the left column, or in the open tray (and its list open, if it sits in one)?
+  showing(tool) {
+    const b = tool !== "select" && this.el.querySelector(`[data-tool="${CSS.escape(tool)}"]`); if (!b) return true;
+    const tray = b.closest(".tray"), item = b.closest(".sitem");
+    return !tray || tray.dataset.tray === this.cat && (!item || item.classList.contains("open"));
   }
   // Show the picked tool pressed, and open the tray and list it lives in.
   setTool(tool) {
+    this.tool = tool;
     this.el.querySelectorAll("[data-tool]").forEach(x => x.setAttribute("aria-pressed", x.dataset.tool === tool));
     this.el.querySelectorAll(".sitem").forEach(x => x.classList.toggle("picked", !!x.querySelector(`[data-tool="${CSS.escape(tool)}"]`)));
   }
