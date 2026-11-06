@@ -110,11 +110,11 @@ const GUEST_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#f79646", "#d
 const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
 // Animal sprites rendered by tools/blender: art/animals/<name>-walk-<facing>.png (a strip of `frames`
-// square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings: east and
-// west in profile; walking up or down the map, north or south turned a little to one side, if the
-// sprite has those views (its box lists them), else it stays in profile. The side alternates with
-// each new run up or down the map (routes tend to take the same sideways leg first, so following
-// the last east/west facing would lean them all the same way).
+// square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings follow the
+// step (fx, fy): east and west in profile, the four diagonals, and straight up or down the map a view
+// turned a little to one side (north_r/north_l, south_r/south_l). That side alternates with each new
+// run up or down, so they don't all lean the same way. Views the sprite lacks (its box lists the ones
+// it has) fall back to the profile.
 const spriteImgs = new Map();
 function spriteImg(path) {
   let im = spriteImgs.get(path);
@@ -122,14 +122,18 @@ function spriteImg(path) {
   return im.complete && im.naturalWidth ? im : null;
 }
 function facingOf(m, sp, w) {
-  const side = (m.face || 1) > 0 ? "east" : "west";
-  if (!m.fy) { w.fy = 0; return side; }
-  if (m.fy !== w.fy) { w.fy = m.fy; w.lean = -w.lean; }   // a new run up or down: lean the other way
-  const v = (m.fy < 0 ? "north" : "south") + (w.lean > 0 ? "east" : "west");
+  const side = (m.face || 1) > 0 ? "east" : "west", ns = m.fy < 0 ? "north" : "south";
+  let v = side;
+  if (m.fy && m.fx) { w.fy = 0; v = ns + (m.fx > 0 ? "east" : "west"); }
+  else if (m.fy) {
+    if (m.fy !== w.fy) { w.fy = m.fy; w.lean = -w.lean; }   // a new run up or down: lean the other way
+    v = ns + (w.lean > 0 ? "_r" : "_l");
+  } else w.fy = 0;
   return sp.box[v] ? v : side;
 }
 // Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
-const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.35, -0.95], northwest: [-0.35, -0.95], southeast: [0.35, 0.95], southwest: [-0.35, 0.95] };
+const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.7, -0.7], northwest: [-0.7, -0.7], southeast: [0.7, 0.7], southwest: [-0.7, 0.7],
+                north_r: [0.35, -0.95], north_l: [-0.35, -0.95], south_r: [0.35, 0.95], south_l: [-0.35, 0.95] };
 // The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
 // slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
 // group doesn't step in time.

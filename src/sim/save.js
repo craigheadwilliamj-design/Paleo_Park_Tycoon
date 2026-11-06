@@ -54,7 +54,7 @@ export function migrate(s) {
     if (gst.litter === undefined) gst.litter = 0;
     if (gst.plan === "eat") { gst.plan = "use"; gst.use = "hunger"; }
   }
-  for (const m of [...(s.animals || []), ...(s.staff || []), ...(s.guests || [])]) if (m.fy === undefined) m.fy = 0;   // north/south facing
+  for (const m of [...(s.animals || []), ...(s.staff || []), ...(s.guests || [])]) { if (m.fy === undefined) m.fy = 0; if (m.fx === undefined) m.fx = 0; }   // the current step's direction
   for (const a of s.animals || []) {   // v1 -> v2: enrichment, stress and health; rest is no longer a need
     delete a.need.rest;
     if (a.need.enrich === undefined) a.need.enrich = 20;

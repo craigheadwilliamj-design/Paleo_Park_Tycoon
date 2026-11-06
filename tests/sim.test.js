@@ -5,7 +5,7 @@ import { newPark, World } from "../src/sim/world.js";
 import { serialize, deserialize } from "../src/sim/save.js";
 import { idx } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH, DAY_MIN } from "../src/sim/config.js";
+import { S_PATH, S_FENCE, DAY_MIN } from "../src/sim/config.js";
 import { TRACKS, SITES } from "../src/sim/data.js";
 import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
 
@@ -498,4 +498,14 @@ test("sandbox mode: trips, clones and research are instant, even paused", () => 
   assert.equal(sc.genome.dime, 100);
   assert.equal(w.clone("dime"), "");
   assert.ok(w.state.animals.some(a => a.sp === "dime" && a.crated), "hatched straight into a crate");
+});
+
+test("animals route diagonally, but never cut a corner between blocked tiles", async () => {
+  const { newGrid } = await import("../src/sim/grid.js");
+  const { route } = await import("../src/sim/paths.js");
+  const g = newGrid(5, 5), at = (x, y) => y * 5 + x;
+  assert.deepEqual(route(g, at(0, 0), [at(3, 3)], "land", null, true), [at(1, 1), at(2, 2), at(3, 3)], "a straight diagonal");
+  assert.equal(route(g, at(0, 0), [at(3, 3)], "land").length, 6, "people still walk the grid");
+  g.struct[at(1, 0)] = S_FENCE; g.struct[at(0, 1)] = S_FENCE;
+  assert.equal(route(g, at(0, 0), [at(3, 3)], "land", null, true), null, "boxed in by a fence corner: no slipping through diagonally");
 });

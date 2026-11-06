@@ -116,12 +116,13 @@ def gif(frames, path, ms, zoom=ZOOM, bg=None):
     imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=ms, loop=0)
 
 
-# Facings, as yaws (the model faces +x; the camera looks north). North and south are turned
-# "ns_turn" degrees (species file) off the vertical toward the side the animal last faced: straight
-# on, a sail is edge-on. A species file's "facings" can limit which are rendered.
+# Facings, as yaws (the model faces +x; the camera looks north): east and west in profile, the four
+# diagonals, and north and south each in two views turned "ns_turn" degrees (species file) off the
+# vertical, head leaning right (_r) or left (_l) on screen: straight on, a sail is edge-on. A species
+# file's "facings" can limit which are rendered.
 def facings(turn):
-    return {"east": 0, "west": 180, "northeast": 90 - turn, "northwest": 90 + turn,
-            "southeast": -90 + turn, "southwest": -90 - turn}
+    return {"east": 0, "west": 180, "northeast": 45, "northwest": 135, "southeast": -45, "southwest": -135,
+            "north_r": 90 - turn, "north_l": 90 + turn, "south_r": -90 + turn, "south_l": -90 - turn}
 
 
 FACINGS = facings(20)

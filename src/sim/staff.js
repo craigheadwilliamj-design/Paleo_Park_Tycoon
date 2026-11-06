@@ -34,7 +34,7 @@ export function planJobs(state, derived) {
 // ---- staff ----
 export function newStaff(state, role) {
   return { id: state.nextId++, role, name: role[0].toUpperCase() + role.slice(1) + " " + (state.staffSeq = (state.staffSeq || 0) + 1),
-           x: 0, y: 0, face: 1, fy: 0, path: [], job: 0, stage: "", carry: null, t: 0 };
+           x: 0, y: 0, face: 1, fx: 0, fy: 0, path: [], job: 0, stage: "", carry: null, t: 0 };
 }
 
 const dangerousPen = (state, exId) => animalsIn(state, exId).some(a => SPECIES[a.sp].danger >= DANGEROUS);
