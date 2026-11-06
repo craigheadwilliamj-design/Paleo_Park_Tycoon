@@ -2,7 +2,7 @@
 // the map edge is an exhibit. Exhibits are rebuilt after every grid change, keeping their id (and so their name,
 // biome and animals) by matching the most overlap with their old tiles.
 import { W_SHALLOW, W_DEEP, S_PATH, S_BUILDING, COND } from "./config.js";
-import { FENCES, BIOMES } from "./data.js";
+import { FENCES, BIOMES, BUILDINGS } from "./data.js";
 import { neighbours, fenceId, isFence } from "./grid.js";
 
 export function findRegions(g) {
@@ -57,12 +57,12 @@ export function rebuildExhibits(state, derived) {
 
 // What an exhibit holds, for habitat scores, security and viewing. Never saved.
 export function tally(state, derived, e) {
-  const g = state.grid, t = { tiles: [], land: 0, shallow: 0, deep: 0, fences: [], gates: [], chutes: [], viewing: [], feeders: [] };
+  const g = state.grid, t = { tiles: [], land: 0, shallow: 0, deep: 0, fences: [], gates: [], chutes: [], viewing: [], feeders: [], props: [] };
   const fenceSet = new Set(), viewSet = new Set();
   for (let i = 0; i < derived.exOf.length; i++) if (derived.exOf[i] === e.id) {
     t.tiles.push(i);
     if (g.water[i] === W_SHALLOW) t.shallow++; else if (g.water[i] === W_DEEP) t.deep++; else t.land++;
-    if (g.struct[i] === S_BUILDING) { const b = state.buildings.find(b => b.id === g.bld[i]); if (b && b.type === "feeder" && !t.feeders.includes(b.id)) t.feeders.push(b.id); }
+    if (g.struct[i] === S_BUILDING) { const b = state.buildings.find(b => b.id === g.bld[i]); if (b) { const list = b.type === "feeder" ? t.feeders : BUILDINGS[b.type].enrich ? t.props : null; if (list && !list.includes(b.id)) list.push(b.id); } }
     for (const j of neighbours(g, i)) if (isFence(g, j)) fenceSet.add(j);
   }
   for (const f of fenceSet) {

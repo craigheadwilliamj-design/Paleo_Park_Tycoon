@@ -15,7 +15,7 @@ const chip = (text, k = "") => `<span class="chip ${k}">${esc(text)}</span>`;
 const btn = (label, data, why = "", cls = "buy") => `<button class="${cls}" ${data}${why ? ` disabled title="${esc(why)}"` : ""}>${esc(label)}</button>`;
 const span = days => days < 1 ? `${Math.max(1, Math.round(days * DAY_MIN / 60))} h` : `${+days.toFixed(1)} day${+days.toFixed(1) === 1 ? "" : "s"}`;
 const LOCK = `<svg width="10" height="11" viewBox="0 0 10 11" aria-label="locked"><rect x="1" y="5" width="8" height="6" rx="1" fill="currentColor"/><path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`;
-const tabBar = (key, items, cur) => `<div class="ptabs" role="tablist">${items.map(t =>
+export const tabBar = (key, items, cur) => `<div class="ptabs" role="tablist">${items.map(t =>
   `<button role="tab" class="ptab" data-tab="${key}" data-k="${esc(t.key)}" aria-selected="${t.key === cur}" style="--pc:${t.color || "#4B3A8C"}"${t.lock ? ` title="Locked"` : ""}>${t.lock ? LOCK : ""}${esc(t.label)}</button>`).join("")}</div>`;
 // Two columns side by side when the panel is full size, one under the other on narrow screens.
 const fullCols = (left, right, wide) => `<div class="fcols${wide ? " wide" : ""}"><div class="fcol">${left}</div><div class="fcol">${right}</div></div>`;

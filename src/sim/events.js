@@ -1,5 +1,5 @@
 // A tiny event bus. Systems talk through these instead of calling each other.
-// Events in use: tilesChanged {x0,y0,x1,y1}, exhibitsChanged, notify {text, at}, dayEnded {day}, escaped {animal}.
+// Events in use: tilesChanged {x0,y0,x1,y1}, exhibitsChanged, notify {text, at}, dayEnded {day}, escaped {animal}, animalDied {animal}.
 
 export class Bus {
   constructor() { this.subs = new Map(); }

@@ -16,6 +16,14 @@ A ground-up restart: same game, smaller and cleaner. v1 stays live as the playab
 - **Weather comes back, purely cosmetic:** rain, snow and fog to look at, park-wide, with the odds following the season (snow in winter, more rain in spring). It lives in the renderer and changes nothing in the sim. If it stays easy, the turf and plants also shift color by season, by the same ramp swap as the water.
 - **No busywork systems:** if a system would end up automated to make it bearable, it's automated from the start. Keep only the decisions that are fun (where, how many, what kind). Food is one hop: sheds, a nightly delivery, keepers filling feeders, chutes for dangerous pens.
 - **Art style:** keep the pixel look. Tinted outlines (dark edge in the material's color), flat fills, light from the top left. The style is set by approved golden assets, not by a written description.
+- **Mixed pens:** different species can share an exhibit, and each scores the pen for itself. A carnivore in a pen with prey it can eat hunts it (see `systems.md`).
+- **Breeding and aging:** after v2.0. At launch animals come only from cloning and starter purchases.
+
+## Scope against v1
+- **Ported (reworked, never copied):** Time Travel Lab (timeline, sites, drones, scouting, expeditions), Genetics Lab (clone at 100% genome), research (now tracks), the pools roster (now lagoons), the museum (now one attraction), security guards, staff morale and break rooms, flat rides, weather (cosmetic only). Assets: rigs, palette, ground and water sprites, timeline maps, site data, tuning numbers.
+- **New in v2:** tile-thick fences where closing one makes the exhibit, water as the only paintable ground, security tiers against danger with slow wear and warned escapes, the job board with zones, one-hop food, the display size curve, tagged plants with a period bonus, mixed pens with predation.
+- **Cut from v2.0:** medicine (vets, illness, genome therapy; after v2.0), breeding and aging (after v2.0), hotels, the tram, tour rides, themes (later, as looks only), clone accuracy, failed clones and genetic disorders, any supply chain (food orders, stock screens, shop restocking), greenhouses and flora production, ground paint, separate vivarium and aquarium systems, museum modules, research points and project queues.
+- **Parked ideas** (not decided): star goals or scenarios, feeding shows and keeper talks, guest groups, a photo mode.
 
 ## Art pipeline
 | What | How |
@@ -154,7 +162,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 77. Cameroceras
 
 ## Open questions
-- Medicine (vets, illness, genome therapy) is on the back burner until after v2.0.
+- Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
 - Coming back: security, staff morale with break rooms, attractions (the museum plus flat rides). Themes later. Not for now: hotels, the tram, tour rides.
 - Do hills, cliffs and moats count as terrain height, or is the ground flat?
 - The exact size-curve numbers and the largest target park size.

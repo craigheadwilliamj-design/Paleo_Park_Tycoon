@@ -8,12 +8,12 @@ import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutP
 import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
 import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
-import { newAnimal, dropIn, animalTick, updateHappiness, settleAnimals, animalsIn } from "./animals.js";
+import { newAnimal, dropIn, animalTick, updateWellbeing, settleAnimals, animalsIn } from "./animals.js";
 import { planJobs, staffTick, hire, wages, reroute } from "./staff.js";
 import { guestTick } from "./guests.js";
 import { Bus } from "./events.js";
 
-const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, science: 0, animals: 0, visitors: 0, eaten: {} });
+const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, science: 0, animals: 0, visitors: 0, deaths: 0, eaten: {} });
 
 export function newState(seed = 12345) {
   return {
@@ -31,6 +31,7 @@ export class World {
     this.bus.on("notify", n => this.note(n.text, n.urgent));
     this.bus.on("breakFence", ({ tile }) => { clearTile(this.state.grid, tile); this.changed(); });
     this.bus.on("caught", ({ animal }) => this.caught(animal));
+    this.bus.on("animalDied", ({ animal }) => this.died(animal));
     this.changed();
   }
 
@@ -181,7 +182,7 @@ export class World {
       const e = d.exOf[i] || 0;
       if (ex === null) ex = e; else if (ex !== e) return "Something is in the way.";
     }
-    if (def.inside && !ex) return "Feeders go inside an exhibit.";
+    if (def.inside && !ex) return `${def.name}s go inside an exhibit.`;
     if (!def.inside && ex) return "Not inside an exhibit.";
     return "";
   }
@@ -306,6 +307,15 @@ export class World {
     if (this.state.exhibits.some(e => e.id === a.home)) { a.ex = a.home; dropIn(this.state, this.derived, a); this.note(`${SPECIES[a.sp].name} is back in its exhibit.`); }
     else { a.crated = true; a.ex = 0; this.note(`${SPECIES[a.sp].name} is in a crate.`); }
   }
+  // An animal whose health ran out: gone, with any job about it.
+  died(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id);
+    if (!a) return;
+    s.animals = s.animals.filter(b => b !== a);
+    s.jobs = s.jobs.filter(j => j.animal !== id);
+    s.books.today.deaths = (s.books.today.deaths || 0) + 1;
+    this.note(`${SPECIES[a.sp].name} has died.`, true);
+  }
   release(id, exId) {
     const a = this.state.animals.find(a => a.id === id && a.crated);
     if (!a) return "No such crate.";
@@ -339,7 +349,7 @@ export class World {
   }
   hourly() {
     rebuildExhibits(this.state, this.derived);   // fences wear and get tested, so security is rechecked each hour
-    updateHappiness(this.state, this.derived);
+    updateWellbeing(this.state, this.derived, this.bus);
     planJobs(this.state, this.derived);
   }
   // The day rolls over: wages, the nightly food delivery, fence wear, the books.

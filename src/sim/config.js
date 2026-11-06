@@ -1,6 +1,6 @@
 // Tuning that applies everywhere. Content (species, fences, buildings) lives in data.js.
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export const MAP_W = 96, MAP_H = 64;     // tiles
 export const DAY_MIN = 720;              // park minutes a day; the day rolls over at minute 0
@@ -24,6 +24,19 @@ export const WEAR = {
   perDay: 4,            // condition lost a day by an ordinary fence tile
   testedPerHour: 6,     // extra loss an hour while an animal tests the tile
   breakHours: 10,       // hours of testing before a tile under its animal's danger breaks
+  mauledPerHour: 4,     // loss an hour while a big bored animal attacks the tile (wear only: it never breaks a fence on its own)
+};
+
+// Animals (animals.js). Needs run 0 (met) to 100 (desperate).
+export const ANIMAL = {
+  fullDays: { hunger: 3, thirst: 2, enrich: 2 },   // park days for a need to go from met to desperate
+  daylight: [120, 600],  // park minutes of the day that count as day; night is the rest
+  lie: { awake: 8, asleep: 28, nap: [30, 70] },   // how much an animal wants to lie down in its active and off hours (wander scores 25 to 35), and nap minutes
+  bored: 60,             // enrichment need over this makes testing the fence likelier
+  big: 3,                // size class from which a bored animal attacks its fence; smaller ones get sick instead
+  maulFrom: 80,          // enrichment need from which a big animal attacks the fence
+  stress: { needs: 1.5, weights: { hunger: 1, thirst: 1, enrich: 0.5 }, habitat: 0.8, loose: 0.6, ease: 0.3 },   // weights toward the stress target (boredom counts half), and the share of the way it moves an hour
+  health: { starveFrom: 90, starve: 1.5, boredSick: 0.5, stressed: 0.5, stressFrom: 70, heal: 2, weak: 30 },   // hunger or thirst over starveFrom costs health, ramping up to starve points an hour at 100 (boredSick for boredom, small animals only); stressed: lost an hour under high stress; heal: gained an hour when all is well
 };
 
 // Walking speeds, tiles a park minute.

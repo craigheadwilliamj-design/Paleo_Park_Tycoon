@@ -102,10 +102,10 @@ test("guests use restrooms and buy souvenirs", () => {
   assert.equal(w.place("gift", ex - 2, 46), "");
   w.advance(200);
   const s = w.state, shops0 = s.books.today.shops;
-  const gst = s.guests.find(x => x.plan === "watch" || x.plan === "leave" || x.plan === "use") || s.guests[0];
+  const gst = s.guests.find(x => x.plan !== "leave" && s.clock < x.until - 60);   // one with time left, not on its way out
   assert.ok(gst, "a guest is in the park");
   gst.bladder = 100; gst.gift = true; gst.fun = 50; gst.hunger = 0;
-  const seen = new Set();
+  const seen = new Set(gst.plan === "use" ? [gst.use] : []);   // it may already be on its way to a stand
   for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
   assert.ok(seen.has("bladder"), "the guest went to a restroom");
   assert.ok(seen.has("gift"), "the guest went to a gift stand");
@@ -125,7 +125,7 @@ test("guests sit on benches and bin their rubbish", () => {
   assert.ok(gst, "a guest is in the park");
   gst.tired = 100; gst.litter = 71; gst.fun = 50; gst.hunger = 0; gst.bladder = 0;
   gst.path = []; gst.plan = ""; gst.t = 0; gst.until = s.clock + 300;   // decide afresh
-  const seen = new Set();
+  const seen = new Set(gst.plan === "use" ? [gst.use] : []);   // it may already be on its way to a stand
   for (let k = 0; k < 120 && s.guests.includes(gst); k++) { w.advance(1); if (gst.plan === "use") seen.add(gst.use); }
   assert.ok(seen.has("tired") && seen.has("litter"), "the guest used the bench and the bin");
   assert.equal(s.litter, 0, "nothing hit the path");
@@ -387,4 +387,80 @@ test("drones and incubators keep their numbers, and every trip leaves a report",
   assert.equal(w.dismissReport(sc.reports[0].id), ""); assert.equal(sc.reports.length, 0);
   // The slider maps back to the years it came from.
   for (const y of [500e6, 290e6, 66.5e6, 30000, 100]) assert.ok(Math.abs(yearsAt(uAt(y)).years / y - 1) < 1e-6, y + " years ago");
+});
+
+test("a bored animal plays with an enrichment log; without one boredom only grows", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  const a = w.spawn("lyst", e.id);
+  Object.assign(a.need, { hunger: 0, thirst: 0, rest: 0, enrich: 90 });
+  w.advance(60);
+  assert.ok(a.need.enrich > 90, "nothing to play with");
+  assert.equal(w.place("log", ex - 8, 30), "");
+  assert.equal(w.derived.ex.get(e.id).props.length, 1, "the pen counts the log");
+  w.advance(60);
+  assert.ok(a.need.enrich < 60, "played with the log");
+  assert.equal(w.placeProblem("log", 5, 5), "Enrichment Logs go inside an exhibit.");
+});
+
+test("a neglected animal gets stressed, sickly, and dies; a cared-for one stays healthy", () => {
+  const { w, e } = buildPark();
+  w.setBiome(e.id, "desert");
+  const a = w.spawn("lyst", e.id);
+  w.advance(DAY_MIN * 2);
+  assert.ok(a.need.hunger < 90 && w.state.animals.length === 1, "two days without food: hungry, not starving yet");
+  w.advance(DAY_MIN * 2);
+  assert.ok(a.stress > 30, "hunger piles up into stress");
+  assert.ok(a.health < 100, "starving costs health");
+  for (let d = 0; d < 10 && w.state.animals.length; d++) w.advance(DAY_MIN);
+  assert.ok(w.state.bell.some(n => /Lystrosaurus is sickly/.test(n.text)), "the bell warns first");
+  assert.ok(w.state.bell.some(n => /Lystrosaurus has died/.test(n.text)));
+  assert.equal(w.state.animals.length, 0);
+
+  const park = buildPark();
+  park.w.setBiome(park.e.id, "desert");
+  for (let k = 0; k < 4; k++) park.w.buyAnimal("lyst", park.e.id);
+  park.w.hire("keeper");
+  park.w.advance(DAY_MIN * 3);
+  for (const b of park.w.state.animals) assert.ok(b.health > 80, "fed animals stay healthy");
+});
+
+test("version 1 saves get enrichment, stress and health", () => {
+  const { w, e } = buildPark();
+  w.spawn("lyst", e.id);
+  w.state.version = 1;
+  for (const a of w.state.animals) { delete a.need.enrich; delete a.stress; delete a.health; }
+  const w2 = new World(deserialize(serialize(w.state)));
+  const a = w2.state.animals[0];
+  assert.equal(w2.state.version, 2);
+  assert.equal(a.health, 100);
+  assert.equal(a.stress, 0);
+  assert.equal(typeof a.need.enrich, "number");
+  w2.advance(60);
+});
+
+test("boredom: small animals get sick, slower than starving; big ones attack the fence but it holds", () => {
+  const { w, e } = buildPark();
+  w.setBiome(e.id, "desert");
+  for (let k = 0; k < 4; k++) w.buyAnimal("lyst", e.id);
+  w.hire("keeper");
+  w.advance(DAY_MIN * 5);
+  const lyst = w.state.animals;
+  assert.ok(lyst.every(a => a.need.enrich > 90), "no props: bored");
+  assert.ok(lyst.every(a => a.health < 100 && a.health > 50), "a little sick, nowhere near dead");
+  assert.ok(lyst.every(a => a.stress < 70), "boredom alone doesn't stress a fed herd out");
+
+  const big = buildPark("concrete");
+  big.w.setBiome(big.e.id, "desert");
+  big.w.paint("chute", [[big.ex - 9, 39]]);
+  const d = big.w.spawn("dime", big.e.id);
+  big.w.hire("keeper");
+  big.w.hire("mechanic");
+  const g = big.w.state.grid, fences = big.w.derived.ex.get(big.e.id).fences;
+  let lowest = 100;
+  for (let h = 0; h < 48; h++) { big.w.advance(60); lowest = Math.min(lowest, ...fences.map(f => g.cond[f])); }
+  assert.ok(big.w.state.bell.some(n => /Dimetrodon is attacking the fence/.test(n.text)));
+  assert.ok(lowest < 100 - 4 * 0.4 * 4, "mauled tiles wear faster than the nightly wear alone");
+  assert.equal(d.health, 100, "a big bored animal doesn't get sick");
+  assert.ok(!d.escaped, "concrete, kept up, still holds");
 });
