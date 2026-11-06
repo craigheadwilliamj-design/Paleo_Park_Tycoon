@@ -37,11 +37,13 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // size: class 1 tiny, 2 small, 3 medium, 4 large, 5 huge (bored big animals attack fences, small ones get sick; later prey and fights).
 // active: "day" or "night", when it is awake (it lies down more the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
-// sprite: game sprites from tools/blender/walk.py --export (art/animals/<name>-walk|stand-<facing>.png; facings east, west, the four diagonals
-// northeast..southwest, and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head leaning right or left): frame size, frames in the walk, anchor (the feet in a frame), box (each facing's drawn bounds, for the selection
-// outline; the facings it has: without north/south ones it walks up and down the map in profile), cycle (tiles walked per walk cycle).
-// Optional, from tools/blender/idle.py --export (<name>-idle|lie|rest-<facing>.png): idle (standing loop: frames, s a cycle),
-// lie (lying down, played backwards to get up: frames, min park minutes) and rest (lying loop: frames, s). Without them: the standing frame.
+// sprite: game sprites from tools/sprites/strips.py (art/animals/<name>-walk|stand-<facing>.png; facings east and west, plus optionally
+// the four diagonals northeast..southwest and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head
+// leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
+// bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle).
+// Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
+// minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
+// <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
 // None: a placeholder block.
 export const SPECIES = {
   arth: { name: "Arthropleura", size: 2, active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
@@ -50,10 +52,9 @@ export const SPECIES = {
           space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
   dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
-          sprite: { name: "dimetrodon", frame: 64, frames: 8, anchor: [32, 36], cycle: 0.543,
-                    idle: { frames: 8, s: 3.2 }, lie: { frames: 5, min: 1.5 }, rest: { frames: 4, s: 3.0 },
-                    box: { east: [12, 20, 52, 42], west: [12, 20, 52, 42], northeast: [15, 15, 48, 49], northwest: [16, 15, 48, 52],
-                           southeast: [16, 18, 48, 49], southwest: [16, 18, 49, 50], north: [26, 9, 38, 55], south: [26, 14, 38, 55] } } },
+          sprite: { name: "dimetrodon", frame: [96, 56], frames: 8, anchor: [48, 48], cycle: 1.05,
+                    idle: { frames: 8, s: 3.2 }, lie: { frames: 7, min: 1.5 }, rest: { frames: 6, s: 4.0 }, eat: { frames: 8, s: 1.6 },
+                    box: { east: [8, 13, 80, 50], west: [16, 13, 88, 50] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
