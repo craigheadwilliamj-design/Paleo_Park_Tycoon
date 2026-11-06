@@ -163,6 +163,8 @@ function stillFrame(a, sp, w) {
     return p < 1 ? ["lie", Math.max(0, Math.round(p * (sp.lie.frames - 1)))] : ["rest", loop("rest", off)];
   }
   w.restFrom = undefined;
+  const feed = a.act === "drink" && !sp.drink ? "eat" : a.act;   // drinking borrows the eating loop unless it has its own
+  if ((feed === "eat" || feed === "drink") && sp[feed]) return [feed, loop(feed, off)];
   return sp.idle ? ["idle", loop("idle", off)] : ["stand", 0];
 }
 function walkFrame(a, sp, w) {

@@ -403,6 +403,23 @@ test("a bored animal plays with an enrichment log; without one boredom only grow
   assert.equal(w.placeProblem("log", 5, 5), "Enrichment Logs go inside an exhibit.");
 });
 
+test("an animal at the water or the feeder turns to it", () => {
+  const { w, e, ex } = buildPark();
+  w.setBiome(e.id, "desert");
+  const a = w.spawn("lyst", e.id);
+  Object.assign(a.need, { hunger: 0, thirst: 100, enrich: 0 });
+  a.x = ex - 13 + 0.5; a.y = 31 + 0.5; a.path = []; a.face = 1; a.t = 0;   // just east of the pond, facing away
+  w.advance(1);
+  assert.equal(a.act, "drink");
+  assert.equal(a.face, -1, "turned west to the pond");
+  Object.assign(a.need, { hunger: 100, thirst: 0 });
+  w.state.exhibits[0].food.greens = 50;
+  a.x = ex - 11 + 0.5; a.y = 35 + 0.5; a.path = []; a.face = -1; a.t = 0;   // just west of the feeder, facing away
+  w.advance(1);
+  assert.equal(a.act, "eat");
+  assert.equal(a.face, 1, "turned east to the feeder");
+});
+
 test("a neglected animal gets stressed, sickly, and dies; a cared-for one stays healthy", () => {
   const { w, e } = buildPark();
   w.setBiome(e.id, "desert");

@@ -63,6 +63,7 @@ function waterSpots(state, derived, a) {
 
 // What an animal can do. score: how much it wants to (0 = not at all); start: head off, false if it can't;
 // finish: what doing it changes, once its time runs out at the spot. ctx: { state, derived, bus, s, t, ex }.
+// faces (optional): which neighbouring tile it turns to once there (the feeder, the water).
 const ACTIONS = {
   test: {   // push on the pen's weakest fence tile; only when the fence is under its danger, likelier when bored
     score: (a, c) => (c.t && c.t.security < c.s.danger ? 60 + Math.max(a.need.enrich, ANIMAL.bored) * 0.5 : 0),
@@ -78,6 +79,7 @@ const ACTIONS = {
   eat: {
     score: (a, c) => (c.ex && (c.ex.food[c.s.foodType] || 0) > 0 ? a.need.hunger : 0),
     start(a, c) { const spots = besideSpots(c.state, c.derived, a, c.t ? c.t.feeders : []); if (!spots.length || !goTo(c.state, c.derived, a, spots)) return false; a.t = 10; return true; },
+    faces: (state, derived, a, j) => { const t = derived.ex.get(a.ex); return !!t && t.feeders.includes(state.grid.bld[j]); },
     finish(a, c) {
       if (!c.ex) return;
       const meal = Math.min(c.ex.food[c.s.foodType] || 0, c.s.food / 2), eaten = c.state.books.today.eaten;
@@ -88,6 +90,7 @@ const ACTIONS = {
   drink: {
     score: (a, c) => (c.s.moves === "swim" ? 0 : a.need.thirst),
     start(a, c) { const spots = waterSpots(c.state, c.derived, a); if (!spots.length || !goTo(c.state, c.derived, a, spots)) return false; a.t = 5; return true; },
+    faces: (state, derived, a, j) => state.grid.water[j] !== W_NONE,
     finish(a) { a.need.thirst = 0; },
   },
   maul: {   // a big bored animal attacks a fence tile: wear only, so a kept-up fence still holds
@@ -150,6 +153,7 @@ export function animalTick(state, derived, bus, dt) {
       a.need[k] = Math.min(100, a.need[k] + rate * dt);
     }
     if (!walk(g, a, SPEED.animal, dt)) continue;
+    if (ACTIONS[a.act] && ACTIONS[a.act].faces) faceTo(g, a, j => ACTIONS[a.act].faces(state, derived, a, j));
     if (a.act === "test") testFence(state, derived, bus, a, dt);
     if (a.act === "maul" && a.fence !== undefined) g.cond[a.fence] = Math.max(0, g.cond[a.fence] - (WEAR.mauledPerHour * dt) / 60);
     if ((a.t -= dt) > 0) continue;
@@ -157,6 +161,12 @@ export function animalTick(state, derived, bus, dt) {
     if (ACTIONS[a.act]) ACTIONS[a.act].finish(a, c);
     choose(c, a);
   }
+}
+
+// Turn east or west toward the first neighbouring tile that `is` (one straight above or below keeps the facing).
+function faceTo(g, a, is) {
+  const i = tileOf(g, a), x = i % g.w;
+  for (const j of neighbours(g, i)) if (is(j) && j % g.w !== x) { a.face = j % g.w > x ? 1 : -1; return; }
 }
 
 // An animal at its pen's weakest tile wears it down; after enough hours under its danger, the tile breaks.
