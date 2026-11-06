@@ -6,6 +6,7 @@ import { DAY_MIN, SCIENCE } from "./config.js";
 import { SPECIES, SITES, PERIODS, TRACKS, BUILDINGS, TIMELINE_FLOOR, TIMELINE_MAPS } from "./data.js";
 import { newAnimal } from "./animals.js";
 import { rand, chance } from "./rng.js";
+import { afford } from "./money.js";
 
 export const newScience = () => ({
   done: [], tracks: {}, crew: [], drones: 0, seen: {}, found: {}, genome: {}, trips: [], clones: [], reports: [],
@@ -98,7 +99,7 @@ export function scoutProblem(state, site) {
   const why = tripProblem(state); if (why) return why;
   if (state.science.trips.some(t => t.kind === "scout" && t.site === site.id)) return "A drone is already scouting it.";
   if (siteComplete(state, site)) return "Site complete.";
-  if (state.money < scoutCost(site)) return "Not enough money.";
+  if (!afford(state, scoutCost(site))) return "Not enough money.";
   return "";
 }
 export function expeditionProblem(state, site, sp) {
@@ -108,7 +109,7 @@ export function expeditionProblem(state, site, sp) {
   if (genomeOf(state, sp) >= 100) return "Genome complete.";
   if (state.rating < SPECIES[sp].stars) return `Needs ${SPECIES[sp].stars} stars.`;
   if (state.science.trips.some(t => t.kind === "dig" && t.sp === sp)) return "A drone is already on it.";
-  if (state.money < expeditionCost(site, sp)) return "Not enough money.";
+  if (!afford(state, expeditionCost(site, sp))) return "Not enough money.";
   return "";
 }
 // The lowest number (from 0) not in use: which drone flies a trip, which incubator grows a clone.
@@ -156,7 +157,7 @@ export function cloneProblem(state, sp) {
   if (!labBuilt(state, "genetics")) return "No Genetics Lab.";
   if (genomeOf(state, sp) < 100) return "Genome incomplete.";
   if (state.science.clones.length >= incubators(state)) return crewOf(state, "geneticist").length ? "No free incubator." : "No geneticists.";
-  if (state.money < s.price) return "Not enough money.";
+  if (!afford(state, s.price)) return "Not enough money.";
   return "";
 }
 

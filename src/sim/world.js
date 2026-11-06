@@ -12,6 +12,7 @@ import { newAnimal, dropIn, animalTick, updateWellbeing, settleAnimals, animalsI
 import { planJobs, staffTick, hire, wages, reroute } from "./staff.js";
 import { guestTick } from "./guests.js";
 import { Bus } from "./events.js";
+import { afford, charge } from "./money.js";
 
 const emptyBooks = () => ({ tickets: 0, shops: 0, food: 0, wages: 0, build: 0, sold: 0, science: 0, animals: 0, visitors: 0, deaths: 0, eaten: {} });
 
@@ -19,7 +20,7 @@ export function newState(seed = 12345) {
   return {
     version: SAVE_VERSION, seed, nextId: 1, day: 1, clock: 4 * 60, money: START_MONEY, rating: 2.5, ticket: GUESTS.ticket,
     grid: newGrid(MAP_W, MAP_H), exhibits: [], openPens: [], buildings: [], animals: [], staff: [], guests: [], jobs: [],
-    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null }, science: newScience(), litter: 0,
+    testing: {}, power: { on: true }, bell: [], books: { today: emptyBooks(), last: null }, science: newScience(), litter: 0, sandbox: false,
   };
 }
 
@@ -48,8 +49,8 @@ export class World {
     s.bell.length = Math.min(s.bell.length, 40);
   }
   spend(n, kind) {
-    if (this.state.money < n) return false;
-    this.state.money -= n; this.state.books.today[kind] = (this.state.books.today[kind] || 0) + n; return true;
+    if (!afford(this.state, n)) return false;
+    charge(this.state, n); this.state.books.today[kind] = (this.state.books.today[kind] || 0) + n; return true;
   }
 
   // ---- commands. Each returns "" when it worked, or a short reason when it was refused. ----
@@ -168,7 +169,7 @@ export class World {
     const def = BUILDINGS[type];
     if (!def || def.fixed) return "Can't build that.";
     if (def.unique && this.state.buildings.some(b => b.type === type)) return "Only one a park.";
-    return this.spotProblem(type, x, y) || (this.state.money < def.price ? "Not enough money." : "");
+    return this.spotProblem(type, x, y) || (!afford(this.state, def.price) ? "Not enough money." : "");
   }
   // Why a building of this type can't stand with its top left corner at x, y, or "". skip: a building to ignore (the one being moved).
   spotProblem(type, x, y, skip = 0) {
@@ -330,6 +331,8 @@ export class World {
   fire(id) { this.state.staff = this.state.staff.filter(s => s.id !== id); this.state.jobs.forEach(j => { if (j.by === id) j.by = 0; }); }
   setTicket(p) { this.state.ticket = Math.max(0, Math.min(200, Math.round(p))); }
   setPower(on) { this.state.power.on = !!on; this.changed(); }
+  // Sandbox: unlimited money for testing. The bank stays where it was while it's on.
+  setSandbox(on) { this.state.sandbox = !!on; this.note(on ? "Sandbox on: money is unlimited." : "Sandbox off."); return ""; }
 
   // ---- time ----
   // Advance by minutes of park time in fixed steps.
@@ -355,15 +358,15 @@ export class World {
   // The day rolls over: wages, the nightly food delivery, fence wear, the books.
   night() {
     const s = this.state, g = s.grid, b = s.books.today;
-    const pay = wages(s) + scienceBill(s); s.money -= pay; b.wages += pay;
+    const pay = wages(s) + scienceBill(s); charge(s, pay); b.wages += pay;
     for (const shed of s.buildings.filter(x => x.type === "shed")) {
       const n = s.buildings.filter(x => x.type === "shed").length;
       for (const t of FOOD_TYPES) {
         const want = Math.min(FOOD.shedCap, Math.ceil(((b.eaten[t] || 0) * 1.25) / n) + 20) - (shed.stock[t] || 0);
         if (want <= 0) continue;
         const cost = want * FOOD.price[t];
-        if (s.money < cost) { this.note("Food delivery short: not enough money.", true); continue; }
-        s.money -= cost; b.food += cost; shed.stock[t] = (shed.stock[t] || 0) + want;
+        if (!afford(s, cost)) { this.note("Food delivery short: not enough money.", true); continue; }
+        charge(s, cost); b.food += cost; shed.stock[t] = (shed.stock[t] || 0) + want;
       }
     }
     for (let i = 0; i < g.cond.length; i++) if (isFence(g, i)) {

@@ -4,6 +4,7 @@
 // clones) are filled in place by labLive, so the panel's HTML only changes when something happens.
 import { SPECIES, PERIODS, TRACKS, BUILDINGS, FENCES, PERIOD_COLOR, TIMELINE_MAP_SIZE } from "../sim/data.js";
 import { SCIENCE, DAY_MIN } from "../sim/config.js";
+import { afford } from "../sim/money.js";
 import { trackStep, trackWhy, stepMinutes, onTrack, crewOf, sitesShown, scoutProblem, expeditionProblem, scoutCost, expeditionCost,
          tripOdds, nextDronePrice, genomeOf, cloneProblem, cloneMinutes, incubators, nowMin, siteById, sitesIn, siteComplete, siteTripDays,
          EPOCHS, epochOf, yearsAt, uAt } from "../sim/science.js";
@@ -24,7 +25,7 @@ const head = (state, type) => `<div class="row"><h2>${esc(BUILDINGS[type].name)}
 const staffHtml = (state, role, plural) => {
   const c = SCIENCE.crew[role], n = crewOf(state, role).length;
   return `<section><h3>${plural} (${n})</h3><div class="row"><span class="muted">${money(c.wage)} a day each</span>
-    <span class="btns">${btn("Let go", `data-fire="${role}"`, n ? "" : "Nobody to let go.", "")}${btn(`Hire ${money(c.hire)}`, `data-hire-crew="${role}"`, state.money < c.hire ? "Not enough money." : "")}</span></div></section>`;
+    <span class="btns">${btn("Let go", `data-fire="${role}"`, n ? "" : "Nobody to let go.", "")}${btn(`Hire ${money(c.hire)}`, `data-hire-crew="${role}"`, !afford(state, c.hire) ? "Not enough money." : "")}</span></div></section>`;
 };
 // A bay card: its number, what's in it, a bar and the time left (both filled by labLive from `live`).
 const bayCard = (label, title, sub, live, extra = "") => `<div class="card bay"><div class="bn">${esc(label)}</div><b>${title}</b>${sub ? ` <span class="muted">${sub}</span>` : ""}
@@ -168,7 +169,7 @@ function timeTravelHtml(ui, state) {
   if (ui.ttTab === "reports") return h + (sc.reports.length ? `<section>${sc.reports.map(r => reportHtml(state, r)).join("")}</section>` : `<div class="muted">No reports.</div>`);
   const price = nextDronePrice(state);
   const l = `<section class="gt-drones"><h3>Drones <span class="muted">${sc.drones} of ${SCIENCE.drones.max}</span></h3>${Array.from({ length: sc.drones }, (_, i) => droneCard(state, i)).join("")}
-    <div class="row">${sc.drones < SCIENCE.drones.max ? btn(`Buy a drone ${money(price)}`, "data-drone", state.money < price ? "Not enough money." : "") : `<span class="muted">Drone bay full</span>`}</div></section>`;
+    <div class="row">${sc.drones < SCIENCE.drones.max ? btn(`Buy a drone ${money(price)}`, "data-drone", !afford(state, price) ? "Not enough money." : "") : `<span class="muted">Drone bay full</span>`}</div></section>`;
   const now = yearsAt(ui.ttU);
   if (ui.ttSite && !sitesIn(now.epoch).some(s => s.id === ui.ttSite)) { ui.ttSite = ""; ui.ttPick = ""; }
   const r = `<section class="gt"><h3>Timeline</h3><div id="ttHead">${ttHeadHtml(now)}</div><div id="ttMap">${ttMapHtml(ui, state, now)}</div>${ttTrackHtml(ui, now)}

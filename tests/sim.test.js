@@ -464,3 +464,19 @@ test("boredom: small animals get sick, slower than starving; big ones attack the
   assert.equal(d.health, 100, "a big bored animal doesn't get sick");
   assert.ok(!d.escaped, "concrete, kept up, still holds");
 });
+
+test("sandbox mode: unlimited money, the bank untouched", () => {
+  const w = newPark(11), s = w.state;
+  s.money = 0;
+  assert.equal(w.hire("keeper"), "Not enough money.");
+  assert.equal(w.setSandbox(true), "");
+  assert.equal(w.hire("keeper"), "");
+  assert.equal(w.paint("path", [[5, 5], [6, 5]]), "");
+  w.advance(DAY_MIN);   // wages and the night's bills
+  assert.equal(s.money >= 0, true, "nothing taken out of the bank");
+  assert.ok(s.books.last.wages > 0, "the books still record the cost");
+  const back = deserialize(serialize(s));
+  assert.equal(back.sandbox, true, "sandbox survives a save");
+  w.setSandbox(false); s.money = 0;
+  assert.equal(w.hire("keeper"), "Not enough money.", "off again: costs need money");
+});

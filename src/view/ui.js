@@ -6,6 +6,7 @@ import { DAY_MIN, STAFF, ANIMAL } from "../sim/config.js";
 import { habitatScore } from "../sim/habitat.js";
 import { animalsIn, needsOf } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
+import { afford } from "../sim/money.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
 import { labHtml, labAction, labLive, labBind, tabBar } from "./labs.js";
 
@@ -187,7 +188,7 @@ export class UI {
       <span>Ticket <button data-t="-5">−</button> <b id="h-ticket"></b> <button data-t="5">+</button></span>
       <span>${[0, 1, 2, 4].map(v => `<button data-speed="${v}">${v ? v + "×" : "❚❚"}</button>`).join("")}</span>
       <span>Staff <b id="h-staff"></b> <button data-hire="keeper" title="Hire a keeper">+Keeper</button><button data-hire="mechanic" title="Hire a mechanic">+Mechanic</button><button data-hire="guard" title="Hire a guard">+Guard</button></span><span class="muted">Today <span id="h-in"></span> in</span>
-      <button data-bell id="h-bell">Messages</button><button data-power id="h-power">Power</button><button data-new>New Park</button>`;
+      <button data-bell id="h-bell">Messages</button><button data-power id="h-power">Power</button><button data-sandbox id="h-sandbox" title="Unlimited money, for testing">Sandbox</button><button data-new>New Park</button>`;
     $("hud").onclick = e => {
       const t = e.target.closest("button"), s = this.world.state; if (!t) return;
       if (t.dataset.t) this.world.setTicket(s.ticket + Number(t.dataset.t));
@@ -195,6 +196,7 @@ export class UI {
       if (t.dataset.speed) this.speed = Number(t.dataset.speed);
       if (t.dataset.bell !== undefined) $("bell").hidden = !$("bell").hidden;
       if (t.dataset.power !== undefined) this.world.setPower(!s.power.on);
+      if (t.dataset.sandbox !== undefined) this.world.setSandbox(!s.sandbox);
       if (t.dataset.new !== undefined) {   // two clicks: the viewer has no confirm() dialog
         if (this.newArmed) { this.newArmed = false; t.textContent = "New Park"; this.hooks.newPark(); }
         else { this.newArmed = true; t.textContent = "Start over?"; setTimeout(() => { this.newArmed = false; t.textContent = "New Park"; }, 3000); }
@@ -205,12 +207,13 @@ export class UI {
   refresh() {
     if (!$("h-money")) this.buildHud();
     const s = this.world.state, b = s.books.today, r = Math.round(s.rating);
-    $("h-money").textContent = fmtMoney(s.money); $("h-day").textContent = s.day; $("h-clock").textContent = fmtClock(s.clock);
+    $("h-money").textContent = s.sandbox ? "∞" : fmtMoney(s.money); $("h-money").title = s.sandbox ? "Sandbox: bank " + fmtMoney(s.money) : ""; $("h-day").textContent = s.day; $("h-clock").textContent = fmtClock(s.clock);
     $("h-stars").textContent = "★".repeat(r) + "☆".repeat(5 - r); $("h-stars").title = "Rating " + s.rating.toFixed(2);
     $("h-guests").textContent = s.guests.length; $("h-ticket").textContent = fmtMoney(s.ticket); $("h-staff").textContent = s.staff.length;
     $("h-in").textContent = fmtMoney(b.tickets + b.shops);
     $("h-bell").textContent = "Messages" + (s.bell.some(n => n.urgent && n.day === s.day) ? " ●" : "");
     $("h-power").setAttribute("aria-pressed", s.power.on);
+    $("h-sandbox").setAttribute("aria-pressed", !!s.sandbox);
     document.querySelectorAll("#hud [data-speed]").forEach(x => x.setAttribute("aria-pressed", Number(x.dataset.speed) === this.speed));
     const bell = `<div class="row bellhead"><b>Messages</b><button class="xclose" data-bellclose aria-label="Close">×</button></div>`
       + (s.bell.slice(0, 20).map(n => `<div class="${n.urgent ? "urgent" : ""}">Day ${n.day} · ${esc(n.text)}</div>`).join("") || `<div class="muted">No messages.</div>`);
@@ -292,7 +295,7 @@ export class UI {
       ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(esc(SPECIES[a.sp].name), a.happy)).join("") : ""}
       ${meters}
       ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}">Release here</button></div>`).join("") : ""}
-      <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${s.money < sp.price ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
+      <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${!afford(s, sp.price) ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
   // Status chips over two tabs: Info (where it is, what it's doing, its species) and Health (meters and needs).
   animalPanel(a) {
