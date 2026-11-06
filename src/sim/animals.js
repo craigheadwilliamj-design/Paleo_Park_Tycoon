@@ -14,7 +14,7 @@ export const NEEDS = ["hunger", "thirst", "enrich"];
 export const needsOf = s => NEEDS.filter(k => k !== "thirst" || s.moves !== "swim");
 
 export function newAnimal(state, sp, exId) {
-  return { id: state.nextId++, sp, ex: exId, x: 0, y: 0, face: 1, path: [], act: "idle", t: 0,
+  return { id: state.nextId++, sp, ex: exId, x: 0, y: 0, face: 1, fy: 0, path: [], act: "idle", t: 0,
            need: { hunger: 20, thirst: 20, enrich: 20 }, stress: 0, health: 100, happy: 70, escaped: false };
 }
 

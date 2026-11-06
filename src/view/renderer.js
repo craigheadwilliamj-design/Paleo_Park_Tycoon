@@ -109,14 +109,19 @@ function drawBuilding(ctx, def, px, py, T, z) {
 const GUEST_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#f79646", "#d9a441", "#4bacc6"];
 const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
-// Animal sprites rendered by tools/blender: art/animals/<name>-walk-<right|left>.png (a strip of
-// `frames` square frames) and <name>-stand-<right|left>.png, with the animal's feet at `anchor`.
+// Animal sprites rendered by tools/blender: art/animals/<name>-walk-<facing>.png (a strip of `frames`
+// square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings: east and
+// west in profile; walking up or down the map, north or south turned 40 degrees toward the side it
+// last faced (straight on, the sail is edge-on).
 const spriteImgs = new Map();
 function spriteImg(path) {
   let im = spriteImgs.get(path);
   if (!im) { im = new Image(); im.src = path; spriteImgs.set(path, im); }
   return im.complete && im.naturalWidth ? im : null;
 }
+const facingOf = m => (m.fy < 0 ? "north" : m.fy > 0 ? "south" : "") + ((m.face || 1) > 0 ? "east" : "west");
+// Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
+const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.6, -0.8], northwest: [-0.6, -0.8], southeast: [0.6, 0.8], southwest: [-0.6, 0.8] };
 // The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
 // slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
 // group doesn't step in time.
@@ -131,16 +136,16 @@ function walkFrame(a, sp) {
 function drawAnimal(ctx, a, fx, fy, z, sel) {
   const s = SPECIES[a.sp], sp = s.sprite;
   if (sp) {
-    const moving = a.path && a.path.length > 0, facing = (a.face || 1) > 0 ? "right" : "left", f = walkFrame(a, sp);
+    const moving = a.path && a.path.length > 0, facing = facingOf(a), f = walkFrame(a, sp);
     const im = spriteImg(`art/animals/${sp.name}-${moving ? "walk" : "stand"}-${facing}.png`);
     if (im) {
-      const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box;
-      // shadow: a stepped oval under the trunk (a little ahead of the feet anchor, toward the head)
-      const hw = Math.round((b2 - b0) * 0.28), cx = fx + (facing === "right" ? 3 : -3) * z;
+      const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box[facing];
+      // shadow: a stepped oval under the trunk
+      const [ax, ay] = AHEAD[facing], hw = Math.round((b2 - b0) * 0.28), cx = fx + Math.round(ax * 3) * z, cy = fy + Math.round(ay * 3) * z;
       ctx.fillStyle = "#00000033";
-      ctx.fillRect(cx - hw * z, fy - z, 2 * hw * z, 2 * z);
-      ctx.fillRect(cx - Math.round(hw * 0.7) * z, fy - 2 * z, 2 * Math.round(hw * 0.7) * z, z);
-      ctx.fillRect(cx - Math.round(hw * 0.7) * z, fy + z, 2 * Math.round(hw * 0.7) * z, z);
+      ctx.fillRect(cx - hw * z, cy - z, 2 * hw * z, 2 * z);
+      ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy - 2 * z, 2 * Math.round(hw * 0.7) * z, z);
+      ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy + z, 2 * Math.round(hw * 0.7) * z, z);
       ctx.drawImage(im, moving ? f * S : 0, 0, S, S, x, y, S * z, S * z);
       if (a.escaped || sel) { ctx.strokeStyle = a.escaped ? "#ff3a2a" : "#ffffff"; ctx.lineWidth = 1;
         ctx.strokeRect(x + b0 * z - 2, y + b1 * z - 2, (b2 - b0) * z + 4, (b3 - b1) * z + 4); }

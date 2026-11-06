@@ -37,8 +37,9 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // size: class 1 tiny, 2 small, 3 medium, 4 large, 5 huge (bored big animals attack fences, small ones get sick; later prey and fights).
 // active: "day" or "night", when it is awake (it lies down more the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
-// sprite: game sprites from tools/blender/walk.py --export (art/animals/<name>-walk|stand-right|left.png): frame size, frames in the walk,
-// anchor (the feet in a frame), box (the drawn bounds, for the selection outline), cycle (tiles walked per walk cycle). None: a placeholder block.
+// sprite: game sprites from tools/blender/walk.py --export (art/animals/<name>-walk|stand-<facing>.png; facings east, west, northeast, northwest,
+// southeast, southwest): frame size, frames in the walk, anchor (the feet in a frame), box (each facing's drawn bounds, for the selection
+// outline), cycle (tiles walked per walk cycle). None: a placeholder block.
 export const SPECIES = {
   arth: { name: "Arthropleura", size: 2, active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
           space: 6, group: [1, 6], foodType: "greens", food: 4, appeal: 4, price: 5000, moves: "land", color: "#5a3b2a" },
@@ -46,7 +47,9 @@ export const SPECIES = {
           space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
   dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
-          sprite: { name: "dimetrodon", frame: 48, frames: 8, anchor: [24, 32], box: [5, 17, 43, 41], cycle: 0.543 } },
+          sprite: { name: "dimetrodon", frame: 64, frames: 8, anchor: [32, 36], cycle: 0.543,
+                    box: { east: [12, 20, 52, 41], west: [12, 20, 52, 41], northeast: [18, 14, 46, 50], northwest: [18, 14, 46, 50],
+                           southeast: [18, 17, 45, 49], southwest: [19, 17, 46, 49] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
           space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,

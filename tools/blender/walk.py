@@ -11,8 +11,8 @@ the side, so the limbs stay sprawled. Numbers are in the species file under "wal
 With --export <dir>, also writes the game sprites there (walk strips and a standing frame per
 facing) and prints what data.js needs.
 
-Writes <species>-walk.png (frames at 4x: side and both 3/4 facings at review size, both facings at
-game size, then 1x) and animated previews <species>-walk-*.gif.
+Writes <species>-walk.png (the frames per facing at review size, then at game size on the park
+ground) and animated previews <species>-walk-review.gif and -game.gif.
 """
 import math
 import os
@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, os.path.dirname(__file__))
 import camera as C       # noqa: E402
 import animal as A       # noqa: E402
-from turnaround import K, TURN, ZOOM, BG, display_px, ground, checker, on, row   # noqa: E402
+from turnaround import K, ZOOM, BG, display_px, ground, checker, on, row   # noqa: E402
 
 
 class Walk:
@@ -116,6 +116,17 @@ def gif(frames, path, ms, zoom=ZOOM, bg=None):
     imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=ms, loop=0)
 
 
+# Facings the game uses, as yaws (the model faces +x; the camera looks north). North and south
+# are turned 40 degrees off the axis toward the side the animal last faced: straight on, the
+# sail is edge-on and the animal reads as a stick.
+FACINGS = {"east": 0, "west": 180, "northeast": 50, "northwest": 130, "southeast": -50, "southwest": -130}
+G = 64                   # game frame size (px)
+G_CENTER = (0, 0.25)     # ground point at the frame's centre (m): puts the feet at G_ANCHOR
+G_ANCHOR = (32, 36)
+R = 112                  # review frame size, at the drawing's own scale
+R_CENTER = (0, 0.5)
+
+
 def main():
     species, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
@@ -123,45 +134,28 @@ def main():
     low = sp["name"].lower()
     n = sp["walk"]["frames"]
     ms = round(1000 * sp["walk"]["cycle_s"] / n)
-    rig = sp["_rig"]
-    W, H = rig["cell"]["w"], rig["cell"]["h"]
     s1 = 1 / C.TILE_PX
     ts = [i / n for i in range(n)]
-
-    side = [frame(sp, s1, 0, lambda sc: C.view_camera(sc, (90, 0, 0), W, H, ((W / 2 - A.CX) * s1, 0, H / 2 * s1)),
-                  out, f"side{i}", t, 3.0) for i, t in enumerate(ts)]
-    q = {}
-    for name, yaw in (("right", -TURN), ("left", -180 + TURN)):
-        q[name] = [frame(sp, s1, yaw, lambda sc: C.park_camera(sc, K, 84, 72, center=(0, 1.0)),
-                         out, f"{name}{i}", t, 3.0) for i, t in enumerate(ts)]
     gpx = display_px(sp["len_m"])
     sg = A.scale_for(sp, gpx)
-    g = {}
-    for name, yaw in (("right", -TURN), ("left", -180 + TURN)):
-        g[name] = [frame(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 48, 48, center=(0, 0.5)),
-                         out, f"g{name}{i}", t, 6.0) for i, t in enumerate(ts)]
 
-    stand = {name: frame(sp, sg, yaw, lambda sc: C.park_camera(sc, K, 48, 48, center=(0, 0.5)),
-                         out, f"s{name}", None, 6.0) for name, yaw in (("right", -TURN), ("left", -180 + TURN))}
+    def cam(size, center):
+        return lambda sc: C.park_camera(sc, K, size, size, center=center)
 
-    # the game's sprite strips: one row of frames per facing
-    for name, fr in g.items():
-        strip = Image.new("RGBA", (48 * n, 48))
-        for i, f in enumerate(fr):
-            strip.paste(f, (48 * i, 0))
-        strip.save(os.path.join(out, f"{low}-walk-{name}.png"))
+    rv, g, stand = {}, {}, {}
+    for name, yaw in FACINGS.items():
+        rv[name] = [frame(sp, s1, yaw, cam(R, R_CENTER), out, f"r{name}{i}", t, 3.0) for i, t in enumerate(ts)]
+        g[name] = [frame(sp, sg, yaw, cam(G, G_CENTER), out, f"g{name}{i}", t, 6.0) for i, t in enumerate(ts)]
+        stand[name] = frame(sp, sg, yaw, cam(G, G_CENTER), out, f"s{name}", None, 6.0)
 
-    def strip_row(frs, w, h, bgf, cap):
-        r = Image.new("RGBA", (w * n, h))
+    def strip_row(frs, w, bgf, cap):
+        r = Image.new("RGBA", (w * n, w))
         for i, f in enumerate(frs):
-            r.paste(on(bgf(w, h), f), (w * i, 0))
+            r.paste(on(bgf(w, w), f), (w * i, 0))
         return row([r], [cap])
 
-    rows = [strip_row(side, W, H, checker, f"side, {n} frames, {sp['walk']['cycle_s']} s a cycle"),
-            strip_row(q["right"], 84, 72, checker, f"3/4 front-right (turned {TURN} deg)"),
-            strip_row(q["left"], 84, 72, checker, "3/4 front-left"),
-            strip_row(g["right"], 48, 48, ground, f"game size ({gpx} px), front-right"),
-            strip_row(g["left"], 48, 48, ground, "front-left")]
+    rows = [strip_row(rv[k], R, checker, f"{k}, {n} frames, {sp['walk']['cycle_s']} s a cycle") for k in FACINGS]
+    rows += [strip_row(g[k], G, ground, f"game size ({gpx} px long), {k}") for k in FACINGS]
     sheet = Image.new("RGBA", (max(r.width for r in rows), sum(r.height for r in rows)), BG)
     y = 0
     for r in rows:
@@ -169,40 +163,39 @@ def main():
         y += r.height
     sheet.save(os.path.join(out, f"{low}-walk.png"))
 
-    gif(side, os.path.join(out, f"{low}-walk-side.gif"), ms, bg=checker(W, H))
-    both = []
-    for a, b in zip(q["right"], q["left"]):
-        im = Image.new("RGBA", (168, 72))
-        im.paste(on(checker(84, 72), a), (0, 0))
-        im.paste(on(checker(84, 72), b), (84, 0))
-        both.append(im)
-    gif(both, os.path.join(out, f"{low}-walk-3q.gif"), ms)
-    game = []
-    for a, b in zip(g["right"], g["left"]):
-        im = Image.new("RGBA", (96, 48))
-        im.paste(on(ground(48, 48), a), (0, 0))
-        im.paste(on(ground(48, 48), b), (48, 0))
-        game.append(im)
-    gif(game, os.path.join(out, f"{low}-walk-game.gif"), ms)
+    def four(frames_by, size, bgf):
+        out_frames = []
+        for i in range(n):
+            im = Image.new("RGBA", (size * len(FACINGS), size))
+            for j, k in enumerate(FACINGS):
+                im.paste(on(bgf(size, size), frames_by[k][i]), (size * j, 0))
+            out_frames.append(im)
+        return out_frames
+    gif(four(rv, R, checker), os.path.join(out, f"{low}-walk-review.gif"), ms, zoom=2)
+    gif(four(g, G, ground), os.path.join(out, f"{low}-walk-game.gif"), ms)
     print("wrote", os.path.join(out, f"{low}-walk.png"), "and the gifs")
 
     if "--export" in sys.argv:
-        # Game sprites: 48 px frames, the animal's feet (the sim's x, y) at ANCHOR in each frame.
+        # Game sprites: G px frames, the animal's feet (the sim's x, y) at G_ANCHOR in each frame.
         dest = sys.argv[sys.argv.index("--export") + 1]
         os.makedirs(dest, exist_ok=True)
-        for name in ("right", "left"):
-            strip = Image.new("RGBA", (48 * n, 48))
-            for i, f in enumerate(g[name]):
-                strip.paste(f, (48 * i, 0))
-            strip.save(os.path.join(dest, f"{low}-walk-{name}.png"))
-            stand[name].save(os.path.join(dest, f"{low}-stand-{name}.png"))
-        boxes = [f.getbbox() for fr in list(g.values()) + [list(stand.values())] for f in fr]
-        box = [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
+        boxes = {}
+        for k in FACINGS:
+            strip = Image.new("RGBA", (G * n, G))
+            for i, f in enumerate(g[k]):
+                strip.paste(f, (G * i, 0))
+            strip.save(os.path.join(dest, f"{low}-walk-{k}.png"))
+            stand[k].save(os.path.join(dest, f"{low}-stand-{k}.png"))
+            bb = [f.getbbox() for f in g[k] + [stand[k]]]
+            boxes[k] = [min(b[0] for b in bb), min(b[1] for b in bb), max(b[2] for b in bb), max(b[3] for b in bb)]
+            if boxes[k][0] == 0 or boxes[k][1] == 0 or boxes[k][2] == G or boxes[k][3] == G:
+                print(f"WARNING: {k} touches the frame edge: {boxes[k]}")
         # The body passes over a planted foot in the stance part of the cycle, so it covers
         # stride / stance per cycle (drawing px), scaled to game px.
         step = sp["walk"]["stride"] / sp["walk"]["stance"] * sg * C.TILE_PX
-        print(f"export: frame 48, frames {n}, anchor [24, 32], box {box}, cycle covers {step:.2f} px "
-              f"({step / C.TILE_PX:.3f} tiles)")
+        box = ", ".join(f"{k}: {v}" for k, v in boxes.items())
+        print(f"export: sprite: {{ name: \"{low}\", frame: {G}, frames: {n}, anchor: [{G_ANCHOR[0]}, {G_ANCHOR[1]}], "
+              f"box: {{ {box} }}, cycle: {step / C.TILE_PX:.3f} }}")
 
 
 if __name__ == "__main__":
