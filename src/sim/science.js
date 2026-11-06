@@ -6,6 +6,7 @@ import { DAY_MIN, SCIENCE } from "./config.js";
 import { SPECIES, SITES, PERIODS, TRACKS, BUILDINGS, TIMELINE_FLOOR, TIMELINE_MAPS } from "./data.js";
 import { newAnimal } from "./animals.js";
 import { rand, chance } from "./rng.js";
+import { afford } from "./money.js";
 
 export const newScience = () => ({
   done: [], tracks: {}, crew: [], drones: 0, seen: {}, found: {}, genome: {}, trips: [], clones: [], reports: [],
@@ -40,6 +41,8 @@ export function uAt(years) {
 export const sitesIn = ep => sitesShown().filter(s => s.from > ep.to && s.to < ep.from && s.at && s.at[ep.map]);
 
 // ---- research ----
+// The park has the stars for something (always, in sandbox mode).
+export const hasStars = (state, n) => !!state.sandbox || state.rating + 1e-9 >= (n || 0);
 export const hasTech = (state, id) => !id || state.science.done.includes(id);
 // The sum of an effect over every finished step.
 export function effect(state, key) {
@@ -62,7 +65,7 @@ export function trackWhy(state, id) {
   const at = trackStep(state, id);
   if (!at) return "";
   if (!labBuilt(state, "research")) return "No Research Lab.";
-  if (at.step.stars && state.rating < at.step.stars) return `Needs ${at.step.stars} stars.`;
+  if (!hasStars(state, at.step.stars)) return `Needs ${at.step.stars} stars.`;
   if (!onTrack(state, id)) return "No researchers.";
   return "";
 }
@@ -73,7 +76,8 @@ export function sizeOf(sp) {
   const [a, b] = SCIENCE.sizeLen, l = SPECIES[sp].len;
   return Math.max(0, Math.min(1, Math.log(l / a) / Math.log(b / a)));
 }
-const tripDays = (state, p) => p.days * (1 - effect(state, "tripTime"));
+// In sandbox mode (state.sandbox) trips, clones and research steps finish at once.
+const tripDays = (state, p) => state.sandbox ? 0 : p.days * (1 - effect(state, "tripTime"));
 export const siteTripDays = (state, site) => tripDays(state, period(site.period));
 export const siteComplete = (state, site) => !!state.science.seen[site.id] && site.fauna.every(sp => !SPECIES[sp] || state.science.found[sp]);
 export const scoutCost = site => period(site.period).trip;
@@ -98,7 +102,7 @@ export function scoutProblem(state, site) {
   const why = tripProblem(state); if (why) return why;
   if (state.science.trips.some(t => t.kind === "scout" && t.site === site.id)) return "A drone is already scouting it.";
   if (siteComplete(state, site)) return "Site complete.";
-  if (state.money < scoutCost(site)) return "Not enough money.";
+  if (!afford(state, scoutCost(site))) return "Not enough money.";
   return "";
 }
 export function expeditionProblem(state, site, sp) {
@@ -106,9 +110,9 @@ export function expeditionProblem(state, site, sp) {
   const why = tripProblem(state); if (why) return why;
   if (!state.science.seen[site.id] || !state.science.found[sp]) return "Not discovered here.";
   if (genomeOf(state, sp) >= 100) return "Genome complete.";
-  if (state.rating < SPECIES[sp].stars) return `Needs ${SPECIES[sp].stars} stars.`;
+  if (!hasStars(state, SPECIES[sp].stars)) return `Needs ${SPECIES[sp].stars} stars.`;
   if (state.science.trips.some(t => t.kind === "dig" && t.sp === sp)) return "A drone is already on it.";
-  if (state.money < expeditionCost(site, sp)) return "Not enough money.";
+  if (!afford(state, expeditionCost(site, sp))) return "Not enough money.";
   return "";
 }
 // The lowest number (from 0) not in use: which drone flies a trip, which incubator grows a clone.
@@ -149,14 +153,14 @@ function land(state, bus, t) {
 
 // ---- the Genetics Lab ----
 export const incubators = state => labBuilt(state, "genetics") ? crewOf(state, "geneticist").length : 0;
-export const cloneMinutes = (state, sp) => lerp(...SCIENCE.cloneDays, sizeOf(sp)) * (1 - effect(state, "cloneTime")) * DAY_MIN;
+export const cloneMinutes = (state, sp) => state.sandbox ? 0 : lerp(...SCIENCE.cloneDays, sizeOf(sp)) * (1 - effect(state, "cloneTime")) * DAY_MIN;
 export function cloneProblem(state, sp) {
   const s = SPECIES[sp];
   if (!s) return "No such animal.";
   if (!labBuilt(state, "genetics")) return "No Genetics Lab.";
   if (genomeOf(state, sp) < 100) return "Genome incomplete.";
   if (state.science.clones.length >= incubators(state)) return crewOf(state, "geneticist").length ? "No free incubator." : "No geneticists.";
-  if (state.money < s.price) return "Not enough money.";
+  if (!afford(state, s.price)) return "Not enough money.";
   return "";
 }
 
@@ -169,7 +173,7 @@ export function scienceTick(state, bus, dt) {
     if (!at || trackWhy(state, id)) continue;
     const tr = (sc.tracks[id] = sc.tracks[id] || { prog: 0 });
     tr.prog += dt * onTrack(state, id);
-    if (tr.prog >= stepMinutes(at.i)) {
+    if (state.sandbox || tr.prog >= stepMinutes(at.i)) {
       tr.prog = 0; sc.done.push(at.step.id);
       bus.emit("notify", { text: `Research done: ${at.step.name}.` });
     }
