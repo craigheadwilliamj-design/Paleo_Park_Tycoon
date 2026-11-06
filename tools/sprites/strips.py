@@ -4,7 +4,8 @@ Source: art/source/<name>/<strip>-0.png .. <strip>-N.png for the strips walk (re
 rest, eat and drink, side views facing east. They come from PixelLab's animate-pixminimax run on the v1 drawing:
 loops (walk, idle, rest, eat) use the same frame as first and last frame, so a last frame that repeats the
 first is dropped; frames that repeat the one before at the end (lie, which settles and holds) are
-dropped too. Output, in art/animals/:
+dropped too. Every frame is snapped to the colors of walk frame 0 (the drawing), which clears stray
+off-palette pixels. Output, in art/animals/:
   <name>-<strip>-east.png / -west.png   one row of frames
   <name>-stand-east.png / -west.png     walk frame 0
 West is east mirrored about the anchor, so one anchor works for both. Prints the frame counts and the
@@ -23,6 +24,19 @@ def same(a, b, tol=40):
     """Nearly the same frame: under `tol` pixels differ."""
     d = ImageChops.difference(a, b).convert("L").point(lambda v: 255 if v > 10 else 0)
     return sum(d.histogram()[255:]) < tol
+
+
+def snap(f, pal):
+    """Every opaque pixel to its nearest drawing color; alpha to fully on or off."""
+    px = f.load()
+    for y in range(f.height):
+        for x in range(f.width):
+            r, g, b, a = px[x, y]
+            if a < 128:
+                px[x, y] = (0, 0, 0, 0)
+            elif (r, g, b) not in pal:
+                px[x, y] = min(pal, key=lambda c: (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2) + (255,)
+    return f
 
 
 def load(src, strip):
@@ -45,8 +59,9 @@ def main():
     out = os.path.join(ROOT, "art", "animals")
     os.makedirs(out, exist_ok=True)
     counts, boxes = {}, {"east": [], "west": []}
+    pal = {c[:3] for _, c in Image.open(os.path.join(src, "walk-0.png")).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
     for strip in STRIPS:
-        frames = load(src, strip)
+        frames = [snap(f, pal) for f in load(src, strip)]
         if not frames:
             continue
         W, H = frames[0].size
