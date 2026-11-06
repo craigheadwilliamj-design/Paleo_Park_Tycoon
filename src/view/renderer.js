@@ -111,16 +111,21 @@ const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
 // Animal sprites rendered by tools/blender: art/animals/<name>-walk-<facing>.png (a strip of `frames`
 // square frames) and <name>-stand-<facing>.png, with the animal's feet at `anchor`. Facings: east and
-// west in profile; walking up or down the map, north or south turned toward the side it last faced,
-// if the sprite has those views (its box lists them), else it stays in profile.
+// west in profile; walking up or down the map, north or south turned a little to one side, if the
+// sprite has those views (its box lists them), else it stays in profile. The side alternates with
+// each new run up or down the map (routes tend to take the same sideways leg first, so following
+// the last east/west facing would lean them all the same way).
 const spriteImgs = new Map();
 function spriteImg(path) {
   let im = spriteImgs.get(path);
   if (!im) { im = new Image(); im.src = path; spriteImgs.set(path, im); }
   return im.complete && im.naturalWidth ? im : null;
 }
-function facingOf(m, sp) {
-  const side = (m.face || 1) > 0 ? "east" : "west", v = (m.fy < 0 ? "north" : m.fy > 0 ? "south" : "") + side;
+function facingOf(m, sp, w) {
+  const side = (m.face || 1) > 0 ? "east" : "west";
+  if (!m.fy) { w.fy = 0; return side; }
+  if (m.fy !== w.fy) { w.fy = m.fy; w.lean = -w.lean; }   // a new run up or down: lean the other way
+  const v = (m.fy < 0 ? "north" : "south") + (w.lean > 0 ? "east" : "west");
   return sp.box[v] ? v : side;
 }
 // Where the head points on screen (for the shadow, which sits under the trunk, a little ahead of the feet).
@@ -129,9 +134,12 @@ const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.35, -0.95], northwest
 // slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
 // group doesn't step in time.
 const walked = new WeakMap();
-function walkFrame(a, sp) {
+function walkState(a, sp) {
   let w = walked.get(a);
-  if (!w) { w = { x: a.x, y: a.y, d: ((a.id * 0.37) % 1) * sp.cycle }; walked.set(a, w); }
+  if (!w) { w = { x: a.x, y: a.y, d: ((a.id * 0.37) % 1) * sp.cycle, fy: 0, lean: a.id % 2 ? 1 : -1 }; walked.set(a, w); }
+  return w;
+}
+function walkFrame(a, sp, w) {
   w.d += Math.hypot(a.x - w.x, a.y - w.y); w.x = a.x; w.y = a.y;
   return Math.floor((w.d / sp.cycle) * sp.frames) % sp.frames;
 }
@@ -139,7 +147,7 @@ function walkFrame(a, sp) {
 function drawAnimal(ctx, a, fx, fy, z, sel) {
   const s = SPECIES[a.sp], sp = s.sprite;
   if (sp) {
-    const moving = a.path && a.path.length > 0, facing = facingOf(a, sp), f = walkFrame(a, sp);
+    const moving = a.path && a.path.length > 0, w = walkState(a, sp), facing = facingOf(a, sp, w), f = walkFrame(a, sp, w);
     const im = spriteImg(`art/animals/${sp.name}-${moving ? "walk" : "stand"}-${facing}.png`);
     if (im) {
       const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box[facing];
