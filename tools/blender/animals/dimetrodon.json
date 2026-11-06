@@ -1,0 +1,35 @@
+{
+  "name": "Dimetrodon",
+  "rig": "art/v1/dimetrodon-rig.json",
+  "len_m": 3.2,
+  "ramps": {
+    "skin":  ["#2e330f", "#434b16", "#616f22"],
+    "belly": ["#847a2e", "#8f8432", "#b2a542"],
+    "sail":  ["#9f5039", "#c36f4a", "#eaa774"]
+  },
+  "ink": "#241009",
+  "colors": {
+    "#2f330e": ["skin", 0], "#303611": ["skin", 0], "#24270b": ["skin", 0], "#21250c": ["skin", 0],
+    "#46501b": ["skin", 1],
+    "#1a0c07": ["ink", 0]
+  },
+  "sail_ramp": "sail",
+  "width": [
+    { "from": -99, "to": 44, "ratio": 0.9,  "note": "tail: round, tapering with the drawing" },
+    { "from": 44,  "to": 67, "ratio": 1.0,  "note": "trunk: deep ribcage about as wide as deep" },
+    { "from": 67,  "to": 99, "ratio": 0.62, "note": "head: tall, narrow synapsid skull" }
+  ],
+  "sail_thickness": 0.8,
+  "legs": {
+    "sprawl": 0.75,
+    "note": "Sprawling: the upper limb runs out sideways from the body, the lower limb drops near vertical, the foot points forward and a little out.",
+    "front": { "upper": "Front Upper Limb", "lower": "Front Forelimb", "foot": "Front Foot", "r": [2.9, 2.4], "foot_len": 5 },
+    "back":  { "upper": "Back Thigh", "lower": "Back Leg", "foot": "Back Foot", "r": [3.3, 2.6], "foot_len": 5 }
+  },
+  "walk": {
+    "frames": 8, "cycle_s": 1.2,
+    "stride": 7, "lift": 2.0, "stance": 0.6,
+    "sway_trunk": 0.6, "sway_tail": 3.5, "sway_head": 0.3, "bob": 0.4,
+    "note": "drawing px. Sprawling walk: spine wave (hips and shoulders opposite, more toward the tail), diagonal pairs, feet plant and slide back."
+  }
+}

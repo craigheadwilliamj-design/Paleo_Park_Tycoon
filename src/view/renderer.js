@@ -109,9 +109,51 @@ function drawBuilding(ctx, def, px, py, T, z) {
 const GUEST_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#f79646", "#d9a441", "#4bacc6"];
 const guestColor = id => GUEST_COLORS[id % GUEST_COLORS.length];
 
-// Placeholder animal: a stepped side-on block body with a head, sized by the display curve, facing its way.
+// Animal sprites rendered by tools/blender: art/animals/<name>-walk-<right|left>.png (a strip of
+// `frames` square frames) and <name>-stand-<right|left>.png, with the animal's feet at `anchor`.
+const spriteImgs = new Map();
+function spriteImg(path) {
+  let im = spriteImgs.get(path);
+  if (!im) { im = new Image(); im.src = path; spriteImgs.set(path, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+// The walk frame follows the distance walked (one cycle every `cycle` tiles), so the feet don't
+// slide whatever the game speed. View-only bookkeeping, never saved; ids offset the start so a
+// group doesn't step in time.
+const walked = new WeakMap();
+function walkFrame(a, sp) {
+  let w = walked.get(a);
+  if (!w) { w = { x: a.x, y: a.y, d: ((a.id * 0.37) % 1) * sp.cycle }; walked.set(a, w); }
+  w.d += Math.hypot(a.x - w.x, a.y - w.y); w.x = a.x; w.y = a.y;
+  return Math.floor((w.d / sp.cycle) * sp.frames) % sp.frames;
+}
+
 function drawAnimal(ctx, a, fx, fy, z, sel) {
-  const s = SPECIES[a.sp], len = displayPx(s.len) * z, h = Math.max(3 * z, Math.round(len * 0.42)), dir = a.face || 1;
+  const s = SPECIES[a.sp], sp = s.sprite;
+  if (sp) {
+    const moving = a.path && a.path.length > 0, facing = (a.face || 1) > 0 ? "right" : "left", f = walkFrame(a, sp);
+    const im = spriteImg(`art/animals/${sp.name}-${moving ? "walk" : "stand"}-${facing}.png`);
+    if (im) {
+      const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box;
+      // shadow: a stepped oval under the trunk (a little ahead of the feet anchor, toward the head)
+      const hw = Math.round((b2 - b0) * 0.28), cx = fx + (facing === "right" ? 3 : -3) * z;
+      ctx.fillStyle = "#00000033";
+      ctx.fillRect(cx - hw * z, fy - z, 2 * hw * z, 2 * z);
+      ctx.fillRect(cx - Math.round(hw * 0.7) * z, fy - 2 * z, 2 * Math.round(hw * 0.7) * z, z);
+      ctx.fillRect(cx - Math.round(hw * 0.7) * z, fy + z, 2 * Math.round(hw * 0.7) * z, z);
+      ctx.drawImage(im, moving ? f * S : 0, 0, S, S, x, y, S * z, S * z);
+      if (a.escaped || sel) { ctx.strokeStyle = a.escaped ? "#ff3a2a" : "#ffffff"; ctx.lineWidth = 1;
+        ctx.strokeRect(x + b0 * z - 2, y + b1 * z - 2, (b2 - b0) * z + 4, (b3 - b1) * z + 4); }
+      return;
+    }
+  }
+  drawBlock(ctx, a, s, fx, fy, z, sel);
+}
+
+// Placeholder animal (no sprite yet, or still loading): a stepped side-on block body with a head,
+// sized by the display curve, facing its way.
+function drawBlock(ctx, a, s, fx, fy, z, sel) {
+  const len = displayPx(s.len) * z, h = Math.max(3 * z, Math.round(len * 0.42)), dir = a.face || 1;
   const x = Math.round(fx - len / 2), y = Math.round(fy - h);
   ctx.fillStyle = "#00000033"; ctx.fillRect(x, fy - z, len, 2 * z);                         // shadow
   ctx.fillStyle = s.color; ctx.fillRect(x, y + h * 0.25, len, h * 0.55);                      // body
