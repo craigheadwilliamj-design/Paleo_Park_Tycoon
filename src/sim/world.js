@@ -266,7 +266,7 @@ export class World {
     const list = crewOf(this.state, "researcher"), c = delta > 0 ? list.find(c => !c.track) : list.find(c => c.track === track && (!crewId || c.id === crewId));
     if (!c) return delta > 0 ? "No idle researchers." : "";
     c.track = delta > 0 ? track : "";
-    return "";
+    this.instant(); return "";
   }
   buyDrone() {
     const sc = this.state.science;
@@ -278,12 +278,12 @@ export class World {
   scout(siteId) {
     const site = siteById(siteId), why = scoutProblem(this.state, site);
     if (why) return why;
-    this.spend(scoutCost(site), "science"); sendTrip(this.state, "scout", site); return "";
+    this.spend(scoutCost(site), "science"); sendTrip(this.state, "scout", site); this.instant(); return "";
   }
   expedition(siteId, sp) {
     const site = siteById(siteId), why = expeditionProblem(this.state, site, sp);
     if (why) return why;
-    this.spend(expeditionCost(site, sp), "science"); sendTrip(this.state, "dig", site, sp); return "";
+    this.spend(expeditionCost(site, sp), "science"); sendTrip(this.state, "dig", site, sp); this.instant(); return "";
   }
   clone(sp) {
     const why = cloneProblem(this.state, sp);
@@ -292,8 +292,10 @@ export class World {
     const start = nowMin(this.state);
     const clones = this.state.science.clones;
     clones.push({ id: this.state.nextId++, sp, slot: freeSlot(clones), start, end: start + cloneMinutes(this.state, sp) });
-    return "";
+    this.instant(); return "";
   }
+  // Sandbox: land the trip, hatch the clone or finish the research step now, even while paused.
+  instant() { if (this.state.sandbox) scienceTick(this.state, this.bus, 0); }
   dismissReport(id) {
     const sc = this.state.science;
     if (!sc.reports.some(r => r.id === id)) return "No such report.";

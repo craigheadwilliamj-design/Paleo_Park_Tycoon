@@ -74,7 +74,8 @@ export function sizeOf(sp) {
   const [a, b] = SCIENCE.sizeLen, l = SPECIES[sp].len;
   return Math.max(0, Math.min(1, Math.log(l / a) / Math.log(b / a)));
 }
-const tripDays = (state, p) => p.days * (1 - effect(state, "tripTime"));
+// In sandbox mode (state.sandbox) trips, clones and research steps finish at once.
+const tripDays = (state, p) => state.sandbox ? 0 : p.days * (1 - effect(state, "tripTime"));
 export const siteTripDays = (state, site) => tripDays(state, period(site.period));
 export const siteComplete = (state, site) => !!state.science.seen[site.id] && site.fauna.every(sp => !SPECIES[sp] || state.science.found[sp]);
 export const scoutCost = site => period(site.period).trip;
@@ -150,7 +151,7 @@ function land(state, bus, t) {
 
 // ---- the Genetics Lab ----
 export const incubators = state => labBuilt(state, "genetics") ? crewOf(state, "geneticist").length : 0;
-export const cloneMinutes = (state, sp) => lerp(...SCIENCE.cloneDays, sizeOf(sp)) * (1 - effect(state, "cloneTime")) * DAY_MIN;
+export const cloneMinutes = (state, sp) => state.sandbox ? 0 : lerp(...SCIENCE.cloneDays, sizeOf(sp)) * (1 - effect(state, "cloneTime")) * DAY_MIN;
 export function cloneProblem(state, sp) {
   const s = SPECIES[sp];
   if (!s) return "No such animal.";
@@ -170,7 +171,7 @@ export function scienceTick(state, bus, dt) {
     if (!at || trackWhy(state, id)) continue;
     const tr = (sc.tracks[id] = sc.tracks[id] || { prog: 0 });
     tr.prog += dt * onTrack(state, id);
-    if (tr.prog >= stepMinutes(at.i)) {
+    if (state.sandbox || tr.prog >= stepMinutes(at.i)) {
       tr.prog = 0; sc.done.push(at.step.id);
       bus.emit("notify", { text: `Research done: ${at.step.name}.` });
     }

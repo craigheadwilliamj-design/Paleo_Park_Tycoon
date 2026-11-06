@@ -14,7 +14,7 @@ const money = n => "$" + Math.round(n).toLocaleString("en-US");
 const meter = (share, live = "") => `<span class="meter"${live ? ` data-p="${live}"` : ""}><i style="width:${Math.round(Math.max(0, Math.min(1, share)) * 100)}%"></i></span>`;
 const chip = (text, k = "") => `<span class="chip ${k}">${esc(text)}</span>`;
 const btn = (label, data, why = "", cls = "buy") => `<button class="${cls}" ${data}${why ? ` disabled title="${esc(why)}"` : ""}>${esc(label)}</button>`;
-const span = days => days < 1 ? `${Math.max(1, Math.round(days * DAY_MIN / 60))} h` : `${+days.toFixed(1)} day${+days.toFixed(1) === 1 ? "" : "s"}`;
+const span = days => days <= 0 ? "Instant" : days < 1 ? `${Math.max(1, Math.round(days * DAY_MIN / 60))} h` : `${+days.toFixed(1)} day${+days.toFixed(1) === 1 ? "" : "s"}`;
 const LOCK = `<svg width="10" height="11" viewBox="0 0 10 11" aria-label="locked"><rect x="1" y="5" width="8" height="6" rx="1" fill="currentColor"/><path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>`;
 export const tabBar = (key, items, cur) => `<div class="ptabs" role="tablist">${items.map(t =>
   `<button role="tab" class="ptab" data-tab="${key}" data-k="${esc(t.key)}" aria-selected="${t.key === cur}" style="--pc:${t.color || "#4B3A8C"}"${t.lock ? ` title="Locked"` : ""}>${t.lock ? LOCK : ""}${esc(t.label)}</button>`).join("")}</div>`;
@@ -62,7 +62,7 @@ function researchHtml(ui, state) {
     let right;
     if (isDone) right = chip("Researched", "good");
     else if (now) right = btn(n ? "Add researcher" : "Research", `data-assign="${id}" data-d="1"`, idle ? "" : "No idle researchers.");
-    else right = `<span class="muted">${span(stepMinutes(i) / DAY_MIN)}</span>`;
+    else right = `<span class="muted">${span(state.sandbox ? 0 : stepMinutes(i) / DAY_MIN)}</span>`;
     const need = [esc(stepText(st)), later ? `Needs ${esc(t.steps[i - 1].name)} first.` : "", !isDone && st.stars ? `Needs ${st.stars}★.` : ""].filter(Boolean).join(" ");
     const prog = now ? `<span class="need">${meter(0, `track:${id}`)} <span data-left="track:${id}"></span>${why && why !== "No researchers." ? " " + chip(why, "bad") : ""}</span>` : "";
     return `<li class="${later ? "locked" : ""}"><span class="nm">${esc(st.name)}${now ? ` <span class="per">${i + 1} of ${t.steps.length}</span>` : ""}</span>${right}<span class="need">${need}</span>${prog}</li>`;
@@ -221,7 +221,7 @@ export function labHtml(ui, b) {
 // Fill the moving bars and times: data-p / data-left name "track:<id>", "trip:<id>" or "clone:<id>".
 export function labLive(ui, side) {
   const state = ui.world.state, sc = state.science, now = nowMin(state);
-  const timed = x => x && [(now - x.start) / (x.end - x.start), (x.end - now) / DAY_MIN];
+  const timed = x => x && [(now - x.start) / ((x.end - x.start) || 1), (x.end - now) / DAY_MIN];
   const of = key => {
     const [k, id] = key.split(":");
     if (k === "trip") { const t = timed(sc.trips.find(x => x.id === +id)); return t && [t[0], `Back in ${span(t[1])}`]; }
