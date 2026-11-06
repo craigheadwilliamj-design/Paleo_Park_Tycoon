@@ -31,5 +31,17 @@
     "stride": 9, "lift": 2.0, "stance": 0.6,
     "sway_trunk": 0.6, "sway_tail": 3.5, "sway_head": 0.3, "bob": 0.4,
     "note": "drawing px. Sprawling walk: spine wave (hips and shoulders opposite, more toward the tail), diagonal pairs, feet plant and slide back."
+  },
+  "idle": {
+    "frames": 8, "cycle_s": 3.2,
+    "breaths": 2, "breath": 1.2, "tail_sway": 3.0, "look": 2.5, "nod": 1.0,
+    "note": "drawing px. Standing: the back rises with each breath, the tail tip sways, the head looks aside and back and dips twice."
+  },
+  "rest": {
+    "lie_frames": 5, "lie_s": 0.6, "lie_min": 1.5, "frames": 4, "cycle_s": 3.0,
+    "breaths": 1, "breath": 1.5,
+    "floor": 0.6, "chin": 1.6, "neck": 4, "curl": 5.0, "turn": 2.0, "tail_twitch": 1.0,
+    "splay": 0.8, "front_fwd": 2.0, "back_back": 2.0, "wrist": 1.2,
+    "note": "drawing px. Lying: each column drops until its underside is at floor (the head, from neck px past the shoulders, at chin), the tail curls and the head turns to one side, the feet splay out, the back breathes. lie_min: park minutes to lie down or get up."
   }
 }

@@ -21,6 +21,7 @@ const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (
 
 export function draw(ctx, world, cam, ui) {
   const { state, derived } = world, g = state.grid, z = cam.zoom, T = TILE * z;
+  tickAnim(state);
   const W = ctx.canvas.width, H = ctx.canvas.height;
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "#26301f"; ctx.fillRect(0, 0, W, H);
@@ -140,8 +141,29 @@ const AHEAD = { east: [1, 0], west: [-1, 0], northeast: [0.7, -0.7], northwest: 
 const walked = new WeakMap();
 function walkState(a, sp) {
   let w = walked.get(a);
-  if (!w) { w = { x: a.x, y: a.y, d: ((a.id * 0.37) % 1) * sp.cycle, fy: 0, lean: a.id % 2 ? 1 : -1 }; walked.set(a, w); }
+  if (!w) { w = { x: a.x, y: a.y, d: ((a.id * 0.37) % 1) * sp.cycle, fy: 0, lean: a.id % 2 ? 1 : -1, fresh: true }; walked.set(a, w); }
   return w;
+}
+// Standing and resting loops run on a view clock: real seconds, but only while the park clock moves, so
+// they freeze on pause and don't race at 4x. Lying down and getting up follow the park clock instead
+// (the rest action's minutes), so the animal is up before it walks off at any speed.
+let animT = 0, lastNow = 0, lastClock = -1;
+function tickAnim(state) {
+  const now = performance.now(), key = state.day * 1e4 + state.clock;
+  if (key !== lastClock && lastNow) animT += Math.min(0.25, (now - lastNow) / 1000);
+  lastNow = now; lastClock = key;
+}
+// Which strip and frame a still animal shows: [strip, frame].
+function stillFrame(a, sp, w) {
+  const loop = (k, off) => Math.floor(((animT / sp[k].s + off) % 1) * sp[k].frames);
+  const off = (a.id * 0.618) % 1;
+  if (a.act === "rest" && sp.rest) {
+    if (w.restFrom === undefined) w.restFrom = w.fresh ? Infinity : a.t;   // a park loaded mid-nap is already down
+    const p = Math.min(1, (w.restFrom - a.t) / sp.lie.min, a.t / sp.lie.min);
+    return p < 1 ? ["lie", Math.max(0, Math.round(p * (sp.lie.frames - 1)))] : ["rest", loop("rest", off)];
+  }
+  w.restFrom = undefined;
+  return sp.idle ? ["idle", loop("idle", off)] : ["stand", 0];
 }
 function walkFrame(a, sp, w) {
   w.d += Math.hypot(a.x - w.x, a.y - w.y); w.x = a.x; w.y = a.y;
@@ -152,7 +174,9 @@ function drawAnimal(ctx, a, fx, fy, z, sel) {
   const s = SPECIES[a.sp], sp = s.sprite;
   if (sp) {
     const moving = a.path && a.path.length > 0, w = walkState(a, sp), facing = facingOf(a, sp, w), f = walkFrame(a, sp, w);
-    const im = spriteImg(`art/animals/${sp.name}-${moving ? "walk" : "stand"}-${facing}.png`);
+    const [strip, sf] = moving ? ["walk", f] : stillFrame(a, sp, w);
+    w.fresh = false;
+    const im = spriteImg(`art/animals/${sp.name}-${strip}-${facing}.png`) || spriteImg(`art/animals/${sp.name}-stand-${facing}.png`);
     if (im) {
       const S = sp.frame, x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box[facing];
       // shadow: a stepped oval under the trunk
@@ -161,7 +185,7 @@ function drawAnimal(ctx, a, fx, fy, z, sel) {
       ctx.fillRect(cx - hw * z, cy - z, 2 * hw * z, 2 * z);
       ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy - 2 * z, 2 * Math.round(hw * 0.7) * z, z);
       ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy + z, 2 * Math.round(hw * 0.7) * z, z);
-      ctx.drawImage(im, moving ? f * S : 0, 0, S, S, x, y, S * z, S * z);
+      ctx.drawImage(im, im.naturalWidth > S ? sf * S : 0, 0, S, S, x, y, S * z, S * z);
       if (a.escaped || sel) { ctx.strokeStyle = a.escaped ? "#ff3a2a" : "#ffffff"; ctx.lineWidth = 1;
         ctx.strokeRect(x + b0 * z - 2, y + b1 * z - 2, (b2 - b0) * z + 4, (b3 - b1) * z + 4); }
       return;
