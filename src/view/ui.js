@@ -7,9 +7,15 @@ import { habitatScore } from "../sim/habitat.js";
 import { animalsIn, needsOf } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
-import { labHtml, labAction, labLive, labBind } from "./labs.js";
+import { labHtml, labAction, labLive, labBind, tabBar } from "./labs.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// A labelled meter, full = good: amber under half, red under a quarter.
+const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i class="${full < 25 ? "bad" : full < 50 ? "low" : ""}" style="width:${Math.round(full)}%"></i></span></div>`;
+// What an animal is doing, by its action key (animals.js ACTIONS, plus the guards' "held").
+const ACT_LABEL = { test: "Testing the fence.", eat: "Eating.", drink: "Drinking.", rest: "Resting.", play: "Playing.",
+  maul: "Attacking the fence.", wander: "Wandering.", idle: "Standing.", held: "Darted." };
+const SIZE_NAME = ["", "Tiny", "Small", "Medium", "Large", "Huge"];
 const $ = id => document.getElementById(id);
 const fmtMoney = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const fmtClock = c => { const h = Math.floor(c / 60) + 4, m = Math.floor(c % 60); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h % 24 < 12 ? "AM" : "PM"}`; };
@@ -235,7 +241,8 @@ export class UI {
         if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
         if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
         if (b.dataset.close !== undefined) { this.closePanel(); return; }
-        const why = labAction(this, b); if (why) this.say(why);
+        if (b.dataset.tab === "an") this.anTab = b.dataset.k;   // the animal panel's tabs (labAction knows only the labs')
+        else { const why = labAction(this, b); if (why) this.say(why); }
         this.lastPanel = null; this.panel();
       };
       side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = null; this.panel(); } };
@@ -273,7 +280,7 @@ export class UI {
     const meters = species.map(sp => {
       const h = habitatScore(s, sp, t, here.filter(a => a.sp === sp).length);
       return `<h4>${esc(SPECIES[sp].name)} · ${here.filter(a => a.sp === sp).length}</h4>` +
-        ["biome", "space", "water", "group"].map(k => `<div class="row"><span>${k[0].toUpperCase() + k.slice(1)}</span><span class="meter"><i style="width:${Math.round(h[k] * 100)}%"></i></span></div>`).join("");
+        ["biome", "space", "water", "group"].map(k => meter(k[0].toUpperCase() + k.slice(1), h[k] * 100)).join("");
     }).join("");
     const food = Object.entries(e.food || {}).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${Math.round(n)}`).join(", ") || "none";
     return `<div class="row"><h3>${esc(e.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
@@ -282,26 +289,35 @@ export class UI {
       <div class="row"><span>Security</span><b>Tier ${t.security}${weak && weak !== "good" ? " · " + weak : ""}</b></div>
       <div class="row"><span>Food</span><b>${esc(food)}</b></div>
       <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
-      ${here.length ? `<h4>Animals</h4>` + here.map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><span class="meter"><i style="width:${a.happy}%"></i></span></div>`).join("") : ""}
+      ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(esc(SPECIES[a.sp].name), a.happy)).join("") : ""}
       ${meters}
       ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}">Release here</button></div>`).join("") : ""}
       <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${s.money < sp.price ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
+  // Status chips over two tabs: Info (where it is, what it's doing, its species) and Health (meters and needs).
   animalPanel(a) {
-    const sp = SPECIES[a.sp], H = ANIMAL.health;
+    const sp = SPECIES[a.sp], H = ANIMAL.health, s = this.world.state;
     const chips = [];
-    if (a.escaped) chips.push(["Escaped", "bad"]);
-    if (a.health < H.weak) chips.push(["Weak.", "bad"]);
-    if (a.need.hunger >= H.starveFrom) chips.push(["Starving.", "bad"]); else if (a.need.hunger >= 80) chips.push(["Hungry.", "bad"]);
-    if (sp.moves !== "swim") { if (a.need.thirst >= H.starveFrom) chips.push(["Parched.", "bad"]); else if (a.need.thirst >= 80) chips.push(["Thirsty.", "bad"]); }
-    if (a.need.enrich >= H.starveFrom && sp.size < ANIMAL.big) chips.push(["Sick from boredom.", "bad"]); else if (a.need.enrich >= 80) chips.push(["Bored.", "bad"]);
-    if (a.stress >= H.stressFrom) chips.push(["Stressed.", "bad"]);
-    chips.push([a.act, ""]);
-    const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i style="width:${Math.round(full)}%"></i></span></div>`;
+    if (a.escaped) chips.push("Escaped.");
+    if (a.health < H.weak) chips.push("Sickly.");
+    if (a.need.hunger >= H.starveFrom) chips.push("Starving."); else if (a.need.hunger >= 80) chips.push("Hungry.");
+    if (sp.moves !== "swim") { if (a.need.thirst >= H.starveFrom) chips.push("Parched."); else if (a.need.thirst >= 80) chips.push("Thirsty."); }
+    if (a.need.enrich >= 80) chips.push("Bored.");
+    if (a.stress >= H.stressFrom) chips.push("Stressed.");
+    if (!["info", "health"].includes(this.anTab)) this.anTab = "info";
+    const ex = s.exhibits.find(e => e.id === a.ex);
+    const where = a.crated ? "In a crate." : a.escaped ? "Escaped." : ex ? ex.name : "Nowhere.";
+    const row = (k, v) => `<div class="row"><span>${k}</span><b>${esc(v)}</b></div>`;
     const names = { hunger: "Fed", thirst: "Water", enrich: "Enrichment" };
+    const body = this.anTab === "info"
+      ? row("Where", where) + row("Doing", ACT_LABEL[a.act] || a.act) + row("Period", sp.period) + row("Danger", sp.danger)
+        + row("Size", SIZE_NAME[sp.size] || "?") + row("Eats", sp.foodType[0].toUpperCase() + sp.foodType.slice(1)) + row("Active", sp.active === "night" ? "Night" : "Day")
+        + row("Group", sp.group[0] === sp.group[1] ? sp.group[0] : `${sp.group[0]}–${sp.group[1]}`)
+      : meter("Health", a.health) + meter("Happiness", a.happy) + meter("Calm", 100 - a.stress)
+        + `<h4>Needs</h4>` + needsOf(sp).map(k => meter(names[k], 100 - a.need[k])).join("");
     return `<div class="row"><h3>${esc(sp.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
-      <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
-      ${meter("Health", a.health)}${meter("Happiness", a.happy)}${meter("Calm", 100 - a.stress)}
-      <h4>Needs</h4>${needsOf(sp).map(k => meter(names[k], 100 - a.need[k])).join("")}`;
+      <div>${chips.map(c => `<span class="chip bad">${esc(c)}</span>`).join("")}</div>
+      ${tabBar("an", [{ key: "info", label: "Info" }, { key: "health", label: "Health" }], this.anTab)}
+      <div class="ptab-body">${body}</div>`;
   }
 }

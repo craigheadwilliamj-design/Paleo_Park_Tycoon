@@ -191,7 +191,7 @@ export function updateWellbeing(state, derived, bus) {
     if (starving || sick || a.stress >= H.stressFrom) a.health -= starving * H.starve + sick * H.boredSick + (a.stress >= H.stressFrom ? H.stressed : 0);
     else if (a.stress < H.stressFrom / 2) a.health += H.heal;
     a.health = Math.max(0, Math.min(100, a.health));
-    if (a.health < H.weak && !a.weak) { a.weak = true; bus.emit("notify", { text: `${s.name} is weak.`, urgent: true }); }
+    if (a.health < H.weak && !a.weak) { a.weak = true; bus.emit("notify", { text: `${s.name} is sickly.`, urgent: true }); }
     else if (a.health >= H.weak + 10) a.weak = false;
     const met = 1 - keys.reduce((n, k) => n + a.need[k], 0) / (100 * keys.length);
     a.happy = Math.round(100 * (0.45 * hab + 0.35 * met + 0.2 * (1 - a.stress / 100)));

@@ -403,7 +403,7 @@ test("a bored animal plays with an enrichment log; without one boredom only grow
   assert.equal(w.placeProblem("log", 5, 5), "Enrichment Logs go inside an exhibit.");
 });
 
-test("a neglected animal gets stressed, weak, and dies; a cared-for one stays healthy", () => {
+test("a neglected animal gets stressed, sickly, and dies; a cared-for one stays healthy", () => {
   const { w, e } = buildPark();
   w.setBiome(e.id, "desert");
   const a = w.spawn("lyst", e.id);
@@ -413,7 +413,7 @@ test("a neglected animal gets stressed, weak, and dies; a cared-for one stays he
   assert.ok(a.stress > 30, "hunger piles up into stress");
   assert.ok(a.health < 100, "starving costs health");
   for (let d = 0; d < 10 && w.state.animals.length; d++) w.advance(DAY_MIN);
-  assert.ok(w.state.bell.some(n => /Lystrosaurus is weak/.test(n.text)), "the bell warns first");
+  assert.ok(w.state.bell.some(n => /Lystrosaurus is sickly/.test(n.text)), "the bell warns first");
   assert.ok(w.state.bell.some(n => /Lystrosaurus has died/.test(n.text)));
   assert.equal(w.state.animals.length, 0);
 
