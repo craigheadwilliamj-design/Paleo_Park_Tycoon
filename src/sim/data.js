@@ -76,6 +76,12 @@ export const SPECIES = {
                     idle: { frames: 8, s: 3.6 }, lie: { frames: 17, min: 7 }, rest: { frames: 8, s: 4.4 }, eat: { frames: 12, s: 3.0 },
                     attack: { frames: 8, s: 1.4 },
                     box: { east: [28, 18, 186, 102], west: [6, 18, 164, 102] } } },
+  mosa: { name: "Mosasaurus", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 15, danger: 5, biomes: ["sea"], water: 0.9, waterKind: "deep",
+          space: 110, group: [1, 2], foodType: "fish", food: 45, appeal: 22, price: 70000, moves: "swim", sea: true, color: "#3f5a6e",
+          sprite: { name: "mosasaurus", frame: [192, 80], frames: 8, anchor: [96, 78], cycle: 1.6,
+                    idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 3.0 }, eat: { frames: 15, s: 1.5 },
+                    attack: { frames: 15, s: 1.5 },
+                    box: { east: [22, 16, 168, 74], west: [24, 16, 170, 74] } } },
 };
 export const FOOD_TYPES = ["greens", "meat", "fish", "bugs"];
 export const DANGEROUS = 3;   // a pen holding an animal of this danger or more is fed only through a chute
@@ -158,6 +164,7 @@ export const SITES = [
   { id: "hennessey", name: "Hennessey Formation", where: "Oklahoma, USA", period: "Permian", from: 276e6, to: 272e6, at: { permian: [114, 60] }, fauna: ["coty"] },
   { id: "karoolate", name: "Karoo, Daptocephalus Zone", where: "Eastern Cape, South Africa", period: "Permian", from: 256e6, to: 252.2e6, at: { permian: [116, 114] }, fauna: ["lyst"] },
   { id: "hellcreek", name: "Hell Creek Formation", where: "Montana, USA", period: "Cretaceous", from: 67e6, to: 66.1e6, at: { "cretaceous-late": [92, 19] }, fauna: ["trex"] },
+  { id: "maastricht", name: "Maastricht Formation", where: "Limburg, Netherlands", period: "Cretaceous", from: 68e6, to: 66.1e6, at: { "cretaceous-late": [135, 28] }, fauna: ["mosa"] },
 ];
 
 // Research tracks: each a straight line of steps. A step's effects add up once it's done (fences name their step in `tech`).

@@ -21,6 +21,7 @@ The ground-up restart (design in `docs/plan.md` and `docs/systems.md`). Browser 
 - Escape user text with `esc()` (ui.js) before it goes into HTML.
 - Panels follow the v1 rules: names, numbers, meters, status chips, buttons. Status says what's wrong in a few words ("No keeper gate."), never how to fix it.
 - Art is placeholder blocks until the golden assets exist (see `docs/plan.md`). Draw in the renderer only.
+- Every animation goes to the user as a GIF (`tools/sprites/gifs.py`, sent with SendUserFile) and waits for their yes before it is committed, pushed or published.
 
 ## Test
 `npm test` (or `node --test tests/sim.test.js` and `node tests/smoke.js`). `node tests/smoke.js --shot out.png` saves a screenshot. Run both after any change.
