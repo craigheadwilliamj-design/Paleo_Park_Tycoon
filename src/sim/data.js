@@ -33,7 +33,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // Species. len: real length in meters (diet, danger and display size). danger 1 to 5 (fence tier needed).
 // biomes: preferred first; the rest are acceptable. water: share of the pen it wants as water, and which kind.
 // space: tiles per animal. group: [min, max]. food: units a day of foodType. appeal: guest draw.
-// moves: "land", "swim" or "both". sea: lives in sea water (needs a sea exhibit).
+// moves: "land", "swim" or "both". sea: lives in sea water (needs a sea exhibit). cruise: keeps swimming while it wanders instead of stopping at each spot.
 // size: class 1 tiny, 2 small, 3 medium, 4 large, 5 huge (bored big animals attack fences, small ones get sick; later prey and fights).
 // active: "day" or "night", when it is awake (it lies down more the rest of the time). drain: per-need multipliers on ANIMAL.fullDays (config.js).
 // stars: park rating its Time Travel Lab expeditions need. starter: partner parks sell it, so it can be bought without the labs.
@@ -64,7 +64,7 @@ export const SPECIES = {
                     attack: { frames: 8, s: 1.4 },
                     box: { east: [4, 21, 89, 50], west: [7, 21, 92, 50] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
-          space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a",
+          space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, cruise: true, color: "#c46a4a",
           sprite: { name: "anomalocaris", frame: [96, 40], frames: 8, anchor: [48, 39], scale: 0.5, cycle: 0.6,
                     idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 2.8 }, eat: { frames: 18, s: 1.8 },
                     box: { east: [14, 9, 88, 39], west: [8, 9, 82, 39] } } },
@@ -77,7 +77,7 @@ export const SPECIES = {
                     attack: { frames: 8, s: 1.4 },
                     box: { east: [28, 18, 186, 102], west: [6, 18, 164, 102] } } },
   mosa: { name: "Mosasaurus", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 15, danger: 5, biomes: ["sea"], water: 0.9, waterKind: "deep",
-          space: 110, group: [1, 2], foodType: "fish", food: 45, appeal: 22, price: 70000, moves: "swim", sea: true, color: "#3f5a6e",
+          space: 110, group: [1, 2], foodType: "fish", food: 45, appeal: 22, price: 70000, moves: "swim", sea: true, cruise: true, color: "#3f5a6e",
           sprite: { name: "mosasaurus", frame: [192, 80], frames: 8, anchor: [96, 78], cycle: 1.6,
                     idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 3.0 }, eat: { frames: 15, s: 1.5 },
                     attack: { frames: 15, s: 1.5 },

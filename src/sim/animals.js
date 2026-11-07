@@ -122,6 +122,12 @@ const ACTIONS = {
       if (spots.length) goTo(c.state, c.derived, a, [pick(c.state, spots)]);
       a.t = range(c.state, 5, 20); return true;
     },
+    clockMoving: s => !!s.cruise,   // its time runs while it swims, or a cruiser would wander for ever
+    arrived(a, c) {   // a cruiser (fish, sea reptiles) never stops mid-wander: it heads somewhere else
+      if (!c.s.cruise || a.escaped) return;
+      const spots = standable(c.state, c.derived, a);
+      if (spots.length > 1) goTo(c.state, c.derived, a, [pick(c.state, spots)]);
+    },
     finish() {},
   },
 };
@@ -152,11 +158,11 @@ export function animalTick(state, derived, bus, dt) {
       const rate = (100 / (ANIMAL.fullDays[k] * DAY_MIN)) * ((s.drain && s.drain[k]) || 1);
       a.need[k] = Math.min(100, a.need[k] + rate * dt);
     }
-    if (!walk(g, a, SPEED.animal, dt)) continue;
+    if (!walk(g, a, SPEED.animal, dt)) { if (ACTIONS[a.act] && ACTIONS[a.act].clockMoving && ACTIONS[a.act].clockMoving(s)) a.t -= dt; continue; }
     if (ACTIONS[a.act] && ACTIONS[a.act].faces) faceTo(g, a, j => ACTIONS[a.act].faces(state, derived, a, j));
     if (a.act === "test") testFence(state, derived, bus, a, dt);
     if (a.act === "maul" && a.fence !== undefined) g.cond[a.fence] = Math.max(0, g.cond[a.fence] - (WEAR.mauledPerHour * dt) / 60);
-    if ((a.t -= dt) > 0) continue;
+    if ((a.t -= dt) > 0) { if (ACTIONS[a.act] && ACTIONS[a.act].arrived) ACTIONS[a.act].arrived(a, ctxOf(state, derived, bus, a)); continue; }
     const c = ctxOf(state, derived, bus, a);
     if (ACTIONS[a.act]) ACTIONS[a.act].finish(a, c);
     choose(c, a);
