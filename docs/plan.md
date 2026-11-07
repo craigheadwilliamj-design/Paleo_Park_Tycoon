@@ -83,7 +83,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - Publish v2.0. v1 keeps its own link.
 
 ## Roster
-77 species, in build order. The first 24 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (25 in all).
+76 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
 
 1. Arthropleura
 2. Cotylorhynchus
@@ -95,73 +95,72 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 8. Platyhystrix
 9. Scutosaurus
 10. Inostrancevia
-11. Diictodon
-12. Moschops
-13. Prionosuchus
-14. Tiktaalik
-15. Coelophysis
-16. Plateosaurus
-17. Carcharodontosaurus
-18. Spinosaurus
-19. Dryosaurus
-20. Compsognathus
-21. Allosaurus
-22. Chalicotherium
-23. Ichthyostega
-24. Sacabambaspis
-25. Stegosaurus
-26. Megalodon
-27. Basilosaurus
-28. Great Auk
-29. Eryops
-30. Estemmenosuchus
-31. Dunkleosteus
-32. Rhizodus
-33. Opabinia
-34. Hypsilophodon
-35. Oviraptor
-36. Parasaurolophus
-37. Ankylosaurus
-38. Carnotaurus
-39. Gigantopithecus
-40. Macrauchenia
-41. Megaloceros
-42. Desmatosuchus
-43. Megatherium
-44. Dire Wolf
-45. Erythrosuchus
-46. Ornitholestes
-47. Arctodus
-48. Postosuchus
-49. Paraceratherium
-50. Scelidosaurus
-51. Kentrosaurus
-52. Apatosaurus
-53. Argentinosaurus
-54. Diplodocus
-55. Therizinosaurus
-56. Jaekelopterus
-57. Nothosaurus
-58. Ichthyosaurus
-59. Elasmosaurus
-60. Ceratosaurus
-61. Doedicurus
-62. Psittacosaurus
-63. Gallimimus
-64. Pachycephalosaurus
-65. Iguanodon
-66. Trilobite
-67. Velociraptor
-68. Triceratops
-69. Ambulocetus
-70. Andrewsarchus
-71. Aepycamelus
-72. Kelenken
-73. Dodo
-74. Smilodon
-75. Elasmotherium
-76. Woolly Mammoth
-77. Cameroceras
+11. Moschops
+12. Prionosuchus
+13. Tiktaalik
+14. Coelophysis
+15. Plateosaurus
+16. Carcharodontosaurus
+17. Spinosaurus
+18. Dryosaurus
+19. Compsognathus
+20. Allosaurus
+21. Chalicotherium
+22. Ichthyostega
+23. Sacabambaspis
+24. Stegosaurus
+25. Megalodon
+26. Basilosaurus
+27. Great Auk
+28. Eryops (Carboniferous)
+29. Estemmenosuchus
+30. Dunkleosteus
+31. Rhizodus
+32. Opabinia
+33. Hypsilophodon
+34. Oviraptor
+35. Parasaurolophus
+36. Ankylosaurus
+37. Carnotaurus
+38. Gigantopithecus
+39. Macrauchenia
+40. Megaloceros
+41. Desmatosuchus
+42. Megatherium
+43. Dire Wolf
+44. Erythrosuchus
+45. Ornitholestes
+46. Arctodus
+47. Postosuchus
+48. Paraceratherium
+49. Scelidosaurus
+50. Kentrosaurus
+51. Apatosaurus
+52. Argentinosaurus
+53. Diplodocus
+54. Therizinosaurus
+55. Jaekelopterus
+56. Nothosaurus
+57. Ichthyosaurus
+58. Elasmosaurus
+59. Ceratosaurus
+60. Doedicurus
+61. Psittacosaurus
+62. Gallimimus
+63. Pachycephalosaurus
+64. Iguanodon
+65. Trilobite
+66. Velociraptor
+67. Triceratops
+68. Ambulocetus
+69. Andrewsarchus
+70. Aepycamelus
+71. Kelenken
+72. Dodo
+73. Smilodon
+74. Elasmotherium
+75. Woolly Mammoth
+76. Cameroceras
 
 ## Open questions
 - Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
