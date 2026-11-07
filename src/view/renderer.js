@@ -5,6 +5,7 @@ import { S_PATH, S_FENCE, W_NONE, W_DEEP, F_GATE, F_CHUTE } from "../sim/config.
 import { FENCES, BIOMES, BUILDINGS, SPECIES, PARK_GROUND, PARK_WATER } from "../sim/data.js";
 import { fenceId } from "../sim/grid.js";
 import { condition } from "../sim/exhibits.js";
+import { tileOf } from "../sim/movers.js";
 
 // Shade a #rrggbb color: k > 0 lightens, k < 0 darkens (keeps the hue, like a ramp step).
 const shades = new Map();
@@ -76,7 +77,7 @@ export function draw(ctx, world, cam, ui) {
   ].sort((p, q) => p.m.y - q.m.y);
   for (const { k, m } of walkers) {
     const fx = Math.round((m.x * TILE - cam.x) * z), fy = Math.round((m.y * TILE - cam.y) * z);
-    if (k === "a") drawAnimal(ctx, m, fx, fy, z, ui.selected === m);
+    if (k === "a") drawAnimal(ctx, m, fx, fy, z, ui.selected === m, g.water[tileOf(g, m)] !== W_NONE);
     else drawPerson(ctx, fx, fy, z, k === "s" ? ({ keeper: "#3f6b3a", mechanic: "#4a5f86", guard: "#2f2f38" }[m.role] || "#555") : guestColor(m.id));
   }
 
@@ -172,12 +173,16 @@ function walkFrame(a, sp, w) {
   w.d += Math.hypot(a.x - w.x, a.y - w.y); w.x = a.x; w.y = a.y;
   return Math.floor((w.d / sp.cycle) * sp.frames) % sp.frames;
 }
+// Moving through water, a sprite with a swim strip swims instead of walking (the Tiktaalik), on the same distance.
+function swimFrame(sp, w) {
+  return Math.floor((w.d / sp.swim.cycle) * sp.swim.frames) % sp.swim.frames;
+}
 
-function drawAnimal(ctx, a, fx, fy, z, sel) {
+function drawAnimal(ctx, a, fx, fy, z, sel, wet) {
   const s = SPECIES[a.sp], sp = s.sprite;
   if (sp) {
     const moving = a.path && a.path.length > 0, w = walkState(a, sp), facing = facingOf(a, sp, w), f = walkFrame(a, sp, w);
-    const [strip, sf] = moving ? ["walk", f] : stillFrame(a, sp, w);
+    const [strip, sf] = !moving ? stillFrame(a, sp, w) : wet && sp.swim ? ["swim", swimFrame(sp, w)] : ["walk", f];
     w.fresh = false;
     const im = spriteImg(`art/animals/${sp.name}-${strip}-${facing}.png`) || spriteImg(`art/animals/${sp.name}-stand-${facing}.png`);
     if (im) {

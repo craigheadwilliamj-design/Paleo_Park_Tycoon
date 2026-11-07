@@ -42,6 +42,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
 // bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle),
 // scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5).
+// swim (optional): moving through water it plays <name>-swim-<facing>.png instead of the walk (frames, cycle: tiles a stroke).
 // Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
 // minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
 // <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
@@ -72,7 +73,10 @@ export const SPECIES = {
                     idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 2.8 }, eat: { frames: 18, s: 1.8 },
                     box: { east: [14, 9, 88, 39], west: [8, 9, 82, 39] } } },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
-          space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
+          space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a",
+          sprite: { name: "tiktaalik", frame: [96, 32], frames: 8, anchor: [48, 28], cycle: 0.4, swim: { frames: 8, cycle: 0.8 },
+                    idle: { frames: 4, s: 2.4 }, lie: { frames: 7, min: 4 }, rest: { frames: 4, s: 3.2 }, eat: { frames: 8, s: 1.0 },
+                    box: { east: [13, 11, 83, 29], west: [13, 11, 83, 29] } } },
   trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
           space: 120, group: [1, 2], foodType: "meat", food: 60, appeal: 25, price: 80000, moves: "land", color: "#6a5a3a",
           sprite: { name: "tyrannosaurus", frame: [192, 112], frames: 8, anchor: [96, 96], cycle: 2.4,

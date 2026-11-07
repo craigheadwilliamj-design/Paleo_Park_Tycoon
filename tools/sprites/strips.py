@@ -18,7 +18,7 @@ import argparse, glob, os, re
 from PIL import Image, ImageChops
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-STRIPS = ("walk", "idle", "lie", "rest", "eat", "drink", "attack")
+STRIPS = ("walk", "swim", "idle", "lie", "rest", "eat", "drink", "attack")
 
 
 def same(a, b, tol=40):

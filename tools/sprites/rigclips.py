@@ -24,6 +24,11 @@ there the foot turns with the shin instead (heel up, toes down).
 
   python3 tools/sprites/rigclips.py lystrosaurus walk --clip walk --at 4 '{"Back Foot": {"r": 8.85}}' --size 96 40 --offset -2 -38
 
+--clips FILE adds clips written for v2 (JSON: [{"name", "frames": [{part name: {r, dx, dy}}]}]) next to the rig's own,
+for motion v1 never had (the Tiktaalik lived in a vivarium and never walked: art/source/tiktaalik/clips.json).
+
+  python3 tools/sprites/rigclips.py tiktaalik walk --clip crawl --clips art/source/tiktaalik/clips.json --size 96 32 --offset -2 -14
+
 --size and --offset place the rig cell in the frame, the same for every strip of one animal.
 """
 import argparse, glob, json, os
@@ -47,6 +52,7 @@ def main():
     ap.add_argument("--pose", default="{}", help="JSON pose {part name: {r, dx, dy}} added to every frame")
     ap.add_argument("--ease", default="{}", help="JSON pose added from none on the first frame to all of it on the last")
     ap.add_argument("--at", nargs=2, action="append", default=[], metavar=("FRAME", "POSE"), help="a JSON pose added to one frame")
+    ap.add_argument("--clips", help="a JSON file of extra clips, keyed by part name")
     ap.add_argument("--rigid", nargs="*", default=[], help="parts that never turn, only shift by whole pixels")
     ap.add_argument("--frames", type=int, nargs=2, metavar=("FROM", "TO"), help="only these frames of the clip (TO included)")
     ap.add_argument("--size", type=int, nargs=2, required=True, help="the sprite frame")
@@ -55,6 +61,9 @@ def main():
     rig = Rig(json.load(open(os.path.join(ROOT, "art", "v1", f"{a.name}-rig.json"))))
     rig.P["cell"] = {"w": rig.P["cell"]["w"] + 20, "h": rig.P["cell"]["h"] + 21}   # room below and right: v1's cell clips parts that sink or reach
     clips = {c["name"]: c for c in rig.P.get("clips", [])}
+    if a.clips:
+        for c in json.load(open(a.clips)):
+            clips[c["name"]] = {**c, "frames": [{rig.named.get(k, k): v for k, v in f.items()} for f in c["frames"]]}
     if a.clip not in clips:
         raise SystemExit(f"no clip {a.clip!r}; the rig has: {', '.join(clips)}")
     frames = clips[a.clip]["frames"]
