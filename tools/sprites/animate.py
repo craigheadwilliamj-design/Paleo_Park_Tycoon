@@ -6,7 +6,8 @@ art/source/<name>/stand.png. Copy the seed you like to <strip>-0.png .. <strip>-
 
   python3 tools/sprites/animate.py dimetrodon attack "lunges forward and bites, then recovers" --seeds 11 22 33
 
---first and --last start and end on other frames instead (paths under art/source/<name>/). The walk is two
+--open leaves the end pose to PixelLab (lie: it settles from the drawing into a lying pose; rest then loops on
+lie's last frame with --first). --first and --last start and end on other frames instead (paths under art/source/<name>/). The walk is two
 4-frame halves between skeleton keyframes from skelwalk.py (its frames 0 and 4, kept as walkkey-a.png and
 walkkey-b.png), so the gait alternates and the in-betweens move like the other loops:
 
@@ -33,8 +34,10 @@ def req(method, path, body=None):
 
 
 def run(src, strip, a, seed, img, last):
-    body = {"first_frame": img, "last_frame": last, "description": a.description, "frame_count": a.frames, "seed": seed,
+    body = {"first_frame": img, "description": a.description, "frame_count": a.frames, "seed": seed,
             "no_background": True, "direction": "east", "view": "side", "subject_description": a.subject}
+    if last:
+        body["last_frame"] = last
     job = req("POST", "/animate-pixminimax", body)["background_job_id"]
     while True:
         time.sleep(10)
@@ -59,11 +62,12 @@ def main():
     ap.add_argument("--seeds", type=int, nargs="+", default=[11, 22, 33])
     ap.add_argument("--first", default="stand.png", help="first frame, in art/source/<name>/")
     ap.add_argument("--last", help="last frame (default: the first)")
+    ap.add_argument("--open", action="store_true", help="no last frame: PixelLab picks the end pose (lie, which settles into a new pose)")
     ap.add_argument("--subject", default="a green Dimetrodon with an orange sail on its back, a sprawling four-legged reptile")
     a = ap.parse_args()
     src = os.path.join(ROOT, "art", "source", a.name)
     b64 = lambda p: {"type": "base64", "base64": base64.b64encode(open(os.path.join(src, p), "rb").read()).decode(), "format": "png"}
-    img, last = b64(a.first), b64(a.last or a.first)
+    img, last = b64(a.first), (None if a.open else b64(a.last or a.first))
     with ThreadPoolExecutor(len(a.seeds)) as ex:
         list(ex.map(lambda s: run(src, a.strip, a, s, img, last), a.seeds))
 
