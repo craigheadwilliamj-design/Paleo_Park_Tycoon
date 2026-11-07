@@ -83,7 +83,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - Publish v2.0. v1 keeps its own link.
 
 ## Roster
-79 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
+80 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
 
 1. Arthropleura
 2. Cotylorhynchus
@@ -164,6 +164,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 77. Diplocaulus (Carboniferous)
 78. Tanystropheus (Triassic)
 79. Dilophosaurus (Early Jurassic)
+80. Utahraptor (Early Cretaceous)
 
 ## Open questions
 - Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
