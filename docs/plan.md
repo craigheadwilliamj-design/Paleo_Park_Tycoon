@@ -170,3 +170,9 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - The exact size-curve numbers and the largest target park size.
 - Whether buildings come from Blender or shape generators (test on the restroom).
 - Getting Gemini outputs in: you in the Gemini app for now, or an API key for batches later.
+
+## Maybe in the future: flyers
+Not planned for v2.0, and no flyers are on the roster. No new exhibit type: an **aviary net** would be a ninth fence type, like the aquarium and lagoon walls. A species gets a `flies` field in `data.js`; only `soars` species need the net, and a pen without it can't hold them. The view draws a translucent roof over a netted pen. No altitude or perch sim; flyers just hover and cast a shadow. Flyers get a lower space need per animal, and big ones are costly to net.
+- **Land animals, flight as animation (no net):** Quetzalcoatlus, Haast's Eagle.
+- **Edge case:** Argentavis (big soarer that also walked; maybe net-only).
+- **Netted:** Pteranodon (needs water), Meganeura (Carboniferous), Pelagornis (needs water), Yi Qi, Archaeopteryx, Dimorphodon, plus a few weird pterosaurs still to pick (Nyctosaurus, Tupandactylus, Pterodaustro, Dsungaripterus, Thalassodromeus, Hatzegopteryx are candidates).
