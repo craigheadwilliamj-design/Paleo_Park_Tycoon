@@ -7,7 +7,8 @@ for strips.py.
 
 --pose lays a pose over every frame (added to the clip's values); --ease adds one that grows from nothing on
 the first frame to all of it on the last (lie: sinking to the bottom). Frames stay at the drawing's own
-pixel size: halving v1's Anomalocaris to fit the size curve turned it to mush.
+pixel size: halving v1's Anomalocaris to fit the size curve turned it to mush, so the game draws it
+smaller instead (sprite.scale in data.js).
 
   python3 tools/sprites/rigclips.py anomalocaris walk --clip swim --size 96 40 --offset -2 -42
   python3 tools/sprites/rigclips.py anomalocaris lie --clip hover --ease '{"Body": {"dy": 6}}' --size 96 40 --offset -2 -42

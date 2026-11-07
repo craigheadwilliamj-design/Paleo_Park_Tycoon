@@ -181,16 +181,21 @@ function drawAnimal(ctx, a, fx, fy, z, sel) {
     w.fresh = false;
     const im = spriteImg(`art/animals/${sp.name}-${strip}-${facing}.png`) || spriteImg(`art/animals/${sp.name}-stand-${facing}.png`);
     if (im) {
-      const [FW, FH] = Array.isArray(sp.frame) ? sp.frame : [sp.frame, sp.frame], x = fx - sp.anchor[0] * z, y = fy - sp.anchor[1] * z, [b0, b1, b2, b3] = sp.box[facing];
+      // scale: the sprite drawn smaller than its pixels (a drawing too big for the size curve). Crisp from zoom 2;
+      // at zoom 1 its pixels are under a screen pixel, so that one draw is smoothed instead of dropping every other one.
+      const k = z * (sp.scale || 1);
+      const [FW, FH] = Array.isArray(sp.frame) ? sp.frame : [sp.frame, sp.frame], x = fx - sp.anchor[0] * k, y = fy - sp.anchor[1] * k, [b0, b1, b2, b3] = sp.box[facing];
       // shadow: a stepped oval under the trunk
-      const [ax, ay] = AHEAD[facing], hw = Math.round((b2 - b0) * 0.28), cx = fx + Math.round(ax * 3) * z, cy = fy + Math.round(ay * 3) * z;
+      const [ax, ay] = AHEAD[facing], hw = Math.round((b2 - b0) * 0.28 * (sp.scale || 1)), cx = fx + Math.round(ax * 3) * z, cy = fy + Math.round(ay * 3) * z;
       ctx.fillStyle = "#00000033";
       ctx.fillRect(cx - hw * z, cy - z, 2 * hw * z, 2 * z);
       ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy - 2 * z, 2 * Math.round(hw * 0.7) * z, z);
       ctx.fillRect(cx - Math.round(hw * 0.7) * z, cy + z, 2 * Math.round(hw * 0.7) * z, z);
-      ctx.drawImage(im, im.naturalWidth > FW ? sf * FW : 0, 0, FW, FH, x, y, FW * z, FH * z);
+      if (k < 1) ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(im, im.naturalWidth > FW ? sf * FW : 0, 0, FW, FH, x, y, FW * k, FH * k);
+      ctx.imageSmoothingEnabled = false;
       if (a.escaped || sel) { ctx.strokeStyle = a.escaped ? "#ff3a2a" : "#ffffff"; ctx.lineWidth = 1;
-        ctx.strokeRect(x + b0 * z - 2, y + b1 * z - 2, (b2 - b0) * z + 4, (b3 - b1) * z + 4); }
+        ctx.strokeRect(x + b0 * k - 2, y + b1 * k - 2, (b2 - b0) * k + 4, (b3 - b1) * k + 4); }
       return;
     }
   }
