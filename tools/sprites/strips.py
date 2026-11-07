@@ -40,16 +40,16 @@ def snap(f, pal):
 
 
 SAIL = {(195, 111, 74), (159, 80, 57), (234, 167, 116)}
+BELLY = {(178, 165, 66), (143, 132, 50), (132, 122, 46)}
 
 
-def despeckle(f, max_size=8):
-    """PixelLab sometimes tints a few pixels of the head or mouth sail-orange. Sail-colored blobs that are small and
-    not the sail itself (the biggest blob) become the commonest other color around them. Dark mouth reds are kept."""
+def blobs_of(f, colors):
+    """8-connected blobs of the given colors."""
     px = f.load()
-    seen, blobs = set(), []
+    seen, out = set(), []
     for y in range(f.height):
         for x in range(f.width):
-            if (x, y) in seen or px[x, y][3] < 128 or px[x, y][:3] not in SAIL:
+            if (x, y) in seen or px[x, y][3] < 128 or px[x, y][:3] not in colors:
                 continue
             blob, todo = [], [(x, y)]
             seen.add((x, y))
@@ -59,27 +59,44 @@ def despeckle(f, max_size=8):
                 for dx in (-1, 0, 1):
                     for dy in (-1, 0, 1):
                         n = (cx + dx, cy + dy)
-                        if 0 <= n[0] < f.width and 0 <= n[1] < f.height and n not in seen and px[n][3] >= 128 and px[n][:3] in SAIL:
+                        if 0 <= n[0] < f.width and 0 <= n[1] < f.height and n not in seen and px[n][3] >= 128 and px[n][:3] in colors:
                             seen.add(n)
                             todo.append(n)
-            blobs.append(blob)
-    if not blobs:
-        return f
-    blobs.remove(max(blobs, key=len))
-    for blob in blobs:
-        if len(blob) > max_size or all(px[b][:3] == (159, 80, 57) for b in blob):
-            continue
-        around = {}
-        for bx, by in blob:
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    n = (bx + dx, by + dy)
-                    if 0 <= n[0] < f.width and 0 <= n[1] < f.height and px[n][3] >= 128 and px[n][:3] not in SAIL:
-                        around[px[n][:3]] = around.get(px[n][:3], 0) + 1
-        if around:
-            c = max(around, key=around.get)
-            for b in blob:
-                px[b] = c + (255,)
+            out.append(blob)
+    return out
+
+
+def fill_around(f, blob, colors):
+    """Recolor a blob to the commonest other color touching it."""
+    px = f.load()
+    around = {}
+    for bx, by in blob:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                n = (bx + dx, by + dy)
+                if 0 <= n[0] < f.width and 0 <= n[1] < f.height and px[n][3] >= 128 and px[n][:3] not in colors:
+                    around[px[n][:3]] = around.get(px[n][:3], 0) + 1
+    if around:
+        c = max(around, key=around.get)
+        for b in blob:
+            px[b] = c + (255,)
+
+
+def despeckle(f, max_size=8):
+    """PixelLab tints a few pixels the wrong color. Sail-orange blobs on the head that aren't the sail (the biggest
+    blob) and small belly-yellow blobs that aren't the belly (the two biggest) become the commonest color around
+    them. Dark mouth reds are kept."""
+    px = f.load()
+    sail = blobs_of(f, SAIL)
+    if sail:
+        sail.remove(max(sail, key=len))
+    for blob in sail:
+        if len(blob) <= max_size and not all(px[b][:3] == (159, 80, 57) for b in blob):
+            fill_around(f, blob, SAIL)
+    belly = sorted(blobs_of(f, BELLY), key=len, reverse=True)[2:]
+    for blob in belly:
+        if len(blob) <= 6:
+            fill_around(f, blob, BELLY)
     return f
 
 
