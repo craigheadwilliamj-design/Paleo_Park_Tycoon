@@ -5,7 +5,7 @@ import { newPark, World } from "../src/sim/world.js";
 import { serialize, deserialize } from "../src/sim/save.js";
 import { idx } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH, S_FENCE, DAY_MIN } from "../src/sim/config.js";
+import { S_PATH, S_FENCE, DAY_MIN, W_DEEP } from "../src/sim/config.js";
 import { TRACKS, SITES } from "../src/sim/data.js";
 import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
 
@@ -525,4 +525,29 @@ test("animals route diagonally, but never cut a corner between blocked tiles", a
   assert.equal(route(g, at(0, 0), [at(3, 3)], "land").length, 6, "people still walk the grid");
   g.struct[at(1, 0)] = S_FENCE; g.struct[at(0, 1)] = S_FENCE;
   assert.equal(route(g, at(0, 0), [at(3, 3)], "land", null, true), null, "boxed in by a fence corner: no slipping through diagonally");
+});
+
+test("a Mosasaurus lives in a deep sea lagoon: eats and plays from the water's edge, never breaks out", () => {
+  const w = newPark(3), g = w.state.grid, ex = Math.floor(g.w / 2);
+  researchAll(w);
+  w.state.money = 1e6;
+  assert.equal(w.paint("path", line(ex - 22, 40, ex + 2, 40)), "");
+  assert.equal(w.paint("path", line(ex, 40, ex, g.h - 3)), "");
+  assert.equal(w.paint("fence:lagoon", ring(ex - 20, 24, ex - 2, 39)), "");
+  assert.equal(w.paint("chute", [[ex - 4, 39]]), "");
+  const e = w.state.exhibits[0];
+  assert.equal(w.setBiome(e.id, "sea"), "");
+  assert.equal(w.paint("water:deep", line(ex - 19, 25, ex - 5, 38)), "");
+  assert.equal(w.place("feeder", ex - 4, 37), "");   // on the land strip, beside the water
+  assert.equal(w.place("log", ex - 4, 30), "");
+  assert.equal(w.place("shed", ex + 2, 42), "");
+  assert.equal(w.paint("path", line(ex + 1, 41, ex + 1, 44)), "");
+  assert.equal(w.hire("keeper"), "");
+  w.spawn("mosa", e.id); w.spawn("mosa", e.id);
+  const acts = new Set();
+  for (let h = 0; h < 24 * 4; h++) { w.advance(60); for (const a of w.state.animals) acts.add(a.act); }
+  const m = w.state.animals.filter(a => a.sp === "mosa");
+  assert.equal(m.length, 2);
+  assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
+  assert.ok(m.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_DEEP), "healthy, home and in deep water");
 });
