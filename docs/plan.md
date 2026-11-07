@@ -115,7 +115,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 28. Eryops (Carboniferous)
 29. Estemmenosuchus
 30. Dunkleosteus
-31. Rhizodus
+31. Rhizodus (Carboniferous)
 32. Opabinia
 33. Hypsilophodon
 34. Oviraptor
