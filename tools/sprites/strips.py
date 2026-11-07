@@ -39,6 +39,50 @@ def snap(f, pal):
     return f
 
 
+SAIL = {(195, 111, 74), (159, 80, 57), (234, 167, 116)}
+
+
+def despeckle(f, max_size=8):
+    """PixelLab sometimes tints a few pixels of the head or mouth sail-orange. Sail-colored blobs that are small and
+    not the sail itself (the biggest blob) become the commonest other color around them. Dark mouth reds are kept."""
+    px = f.load()
+    seen, blobs = set(), []
+    for y in range(f.height):
+        for x in range(f.width):
+            if (x, y) in seen or px[x, y][3] < 128 or px[x, y][:3] not in SAIL:
+                continue
+            blob, todo = [], [(x, y)]
+            seen.add((x, y))
+            while todo:
+                cx, cy = todo.pop()
+                blob.append((cx, cy))
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        n = (cx + dx, cy + dy)
+                        if 0 <= n[0] < f.width and 0 <= n[1] < f.height and n not in seen and px[n][3] >= 128 and px[n][:3] in SAIL:
+                            seen.add(n)
+                            todo.append(n)
+            blobs.append(blob)
+    if not blobs:
+        return f
+    blobs.remove(max(blobs, key=len))
+    for blob in blobs:
+        if len(blob) > max_size or all(px[b][:3] == (159, 80, 57) for b in blob):
+            continue
+        around = {}
+        for bx, by in blob:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    n = (bx + dx, by + dy)
+                    if 0 <= n[0] < f.width and 0 <= n[1] < f.height and px[n][3] >= 128 and px[n][:3] not in SAIL:
+                        around[px[n][:3]] = around.get(px[n][:3], 0) + 1
+        if around:
+            c = max(around, key=around.get)
+            for b in blob:
+                px[b] = c + (255,)
+    return f
+
+
 def load(src, strip):
     paths = sorted(glob.glob(os.path.join(src, f"{strip}-*.png")), key=lambda p: int(re.findall(r"(\d+)\.png$", p)[0]))
     frames = [Image.open(p).convert("RGBA") for p in paths]
@@ -63,7 +107,7 @@ def main():
     stand = stand if os.path.exists(stand) else os.path.join(src, "walk-0.png")
     pal = {c[:3] for _, c in Image.open(stand).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
     for strip in STRIPS:
-        frames = [snap(f, pal) for f in load(src, strip)]
+        frames = [despeckle(snap(f, pal)) for f in load(src, strip)]
         if not frames:
             continue
         W, H = frames[0].size
