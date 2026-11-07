@@ -9,7 +9,8 @@ off-palette pixels (stand.png's colors when there is one: a skeleton-posed walk 
   <name>-<strip>-east.png / -west.png   one row of frames
   <name>-stand-east.png / -west.png     stand.png (the drawing) if there is one, else walk frame 0
 West is east mirrored about the anchor, so one anchor works for both. Prints the frame counts and the
-box for data.js.
+box for data.js. extra.png in the source folder adds colors the drawing lacks (a mouth's red, teeth) to the
+snap. --scale blows the finished frames up pixel for pixel (the T. rex is animated at 1x and drawn at 2x).
 
   python3 tools/sprites/strips.py dimetrodon --shift -4 --anchor-y 48
 """
@@ -114,7 +115,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("name")
     ap.add_argument("--shift", type=int, default=0, help="move the art right (+) or left (-) so the body sits on the frame's center")
-    ap.add_argument("--anchor-y", type=int, required=True, help="the ground line in a frame (the feet)")
+    ap.add_argument("--anchor-y", type=int, required=True, help="the ground line in a frame (the feet), before --scale")
+    ap.add_argument("--scale", type=int, default=1, help="blow every finished frame up this many times, pixel for pixel (the T. rex is drawn at 2x)")
     a = ap.parse_args()
     src = os.path.join(ROOT, "art", "source", a.name)
     out = os.path.join(ROOT, "art", "animals")
@@ -123,6 +125,9 @@ def main():
     stand = os.path.join(src, "stand.png")
     stand = stand if os.path.exists(stand) else os.path.join(src, "walk-0.png")
     pal = {c[:3] for _, c in Image.open(stand).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
+    extra = os.path.join(src, "extra.png")   # colors the drawing lacks but the animations need (a mouth's red, teeth)
+    if os.path.exists(extra):
+        pal |= {c[:3] for _, c in Image.open(extra).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
     for strip in STRIPS:
         frames = [despeckle(snap(f, pal)) for f in load(src, strip)]
         if not frames:
@@ -132,20 +137,22 @@ def main():
         for f in frames:
             c = Image.new("RGBA", (W, H))
             c.paste(f, (a.shift, 0))
-            east.append(c)
+            east.append(c.resize((W * a.scale, H * a.scale), Image.NEAREST))
         counts[strip] = len(east)
         for facing, fr in (("east", east), ("west", [f.transpose(Image.FLIP_LEFT_RIGHT) for f in east])):
-            row = Image.new("RGBA", (W * len(fr), H))
+            row = Image.new("RGBA", (W * a.scale * len(fr), H * a.scale))
             for i, f in enumerate(fr):
-                row.paste(f, (i * W, 0))
+                row.paste(f, (i * W * a.scale, 0))
             row.save(os.path.join(out, f"{a.name}-{strip}-{facing}.png"))
             if strip == "walk":
                 st = Image.new("RGBA", (W, H))
                 st.paste(snap(Image.open(stand).convert("RGBA"), pal), (a.shift, 0))
+                st = st.resize((W * a.scale, H * a.scale), Image.NEAREST)
                 (st if facing == "east" else st.transpose(Image.FLIP_LEFT_RIGHT)).save(os.path.join(out, f"{a.name}-stand-{facing}.png"))
             boxes[facing] += [f.getbbox() for f in fr]
     box = {k: [min(b[0] for b in v), min(b[1] for b in v), max(b[2] for b in v), max(b[3] for b in v)] for k, v in boxes.items()}
-    print(f"frame: [{W}, {H}], anchor: [{W // 2}, {a.anchor_y}], frames: {counts}, box: {box}")
+    S = a.scale
+    print(f"frame: [{W * S}, {H * S}], anchor: [{W // 2 * S}, {a.anchor_y * S}], frames: {counts}, box: {box}")
 
 
 if __name__ == "__main__":
