@@ -18,6 +18,12 @@ it just reshuffles the part's pixels every frame (the Mosasaurus's head blurred 
 
   python3 tools/sprites/rigclips.py mosasaurus idle --clip hover --rigid Body Head Jaws --size 96 40 --offset -2 -44
 
+--at FRAME POSE adds a pose to one frame of the clip (counted after --frames), and can be given again: the
+Lystrosaurus's hind foot stays level while its shin leans back at push-off, which split the heel off the leg, so
+there the foot turns with the shin instead (heel up, toes down).
+
+  python3 tools/sprites/rigclips.py lystrosaurus walk --clip walk --at 4 '{"Back Foot": {"r": 8.85}}' --size 96 40 --offset -2 -38
+
 --size and --offset place the rig cell in the frame, the same for every strip of one animal.
 """
 import argparse, glob, json, os
@@ -40,6 +46,7 @@ def main():
     ap.add_argument("--clip", required=True, help="the rig's clip to draw")
     ap.add_argument("--pose", default="{}", help="JSON pose {part name: {r, dx, dy}} added to every frame")
     ap.add_argument("--ease", default="{}", help="JSON pose added from none on the first frame to all of it on the last")
+    ap.add_argument("--at", nargs=2, action="append", default=[], metavar=("FRAME", "POSE"), help="a JSON pose added to one frame")
     ap.add_argument("--rigid", nargs="*", default=[], help="parts that never turn, only shift by whole pixels")
     ap.add_argument("--frames", type=int, nargs=2, metavar=("FROM", "TO"), help="only these frames of the clip (TO included)")
     ap.add_argument("--size", type=int, nargs=2, required=True, help="the sprite frame")
@@ -55,6 +62,9 @@ def main():
         frames = frames[a.frames[0]:a.frames[1] + 1]
     named = lambda over: {rig.named[k] if k in rig.named else k: v for k, v in json.loads(over).items()}
     pose, ease = named(a.pose), named(a.ease)
+    at = {}
+    for i, over in a.at:
+        at.setdefault(int(i), []).append(named(over))
     for part in a.rigid:
         if part not in rig.named:
             raise SystemExit(f"no part {part!r}; the rig has: {', '.join(rig.named)}")
@@ -66,6 +76,8 @@ def main():
         os.remove(old)
     for i, f in enumerate(frames):
         p = add(add(json.loads(json.dumps(f)), pose), ease, i / max(1, len(frames) - 1))
+        for over in at.get(i, []):
+            p = add(p, over)
         for k in rigid:
             q = p.setdefault(k, {"r": 0, "dx": 0, "dy": 0})
             q["r"], q["dx"], q["dy"] = 0, round(q.get("dx", 0)), round(q.get("dy", 0))
