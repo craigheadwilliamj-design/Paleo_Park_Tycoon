@@ -8,7 +8,8 @@ lifts and swings forward, its elbow or knee following halfway. The skeleton of t
 the legs, RIGHT is the near side) is the rest pose.
 
 Writes art/source/<name>/walk-0.png .. walk-7.png (frame 0: near front forward, near hind back; frame 4
-the mirror). Keep the drawing as stand.png, then run strips.py. Set the sprite's cycle to
+the mirror). Played as is the walk looks mechanical (the body never moves, the legs tick evenly), so only
+frames 0 and 4 are kept, as walkkey-a.png and walkkey-b.png, and animate.py draws the in-betweens. Keep the drawing as stand.png, then run strips.py. Set the sprite's cycle to
 4 * stride / 16 tiles so the feet don't skate.
 
   python3 tools/sprites/skelwalk.py dimetrodon --stride 5 --lift 3 --template lion --seed 17

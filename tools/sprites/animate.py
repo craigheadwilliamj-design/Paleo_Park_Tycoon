@@ -5,6 +5,15 @@ art/source/<name>/stand.png. Copy the seed you like to <strip>-0.png .. <strip>-
 (it drops the last frame when it repeats the first).
 
   python3 tools/sprites/animate.py dimetrodon attack "lunges forward and bites, then recovers" --seeds 11 22 33
+
+--first and --last start and end on other frames instead (paths under art/source/<name>/). The walk is two
+4-frame halves between skeleton keyframes from skelwalk.py (its frames 0 and 4, kept as walkkey-a.png and
+walkkey-b.png), so the gait alternates and the in-betweens move like the other loops:
+
+  python3 tools/sprites/animate.py dimetrodon walkab "one step of a slow lizard walk..." --first walkkey-a.png --last walkkey-b.png --frames 4
+  python3 tools/sprites/animate.py dimetrodon walkba "one step of a slow lizard walk..." --first walkkey-b.png --last walkkey-a.png --frames 4
+
+then walk-0..3 = key a and walkab frames 1..3, walk-4..7 = key b and walkba frames 1..3.
 """
 import argparse, base64, json, os, time, urllib.error, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -23,8 +32,8 @@ def req(method, path, body=None):
         raise SystemExit(e.read().decode()[:1500])
 
 
-def run(src, strip, a, seed, img):
-    body = {"first_frame": img, "last_frame": img, "description": a.description, "frame_count": a.frames, "seed": seed,
+def run(src, strip, a, seed, img, last):
+    body = {"first_frame": img, "last_frame": last, "description": a.description, "frame_count": a.frames, "seed": seed,
             "no_background": True, "direction": "east", "view": "side", "subject_description": a.subject}
     job = req("POST", "/animate-pixminimax", body)["background_job_id"]
     while True:
@@ -48,13 +57,15 @@ def main():
     ap.add_argument("description", help="the motion, not the look")
     ap.add_argument("--frames", type=int, default=8, help="a multiple of 4")
     ap.add_argument("--seeds", type=int, nargs="+", default=[11, 22, 33])
+    ap.add_argument("--first", default="stand.png", help="first frame, in art/source/<name>/")
+    ap.add_argument("--last", help="last frame (default: the first)")
     ap.add_argument("--subject", default="a green Dimetrodon with an orange sail on its back, a sprawling four-legged reptile")
     a = ap.parse_args()
     src = os.path.join(ROOT, "art", "source", a.name)
-    stand = os.path.join(src, "stand.png")
-    img = {"type": "base64", "base64": base64.b64encode(open(stand, "rb").read()).decode(), "format": "png"}
+    b64 = lambda p: {"type": "base64", "base64": base64.b64encode(open(os.path.join(src, p), "rb").read()).decode(), "format": "png"}
+    img, last = b64(a.first), b64(a.last or a.first)
     with ThreadPoolExecutor(len(a.seeds)) as ex:
-        list(ex.map(lambda s: run(src, a.strip, a, s, img), a.seeds))
+        list(ex.map(lambda s: run(src, a.strip, a, s, img, last), a.seeds))
 
 
 if __name__ == "__main__":
