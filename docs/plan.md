@@ -83,7 +83,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - Publish v2.0. v1 keeps its own link.
 
 ## Roster
-100 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
+99 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
 
 1. Arthropleura
 2. Cotylorhynchus
@@ -178,13 +178,12 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 91. Steller's Sea Cow (Quaternary)
 92. Eurypterus (Silurian)
 93. Hallucigenia (Cambrian)
-94. Hylonomus (Carboniferous)
-95. Helicoprion (Permian)
-96. Shonisaurus (Triassic)
-97. Liopleurodon (Late Jurassic)
-98. Gastornis (Paleogene)
-99. Arsinoitherium (Paleogene)
-100. Deinotherium (Neogene)
+94. Helicoprion (Permian)
+95. Shonisaurus (Triassic)
+96. Liopleurodon (Late Jurassic)
+97. Gastornis (Paleogene)
+98. Arsinoitherium (Paleogene)
+99. Deinotherium (Neogene)
 
 ## Open questions
 - Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
