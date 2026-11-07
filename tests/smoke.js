@@ -165,7 +165,7 @@ if (labs.onTrack !== 1 || !labs.bay) fails.push(`research row: ${labs.onTrack} o
 if (!/Timeline/.test(labs.timetravel) || !/Drones/.test(labs.timetravel)) fails.push("time travel panel: " + labs.timetravel.slice(0, 120));
 if (!/Geneticists/.test(labs.genetics) || !/Genome library/.test(labs.genetics)) fails.push("genetics panel: " + labs.genetics.slice(0, 120));
 if (labs.epoch !== "Cisuralian" || !midDrag || !labs.stillFocused) fails.push(`timeline slider: at ${labs.epoch}, focused mid-drag ${midDrag}, after ${labs.stillFocused}`);
-if (!labs.mapOk || labs.marks !== 1) fails.push(`time travel map: loaded ${labs.mapOk}, ${labs.marks} markers in the Cisuralian`);
+if (!labs.mapOk || labs.marks !== 2) fails.push(`time travel map: loaded ${labs.mapOk}, ${labs.marks} markers in the Cisuralian (Texas Red Beds, Hennessey)`);
 if (labs.out !== 1 || !labs.droneCard) fails.push(`scout button sent ${labs.out} drones, drone card ${labs.droneCard}`);
 if (labs.reports !== 1 || !labs.reportShown || labs.reportsAfter !== 0) fails.push(`trip reports: ${labs.reports} made, shown ${labs.reportShown}, ${labs.reportsAfter} after Done`);
 if (!labs.closed) fails.push("the lab panel's close button left it open");
