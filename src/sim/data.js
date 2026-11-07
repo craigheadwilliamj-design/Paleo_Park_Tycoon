@@ -59,7 +59,7 @@ export const SPECIES = {
   coty: { name: "Cotylorhynchus", size: 4, active: "day", period: "Permian", stars: 1.5, len: 4.5, danger: 2, biomes: ["grassland", "desert"], water: 0.05,
           space: 45, group: [2, 5], foodType: "greens", food: 24, appeal: 8, price: 13000, moves: "land", color: "#2a2f45",
           sprite: { name: "cotylorhynchus", frame: [96, 56], frames: 8, anchor: [48, 48], cycle: 1.0,
-                    idle: { frames: 8, s: 3.6 }, lie: { frames: 11, min: 6 }, rest: { frames: 8, s: 4.4 }, eat: { frames: 8, s: 1.8 },
+                    idle: { frames: 8, s: 3.6 }, lie: { frames: 11, min: 6 }, rest: { frames: 8, s: 4.4 }, eat: { frames: 10, s: 2.4 },
                     attack: { frames: 8, s: 1.4 },
                     box: { east: [4, 21, 89, 50], west: [7, 21, 92, 50] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
