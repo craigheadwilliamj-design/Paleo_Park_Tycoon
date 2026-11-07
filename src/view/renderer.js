@@ -165,6 +165,7 @@ function stillFrame(a, sp, w) {
   w.restFrom = undefined;
   const feed = a.act === "drink" && !sp.drink ? "eat" : a.act;   // drinking borrows the eating loop unless it has its own
   if ((feed === "eat" || feed === "drink") && sp[feed]) return [feed, loop(feed, off)];
+  if (a.act === "maul" && sp.attack) return ["attack", loop("attack", off)];   // at the fence, biting it
   return sp.idle ? ["idle", loop("idle", off)] : ["stand", 0];
 }
 function walkFrame(a, sp, w) {
