@@ -83,7 +83,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - Publish v2.0. v1 keeps its own link.
 
 ## Roster
-88 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
+90 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
 
 1. Arthropleura
 2. Cotylorhynchus
@@ -173,6 +173,8 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 86. Hyaenodon (Paleogene)
 87. Amphicyon (Neogene)
 88. Daeodon (Neogene)
+89. Thylacine (Quaternary)
+90. American Mastodon (Quaternary)
 
 ## Open questions
 - Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
