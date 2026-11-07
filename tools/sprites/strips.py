@@ -1,7 +1,7 @@
 """Turn an animal's source frames into the game's sprite strips.
 
 Source: art/source/<name>/<strip>-0.png .. <strip>-N.png for the strips walk (required), idle, lie,
-rest, eat and drink, side views facing east. They come from PixelLab's animate-pixminimax run on the v1 drawing:
+rest, eat, drink and attack, side views facing east. They come from PixelLab's animate-pixminimax run on the v1 drawing:
 loops (walk, idle, rest, eat) use the same frame as first and last frame, so a last frame that repeats the
 first is dropped; frames that repeat the one before at the end (lie, which settles and holds) are
 dropped too. Every frame is snapped to the colors of walk frame 0 (the drawing), which clears stray
@@ -17,7 +17,7 @@ import argparse, glob, os, re
 from PIL import Image, ImageChops
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-STRIPS = ("walk", "idle", "lie", "rest", "eat", "drink")
+STRIPS = ("walk", "idle", "lie", "rest", "eat", "drink", "attack")
 
 
 def same(a, b, tol=40):
