@@ -8,12 +8,12 @@ three times (8x), the pose is drawn at 8x, and each 8x8 block becomes its common
 With nothing turned the output is the drawing, pixel for pixel.
 
 The rig is a v1 rigger project (art/v1/<name>-rig.json): parts with a picture, a joint (px, py in the
-picture), a parent and an offset from it (lx, ly). A pose is {part name: {r, dx, dy}}: r turns it about
+picture), a parent and an offset from it (lx, ly). --clip starts from a frame of one of the rig's v1 clips (its walk, rest...). A pose is {part name: {r, dx, dy}}: r turns it about
 its joint in degrees (positive is clockwise on screen, so a head turned + looks down when facing east), dx
 and dy shift it in its parent's frame. Children follow their parent.
 
---plant keeps the feet where they stand: every limb (a chain of three parts hanging off the root: thigh or
-upper arm, leg or forearm, foot) is turned stiff as one piece about its hip or shoulder until its ankle is
+--plant keeps the feet where they stand: every limb (a chain of three parts hanging off the root that ends down
+at the feet: thigh or upper arm, leg or forearm, foot; a neck, head and jaw is a chain of three too) is turned stiff as one piece about its hip or shoulder until its ankle is
 back over its standing spot, the hip shifts so the ankle is back on its standing row, and the foot turns
 flat. Without it, pitching the body lifts the hind feet off the ground.
 
@@ -72,7 +72,11 @@ class Rig:
         for n in self.nodes:
             kids.setdefault(n.get("parent"), []).append(n["id"])
         root = kids[None][0]
-        return [(a, b, c) for a in kids.get(root, []) for b in kids.get(a, []) for c in kids.get(b, [])]
+        chains = [(a, b, c) for a in kids.get(root, []) for b in kids.get(a, []) for c in kids.get(b, [])]
+        # only chains that end down at the feet: a neck, head and jaw (the T. rex's) is three parts too
+        rest = self.worlds({})
+        floor = max((rest[c][5] for _, _, c in chains), default=0)
+        return [ch for ch in chains if rest[ch[2]][5] >= floor - 6]
 
     def plant(self, pose):
         """turn each limb stiff about its hip so its ankle (the foot's joint) is back where it stands, foot flat"""
@@ -164,13 +168,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("name", help="the animal: reads art/v1/<name>-rig.json, writes into art/source/<name>/")
     ap.add_argument("out", help="output file name, without .png")
-    ap.add_argument("pose", help='JSON: {part name: {"r": deg, "dx": px, "dy": px}}')
+    ap.add_argument("pose", help='JSON: {part name: {"r": deg, "dx": px, "dy": px}}, laid over the clip frame if there is one')
+    ap.add_argument("--clip", nargs=2, metavar=("CLIP", "FRAME"), help="start from frame FRAME of the rig's own clip CLIP (v1's walk, rest...)")
     ap.add_argument("--plant", action="store_true", help="keep every foot where it stands")
     ap.add_argument("--size", type=int, nargs=2, help="the sprite frame (default: the rig's cell)")
     ap.add_argument("--offset", type=int, nargs=2, default=[0, 0], help="where the rig's cell goes in the frame")
     a = ap.parse_args()
     rig = Rig(json.load(open(os.path.join(ROOT, "art", "v1", f"{a.name}-rig.json"))))
     pose = {}
+    if a.clip:
+        clips = {c["name"]: c for c in rig.P.get("clips", [])}
+        if a.clip[0] not in clips:
+            raise SystemExit(f"no clip {a.clip[0]!r}; the rig has: {', '.join(clips)}")
+        pose = json.loads(json.dumps(clips[a.clip[0]]["frames"][int(a.clip[1])]))
     for part, p in json.loads(a.pose).items():
         if part not in rig.named:
             raise SystemExit(f"no part {part!r}; the rig has: {', '.join(rig.named)}")
