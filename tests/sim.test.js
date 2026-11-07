@@ -551,3 +551,23 @@ test("a Mosasaurus lives in a deep sea lagoon: eats and plays from the water's e
   assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
   assert.ok(m.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_DEEP), "healthy, home and in deep water");
 });
+
+test("a cruiser keeps swimming while it wanders; a land animal stops at each spot", () => {
+  const w = newPark(3), g = w.state.grid, ex = Math.floor(g.w / 2);
+  researchAll(w);
+  w.state.money = 1e6;
+  assert.equal(w.paint("fence:aquarium", ring(ex - 20, 24, ex - 8, 36)), "");
+  assert.equal(w.paint("fence:stone", ring(ex + 2, 24, ex + 14, 36)), "");
+  const [sea, land] = w.state.exhibits;
+  assert.equal(w.setBiome(sea.id, "sea"), "");
+  assert.equal(w.paint("water:shallow", line(ex - 19, 25, ex - 9, 35)), "");
+  w.spawn("anom", sea.id); w.spawn("dime", land.id);
+  const moving = { anom: [0, 0], dime: [0, 0] };
+  for (let m = 0; m < 600; m++) {
+    w.advance(1);
+    for (const a of w.state.animals) if (a.act === "wander") { moving[a.sp][1]++; if (a.path && a.path.length) moving[a.sp][0]++; }
+  }
+  const share = k => moving[k][0] / moving[k][1];
+  assert.ok(share("anom") > 0.9, "the Anomalocaris swims through its wanders: " + share("anom"));
+  assert.ok(share("dime") < 0.8, "the Dimetrodon stops and stands: " + share("dime"));
+});
