@@ -10,7 +10,7 @@ off-palette pixels (stand.png's colors when there is one: a skeleton-posed walk 
   <name>-stand-east.png / -west.png     stand.png (the drawing) if there is one, else walk frame 0
 West is east mirrored about the anchor, so one anchor works for both. Prints the frame counts and the
 box for data.js. extra.png in the source folder adds colors the drawing lacks (a mouth's red, teeth) to the
-snap. --scale blows the finished frames up pixel for pixel (the T. rex is animated at 1x and drawn at 2x).
+snap. --keep keeps every frame (rigclips.py's strips). --scale blows the finished frames up pixel for pixel (the T. rex is animated at 1x and drawn at 2x).
 
   python3 tools/sprites/strips.py dimetrodon --shift -4 --anchor-y 48
 """
@@ -101,9 +101,11 @@ def despeckle(f, max_size=8):
     return f
 
 
-def load(src, strip):
+def load(src, strip, keep=False):
     paths = sorted(glob.glob(os.path.join(src, f"{strip}-*.png")), key=lambda p: int(re.findall(r"(\d+)\.png$", p)[0]))
     frames = [Image.open(p).convert("RGBA") for p in paths]
+    if keep:
+        return frames
     while len(frames) > 2 and same(frames[-1], frames[-2]):
         frames.pop()
     if len(frames) > 2 and same(frames[-1], frames[0]):
@@ -117,6 +119,7 @@ def main():
     ap.add_argument("--shift", type=int, default=0, help="move the art right (+) or left (-) so the body sits on the frame's center")
     ap.add_argument("--anchor-y", type=int, required=True, help="the ground line in a frame (the feet), before --scale")
     ap.add_argument("--scale", type=int, default=1, help="blow every finished frame up this many times, pixel for pixel (the T. rex is drawn at 2x)")
+    ap.add_argument("--keep", action="store_true", help="keep every frame (rigclips.py's loops never repeat their first frame, and a small animal's frames differ by few pixels)")
     a = ap.parse_args()
     src = os.path.join(ROOT, "art", "source", a.name)
     out = os.path.join(ROOT, "art", "animals")
@@ -129,7 +132,7 @@ def main():
     if os.path.exists(extra):
         pal |= {c[:3] for _, c in Image.open(extra).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
     for strip in STRIPS:
-        frames = [despeckle(snap(f, pal)) for f in load(src, strip)]
+        frames = [despeckle(snap(f, pal)) for f in load(src, strip, a.keep)]
         if not frames:
             continue
         W, H = frames[0].size

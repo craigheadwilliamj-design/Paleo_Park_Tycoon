@@ -40,7 +40,8 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // sprite: game sprites from tools/sprites/strips.py (art/animals/<name>-walk|stand-<facing>.png; facings east and west, plus optionally
 // the four diagonals northeast..southwest and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
-// bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle).
+// bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle),
+// scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5).
 // Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
 // minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
 // <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
@@ -63,7 +64,10 @@ export const SPECIES = {
                     attack: { frames: 8, s: 1.4 },
                     box: { east: [4, 21, 89, 50], west: [7, 21, 92, 50] } } },
   anom: { name: "Anomalocaris", size: 1, active: "day", period: "Cambrian", stars: 1, len: 1.0, danger: 2, biomes: ["sea"], water: 0.9, waterKind: "shallow",
-          space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a" },
+          space: 8, group: [1, 3], foodType: "fish", food: 4, appeal: 7, price: 7000, moves: "swim", sea: true, color: "#c46a4a",
+          sprite: { name: "anomalocaris", frame: [96, 40], frames: 8, anchor: [48, 39], scale: 0.5, cycle: 0.6,
+                    idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 2.8 }, eat: { frames: 18, s: 1.8 },
+                    box: { east: [14, 9, 88, 39], west: [8, 9, 82, 39] } } },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
           space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
   trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
