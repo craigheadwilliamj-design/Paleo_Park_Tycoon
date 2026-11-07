@@ -182,7 +182,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 95. Shonisaurus (Triassic)
 96. Liopleurodon (Late Jurassic)
 97. Gastornis (Paleogene)
-98. Arsinoitherium (Paleogene)
+98. Purussaurus (Neogene)
 99. Deinotherium (Neogene)
 100. Stethacanthus (Carboniferous)
 
