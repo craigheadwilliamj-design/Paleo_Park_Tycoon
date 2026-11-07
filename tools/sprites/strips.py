@@ -5,9 +5,9 @@ rest, eat and drink, side views facing east. They come from PixelLab's animate-p
 loops (walk, idle, rest, eat) use the same frame as first and last frame, so a last frame that repeats the
 first is dropped; frames that repeat the one before at the end (lie, which settles and holds) are
 dropped too. Every frame is snapped to the colors of walk frame 0 (the drawing), which clears stray
-off-palette pixels. Output, in art/animals/:
+off-palette pixels (stand.png's colors when there is one: a skeleton-posed walk never shows the drawing's own pose). Output, in art/animals/:
   <name>-<strip>-east.png / -west.png   one row of frames
-  <name>-stand-east.png / -west.png     walk frame 0
+  <name>-stand-east.png / -west.png     stand.png (the drawing) if there is one, else walk frame 0
 West is east mirrored about the anchor, so one anchor works for both. Prints the frame counts and the
 box for data.js.
 
@@ -59,7 +59,9 @@ def main():
     out = os.path.join(ROOT, "art", "animals")
     os.makedirs(out, exist_ok=True)
     counts, boxes = {}, {"east": [], "west": []}
-    pal = {c[:3] for _, c in Image.open(os.path.join(src, "walk-0.png")).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
+    stand = os.path.join(src, "stand.png")
+    stand = stand if os.path.exists(stand) else os.path.join(src, "walk-0.png")
+    pal = {c[:3] for _, c in Image.open(stand).convert("RGBA").getcolors(1 << 16) if c[3] >= 128}
     for strip in STRIPS:
         frames = [snap(f, pal) for f in load(src, strip)]
         if not frames:
@@ -77,7 +79,9 @@ def main():
                 row.paste(f, (i * W, 0))
             row.save(os.path.join(out, f"{a.name}-{strip}-{facing}.png"))
             if strip == "walk":
-                fr[0].save(os.path.join(out, f"{a.name}-stand-{facing}.png"))
+                st = Image.new("RGBA", (W, H))
+                st.paste(snap(Image.open(stand).convert("RGBA"), pal), (a.shift, 0))
+                (st if facing == "east" else st.transpose(Image.FLIP_LEFT_RIGHT)).save(os.path.join(out, f"{a.name}-stand-{facing}.png"))
             boxes[facing] += [f.getbbox() for f in fr]
     box = {k: [min(b[0] for b in v), min(b[1] for b in v), max(b[2] for b in v), max(b[3] for b in v)] for k, v in boxes.items()}
     print(f"frame: [{W}, {H}], anchor: [{W // 2}, {a.anchor_y}], frames: {counts}, box: {box}")
