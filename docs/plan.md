@@ -83,7 +83,7 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 - Publish v2.0. v1 keeps its own link.
 
 ## Roster
-101 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
+100 species, in build order. The first 23 except Arthropleura, plus Estemmenosuchus and Dunkleosteus, are rigged in v1 (24 in all).
 
 1. Arthropleura
 2. Cotylorhynchus
@@ -183,9 +183,8 @@ Every asset passes an automatic check (palette, scale, transparency, parts with 
 96. Liopleurodon (Late Jurassic)
 97. Gastornis (Paleogene)
 98. Purussaurus (Neogene)
-99. Deinotherium (Neogene)
-100. Stethacanthus (Carboniferous)
-101. Xiphactinus (Late Cretaceous)
+99. Stethacanthus (Carboniferous)
+100. Xiphactinus (Late Cretaceous)
 
 ## Open questions
 - Medicine (vets, illness, genome therapy) and breeding and aging are on the back burner until after v2.0.
