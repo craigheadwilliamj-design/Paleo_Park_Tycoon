@@ -43,6 +43,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 ## Known issues
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
+- ✅ Hand-cleaning animal frames: the Pixel Editor artifact (https://claude.ai/artifact/EM2pt152SMWcat2DraeLHj) has a "Park frames" tab with every `art/source/<name>/<strip>-N.png` as one strip per animation (`js/v2pack.js`, built by `tools/sprites/pixelpack.py`; rebuild and republish the artifact after source frames change). Its Send (db collection `pixeled`) or a downloaded strip comes back through `tools/sprites/pixelpull.py <name> <strip> <file>`, which writes the numbered frames; then `strips.py` rebuilds. Hand-edited species: don't regenerate their source folder with PixelLab without asking.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
 - The last documented published Artifact is version 62 (from PR #35). Publication of PR #37 or the directional art branch has not been verified here.
 
