@@ -596,3 +596,28 @@ test("a shoal of Sacabambaspis lives in a shallow aquarium: eats and plays from 
   assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
   assert.ok(f.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_SHALLOW), "healthy, home and in the water");
 });
+
+test("a pair of Dunkleosteus lives in a deep sea lagoon: eats and plays from the water's edge, stays healthy and in deep water", () => {
+  const w = newPark(3), g = w.state.grid, ex = Math.floor(g.w / 2);
+  researchAll(w);
+  w.state.money = 1e6;
+  assert.equal(w.paint("path", line(ex - 16, 40, ex + 2, 40)), "");
+  assert.equal(w.paint("path", line(ex, 40, ex, g.h - 3)), "");
+  assert.equal(w.paint("fence:lagoon", ring(ex - 15, 27, ex - 2, 39)), "");
+  assert.equal(w.paint("chute", [[ex - 4, 39]]), "");
+  const e = w.state.exhibits[0];
+  assert.equal(w.setBiome(e.id, "sea"), "");
+  assert.equal(w.paint("water:deep", line(ex - 14, 28, ex - 5, 38)), "");
+  assert.equal(w.place("feeder", ex - 4, 37), "");   // on the land strip, beside the water
+  assert.equal(w.place("log", ex - 4, 31), "");
+  assert.equal(w.place("shed", ex + 2, 42), "");
+  assert.equal(w.paint("path", line(ex + 1, 41, ex + 1, 44)), "");
+  assert.equal(w.hire("keeper"), "");
+  w.spawn("dunk", e.id); w.spawn("dunk", e.id);
+  const acts = new Set();
+  for (let h = 0; h < 24 * 4; h++) { w.advance(60); for (const a of w.state.animals) acts.add(a.act); }
+  const d = w.state.animals.filter(a => a.sp === "dunk");
+  assert.equal(d.length, 2);
+  assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
+  assert.ok(d.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_DEEP), "healthy, home and in deep water");
+});

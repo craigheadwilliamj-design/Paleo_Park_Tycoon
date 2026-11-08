@@ -41,7 +41,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // the four diagonals northeast..southwest and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
 // bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle),
-// scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5, the Sacabambaspis 0.25).
+// scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5, the Sacabambaspis 0.25, the Dunkleosteus 0.75 of its doubled pixels).
 // Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
 // minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
 // <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
@@ -73,6 +73,11 @@ export const SPECIES = {
           sprite: { name: "sacabambaspis", frame: [96, 42], frames: 12, anchor: [48, 41], scale: 0.25, cycle: 0.4,
                     idle: { frames: 16, s: 2.0 }, eat: { frames: 16, s: 2.4 },
                     box: { east: [10, 6, 85, 40], west: [11, 6, 86, 40] } } },
+  dunk: { name: "Dunkleosteus", size: 4, active: "day", drain: { enrich: 1.5 }, period: "Devonian", stars: 2.5, len: 6, danger: 4, biomes: ["sea"], water: 0.9, waterKind: "deep",
+          space: 45, group: [1, 2], foodType: "fish", food: 20, appeal: 13, price: 26000, moves: "swim", sea: true, cruise: true, color: "#575048",
+          sprite: { name: "dunkleosteus", frame: [192, 92], frames: 12, anchor: [96, 84], scale: 0.75, cycle: 1.2,
+                    idle: { frames: 16, s: 2.0 }, eat: { frames: 18, s: 2.4 }, attack: { frames: 16, s: 1.2 },
+                    box: { east: [20, 8, 172, 74], west: [20, 8, 172, 74] } } },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
           space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
   trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
@@ -165,6 +170,7 @@ export const SITES = [
   { id: "burgess",   name: "Burgess Shale", where: "British Columbia, Canada", period: "Cambrian", from: 507e6, to: 505e6, at: { cambrian: [68, 66] }, fauna: ["anom"] },
   { id: "anzaldo",   name: "Anzaldo Formation", where: "Sacabamba, Cochabamba, Bolivia", period: "Ordovician", from: 467e6, to: 460e6, at: { ordovician: [32, 86] }, fauna: ["saca"] },
   { id: "fram",      name: "Fram Formation", where: "Ellesmere Island, Canada", period: "Devonian", from: 378e6, to: 372e6, at: { devonian: [117, 65] }, fauna: ["tikt"] },
+  { id: "cleveland", name: "Cleveland Shale", where: "Cleveland, Ohio, USA", period: "Devonian", from: 362e6, to: 359e6, at: { devonian: [110, 94] }, fauna: ["dunk"] },
   { id: "joggins",   name: "Joggins Fossil Cliffs", where: "Nova Scotia, Canada", period: "Carboniferous", from: 315e6, to: 312e6, at: { carboniferous: [126, 70] }, fauna: ["arth"] },
   { id: "texasred",  name: "Texas Red Beds", where: "Texas, USA", period: "Permian", from: 290e6, to: 275e6, at: { permian: [106, 61] }, fauna: ["dime"] },
   { id: "hennessey", name: "Hennessey Formation", where: "Oklahoma, USA", period: "Permian", from: 276e6, to: 272e6, at: { permian: [114, 60] }, fauna: ["coty"] },
