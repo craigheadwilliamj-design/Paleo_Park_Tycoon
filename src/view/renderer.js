@@ -146,6 +146,12 @@ function drawBuilding(ctx, def, px, py, T, z, rot = 0) {
   const path = rot === 0 ? def.sprite : rot === 2 ? def.spriteBack : def.spriteSide;
   const im = path && spriteImg(path);
   if (im) {
+    if (def.sideFill && rot & 1) {   // a long side view (the bench): scaled to the footprint's length, centred across it
+      const sh = h, sw = Math.round(sh * im.naturalWidth / im.naturalHeight), dx = px + Math.round((w - sw) / 2);
+      if (rot === 3) { ctx.save(); ctx.translate(dx + sw, py); ctx.scale(-1, 1); ctx.drawImage(im, 0, 0, sw, sh); ctx.restore(); }
+      else ctx.drawImage(im, dx, py, sw, sh);
+      return;
+    }
     const height = Math.round(w * im.naturalHeight / im.naturalWidth);
     if (rot === 3) {   // east mirrors the west-facing side; keep the reflection inside this draw
       ctx.save(); ctx.translate(px + w, py + h - height); ctx.scale(-1, 1);
