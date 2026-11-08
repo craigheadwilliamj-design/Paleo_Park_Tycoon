@@ -4,18 +4,19 @@ import { TILE } from "./display.js";
 import { BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
 import { DAY_MIN, STAFF, ANIMAL } from "../sim/config.js";
 import { habitatScore, fitProblem } from "../sim/habitat.js";
-import { animalsIn, needsOf } from "../sim/animals.js";
+import { animalsIn, needsOf, uncrateProblem } from "../sim/animals.js";
+import { sellPrice } from "../sim/world.js";
 import { condition } from "../sim/exhibits.js";
 import { afford } from "../sim/money.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
-import { labHtml, labAction, labLive, labBind, tabBar, crateSure, destroyBtn } from "./labs.js";
+import { labHtml, labAction, labLive, labBind, tabBar, sellSure, sellBtn } from "./labs.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // A labelled meter, full = good: amber under half, red under a quarter.
 const meter = (label, full) => `<div class="row"><span>${label}</span><span class="meter"><i class="${full < 25 ? "bad" : full < 50 ? "low" : ""}" style="width:${Math.round(full)}%"></i></span></div>`;
 // What an animal is doing, by its action key (animals.js ACTIONS, plus the guards' "held").
 const ACT_LABEL = { test: "Testing the fence.", eat: "Eating.", drink: "Drinking.", rest: "Resting.", play: "Playing.",
-  maul: "Attacking the fence.", wander: "Wandering.", idle: "Standing.", held: "Darted." };
+  maul: "Attacking the fence.", wander: "Wandering.", idle: "Standing.", held: "Held." };
 const SIZE_NAME = ["", "Tiny", "Small", "Medium", "Large", "Huge"];
 const $ = id => document.getElementById(id);
 const fmtMoney = n => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -49,6 +50,7 @@ export class UI {
     if (next === this.tool && tool === "select") return;
     this.tool = next;
     this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; $("stat").textContent = "";
+    if (this.tool !== "crate") this.dropId = 0;
     this.canvas.style.cursor = this.tool === "select" ? "default" : this.tool === "move" ? "grab" : "crosshair";
     this.menu.setTool(this.tool);
   }
@@ -96,6 +98,18 @@ export class UI {
     this.ghost = { type, x, y, ok: !why };
     $("stat").textContent = why;
   }
+  // Move an animal: a crate follows the cursor, red with the reason where a keeper can't take it; a click sends one.
+  startDrop(id) {
+    if (this.selectedBld) this.closePanel();   // a lab panel covers the map
+    this.tool = "select"; this.setTool("crate"); this.dropId = id;
+    $("stat").textContent = "Pick a spot.";
+  }
+  dropGhost(t) {
+    if (!t) { this.ghost = null; return; }
+    const why = this.world.dropProblem(this.dropId, t[0], t[1]);
+    this.ghost = { crate: this.dropId, x: t[0], y: t[1], ok: !why };
+    $("stat").textContent = why;
+  }
   moveHover(t) {
     const b = t && this.buildingAt(t);
     this.preview = b ? this.footprint(b.type, b.x, b.y) : null; this.previewOk = true;
@@ -122,6 +136,7 @@ export class UI {
       if (e.button === 2 || e.button === 1 || this.tool === "select" && e.shiftKey) { this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y }; return; }
       const t = this.tileAt(e), kind = TOOL_KIND[this.tool];
       if (kind === "move") { this.grab(t); return; }
+      if (kind === "drop") { this.drop(t); this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, click: true }; return; }
       if (kind === "click" || kind === "place") { this.click(t, kind); this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y, click: true }; return; }
       this.cancelAsk();
       this.drag = { from: t, kind };
@@ -135,6 +150,7 @@ export class UI {
         this.cam.x = this.pan.cx - (dx * dpr) / this.cam.zoom; this.cam.y = this.pan.cy - (dy * dpr) / this.cam.zoom; this.hooks.clamp();
       } else if (this.moving) this.moveGhost(this.hover);
       else if (TOOL_KIND[this.tool] === "place") this.placeGhost(this.hover);
+      else if (this.tool === "crate") this.dropGhost(this.hover);
       else if (this.tool === "move") this.moveHover(this.hover);
       else if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover, this.drag.kind);
@@ -161,7 +177,7 @@ export class UI {
       else if (k === "arrowup" || k === "w") this.cam.y -= step; else if (k === "arrowdown" || k === "s") this.cam.y += step;
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
       else if (k === "escape") {   // drop Bulldoze or Move first, then close the list, then the tray (a tool in them goes with it), then the panel
-        if (this.tool === "bulldoze" || this.tool === "move") this.setTool("select");
+        if (["bulldoze", "move", "crate"].includes(this.tool)) this.setTool("select");
         else if (!this.menu.back()) { if (!$("bell").hidden) $("bell").hidden = true; else this.closePanel(); }
       }
       else return;
@@ -169,15 +185,20 @@ export class UI {
     });
   }
 
+  drop([x, y]) {
+    const why = this.world.moveAnimal(this.dropId, x, y);
+    if (why) { this.say(why); this.dropGhost([x, y]); return; }
+    this.setTool("select"); this.lastPanel = null;
+  }
   click([x, y], kind) {
     const w = this.world, g = w.state.grid;
     if (kind === "place") { const type = this.tool.slice(6); this.say(w.place(type, ...this.placeCorner(type, [x, y]))); this.placeGhost([x, y]); return; }
-    // Select: the nearest animal under the cursor, else a lab, else the exhibit.
-    const a = w.state.animals.find(a => !a.crated && Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
+    // Select: the nearest animal or crate under the cursor, else a lab, else the exhibit.
+    const a = w.state.animals.find(a => !a.carried && Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
     const on = x >= 0 && y >= 0 && x < g.w && y < g.h, b = !a && on && w.state.buildings.find(b => b.id === g.bld[y * g.w + x] && BUILDINGS[b.type].lab);
     this.selected = a || null;
     this.selectedBld = b ? b.id : 0;
-    this.selectedEx = a ? a.ex : b ? 0 : on ? w.derived.exOf[y * g.w + x] : 0;
+    this.selectedEx = a || b ? 0 : on ? w.derived.exOf[y * g.w + x] : 0;
   }
 
   // ---- HUD, bell and panel, refreshed a few times a second ----
@@ -223,7 +244,7 @@ export class UI {
   }
 
   // Close whatever panel is open (its ×, Esc, or a tap on empty ground).
-  closePanel() { this.destroyAsk = 0; this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.lastPanel = null; this.panel(); }
+  closePanel() { this.sellAsk = 0; this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.lastPanel = null; this.panel(); }
 
   // The panel is rebuilt when its HTML changes, never mid-press: a button replaced between pointerdown and pointerup
   // loses its click. lastPanel = null forces the next rebuild.
@@ -242,10 +263,16 @@ export class UI {
       side.onclick = ev => {
         const b = ev.target.closest("button, input[data-pick]"); if (!b || b.disabled) return;
         if (b.dataset.buy) this.say(w.buyAnimal(b.dataset.buy, Number(b.dataset.ex)));
-        if (b.dataset.release) this.say(w.release(Number(b.dataset.release), Number(b.dataset.ex)));
+        const id = Number(b.dataset.id);
+        if (b.dataset.pickAnimal) { this.selected = w.state.animals.find(a => a.id === Number(b.dataset.pickAnimal)) || null; this.selectedEx = 0; this.sellAsk = 0; }
+        if (b.dataset.drop !== undefined) { this.startDrop(id); this.lastPanel = null; this.panel(); return; }
+        if (b.dataset.crate !== undefined) this.say(w.crate(id));
+        if (b.dataset.uncrate !== undefined) this.say(w.uncrate(id));
+        if (b.dataset.cancelMove !== undefined) this.say(w.cancelMove(id));
         if (b.dataset.close !== undefined) { this.closePanel(); return; }
         if (b.dataset.tab === "an") this.anTab = b.dataset.k;   // the animal panel's tabs (labAction knows only the labs')
         else { const why = labAction(this, b); if (why) this.say(why); }
+        if (this.selected && !w.state.animals.includes(this.selected)) this.selected = null;   // sold
         this.lastPanel = null; this.panel();
         if (this.pressing) setTimeout(() => this.panel(), 0);   // a real press holds rebuilds: go again once it clears
       };
@@ -265,6 +292,7 @@ export class UI {
 
   exhibitPanel(e) {
     const w = this.world, s = w.state, t = w.derived.ex.get(e.id), here = animalsIn(s, e.id);
+    const crates = s.animals.filter(a => a.crated && !a.carried && a.ex === e.id);
     if (!t) return "";
     const chips = [];
     if (e.biome === "none") chips.push(["No biome.", "bad"]);
@@ -293,10 +321,19 @@ export class UI {
       <div class="row"><span>Security</span><b>Tier ${t.security}${weak && weak !== "good" ? " · " + weak : ""}</b></div>
       <div class="row"><span>Food</span><b>${esc(food)}</b></div>
       <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
-      ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(esc(SPECIES[a.sp].name), a.happy)).join("") : ""}
+      ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(`<button class="link" data-pick-animal="${a.id}">${esc(SPECIES[a.sp].name)}</button>`, a.happy)).join("") : ""}
       ${meters}
-      ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span>${crateSure(this, a) || `<span class="btns"><button data-release="${a.id}" data-ex="${e.id}" ${fitProblem(a.sp, e.biome) ? "disabled" : ""}>Release here</button>${destroyBtn(a)}</span>`}</div>`).join("") : ""}
+      ${crates.length ? `<h4>Crates</h4>` + crates.map(a => `<div class="row"><button class="link" data-pick-animal="${a.id}">${esc(SPECIES[a.sp].name)}</button>${sellSure(this, a) || `<span class="btns">${this.crateBtns(a)}</span>`}</div>`).join("") : ""}
       <h4>Buy</h4>${Object.entries(SPECIES).filter(([id, sp]) => sp.starter && !fitProblem(id, e.biome)).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${!afford(s, sp.price) ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
+  }
+  // An animal's or a crate's buttons: Move (or Cancel move once ordered), Crate or Uncrate, Sell.
+  crateBtns(a, job = this.world.state.jobs.find(j => j.kind === "haul" && j.animal === a.id)) {
+    const w = this.world, d = `data-id="${a.id}"`;
+    const out = [job ? `<button data-cancel-move ${d}>Cancel move</button>` : `<button data-drop ${d}>Move</button>`];
+    if (a.crated) out.push(`<button data-uncrate ${d} ${uncrateProblem(w.state, w.derived, a) ? "disabled" : ""}>Uncrate</button>`);
+    else out.push(`<button data-crate ${d}>Crate</button>`);
+    out.push(sellBtn(a, sellPrice(a.sp)));
+    return out.join("");
   }
   // Status chips over two tabs: Info (where it is, what it's doing, its species) and Health (meters and needs).
   animalPanel(a) {
@@ -308,19 +345,24 @@ export class UI {
     if (sp.moves !== "swim") { if (a.need.thirst >= H.starveFrom) chips.push("Parched."); else if (a.need.thirst >= 80) chips.push("Thirsty."); }
     if (a.need.enrich >= 80) chips.push("Bored.");
     if (a.stress >= H.stressFrom) chips.push("Stressed.");
+    const job = s.jobs.find(j => j.kind === "haul" && j.animal === a.id);
+    if (job && job.why) chips.push(job.why);
+    else if (job && !job.by && !s.staff.some(x => x.role === "keeper")) chips.push("No keeper.");
     if (!["info", "health"].includes(this.anTab)) this.anTab = "info";
     const ex = s.exhibits.find(e => e.id === a.ex);
-    const where = a.crated ? "In a crate." : a.escaped ? "Escaped." : ex ? ex.name : "Nowhere.";
+    const where = a.carried ? "Being carried." : a.crated ? `In a crate${ex ? " in " + ex.name : ""}.` : a.escaped ? "Escaped." : ex ? ex.name : "Nowhere.";
+    const to = job && (s.exhibits.find(e => e.id === job.ex)?.name || "Storage");
     const row = (k, v) => `<div class="row"><span>${k}</span><b>${esc(v)}</b></div>`;
     const names = { hunger: "Fed", thirst: "Water", enrich: "Enrichment" };
     const body = this.anTab === "info"
-      ? row("Where", where) + row("Doing", ACT_LABEL[a.act] || a.act) + row("Period", sp.period) + row("Danger", sp.danger)
+      ? row("Where", where) + (job ? row("Moving to", to) : "") + (a.crated ? "" : row("Doing", ACT_LABEL[a.act] || a.act)) + row("Period", sp.period) + row("Danger", sp.danger)
         + row("Size", SIZE_NAME[sp.size] || "?") + row("Eats", sp.foodType[0].toUpperCase() + sp.foodType.slice(1)) + row("Active", sp.active === "night" ? "Night" : "Day")
         + row("Group", sp.group[0] === sp.group[1] ? sp.group[0] : `${sp.group[0]}–${sp.group[1]}`)
       : meter("Health", a.health) + meter("Happiness", a.happy) + meter("Calm", 100 - a.stress)
         + `<h4>Needs</h4>` + needsOf(sp).map(k => meter(names[k], 100 - a.need[k])).join("");
     return `<div class="row"><h3>${esc(sp.name)}</h3><button class="xclose" data-close aria-label="Close">×</button></div>
       <div>${chips.map(c => `<span class="chip bad">${esc(c)}</span>`).join("")}</div>
+      ${a.escaped || a.carried ? "" : `<div class="row">${sellSure(this, a) || `<span class="btns">${this.crateBtns(a, job)}</span>`}</div>`}
       ${tabBar("an", [{ key: "info", label: "Info" }, { key: "health", label: "Health" }], this.anTab)}
       <div class="ptab-body">${body}</div>`;
   }

@@ -2,11 +2,11 @@
 // Every species runs the same ACTIONS table; data (moves, danger, foodType, water, active, drain) decides what each one means.
 // Hourly, updateWellbeing turns needs and the habitat score into stress, health and happiness.
 import { SPEED, WEAR, W_NONE, ANIMAL, DAY_MIN } from "./config.js";
-import { SPECIES } from "./data.js";
-import { neighbours, walkable, idx } from "./grid.js";
+import { SPECIES, BUILDINGS } from "./data.js";
+import { neighbours, walkable, idx, S_FENCE } from "./grid.js";
 import { route } from "./paths.js";
 import { walk, tileOf, placeAt } from "./movers.js";
-import { habitatScore } from "./habitat.js";
+import { habitatScore, fitProblem } from "./habitat.js";
 import { rand, range, pick } from "./rng.js";
 
 export const NEEDS = ["hunger", "thirst", "enrich"];
@@ -18,7 +18,52 @@ export function newAnimal(state, sp, exId) {
            need: { hunger: 20, thirst: 20, enrich: 20 }, stress: 0, health: 100, happy: 70, escaped: false };
 }
 
-export const animalsIn = (state, exId) => state.animals.filter(a => a.ex === exId && !a.escaped);
+// The animals living in an exhibit: a crate sitting in it doesn't count.
+export const animalsIn = (state, exId) => state.animals.filter(a => a.ex === exId && !a.escaped && !a.crated);
+
+// ---- crates ----
+// A crate is a crated animal sitting on the map at its x, y (a.ex is the exhibit it sits in, or 0), or riding
+// with the keeper in a.carried. Its needs wait while it's crated.
+const crateOn = (state, i, but) => state.animals.some(b => b !== but && b.crated && !b.carried && tileOf(state.grid, b) === i);
+
+// Put a crate on the nearest free tile beside the Genetics Lab, or the entrance: where clones hatch and old saves' crates go.
+export function crateBeside(state, a) {
+  const g = state.grid, b = state.buildings.find(b => BUILDINGS[b.type].lab === "genetics") || state.buildings.find(b => b.type === "entrance");
+  if (!b) return;
+  const def = BUILDINGS[b.type], seen = new Set(), queue = [];
+  for (let y = b.y; y < b.y + def.h; y++) for (let x = b.x; x < b.x + def.w; x++) { const i = idx(g, x, y); seen.add(i); queue.push(i); }
+  while (queue.length) {   // out from the building over open ground, never through a fence into a pen
+    const i = queue.shift();
+    for (const j of neighbours(g, i)) {
+      if (seen.has(j)) continue;
+      seen.add(j);
+      if (g.struct[j] === S_FENCE || !walkable(g, j, "staff")) continue;
+      if (!crateOn(state, j, a)) { placeAt(g, a, j); return; }
+      queue.push(j);
+    }
+  }
+}
+
+// Into a crate where it stands.
+export function crateUp(state, derived, a) {
+  a.crated = true; a.escaped = false; a.path = []; a.act = "idle"; a.t = 0; delete a.home; delete a.fence;
+  a.ex = derived.exOf[tileOf(state.grid, a)] || 0;
+}
+// Why a crate can't open where it sits, or "".
+export function uncrateProblem(state, derived, a) {
+  if (!a || !a.crated) return "Not in a crate.";
+  if (a.carried) return "It's on its way.";
+  const g = state.grid, i = tileOf(g, a), e = state.exhibits.find(e => e.id === derived.exOf[i]);
+  if (!e) return "Not in an exhibit.";
+  const misfit = fitProblem(a.sp, e.biome);
+  if (misfit) return misfit;
+  if (!walkable(g, i, SPECIES[a.sp].moves)) return SPECIES[a.sp].moves === "swim" ? "Needs water." : "Can't stand there.";
+  return "";
+}
+export function letOut(state, derived, a) {
+  a.crated = false; a.ex = derived.exOf[tileOf(state.grid, a)]; a.path = []; a.act = "idle"; a.t = 0;
+}
+export { crateOn };
 
 // Tiles of exhibit exId this species can stand on.
 export function standable(state, derived, a) {
@@ -222,13 +267,13 @@ export function updateWellbeing(state, derived, bus) {
 export function settleAnimals(state, derived, bus) {
   const g = state.grid;
   for (const a of state.animals) {
-    if (a.crated) continue;
+    if (a.crated) { if (!a.carried) a.ex = derived.exOf[tileOf(g, a)] || 0; continue; }
     const here = derived.exOf[tileOf(g, a)];
     if (!a.escaped && here !== a.ex) {
       if (here && state.exhibits.some(e => e.id === here)) { a.ex = here; continue; }
       if (SPECIES[a.sp].moves === "swim") {
         a.path = []; a.act = "idle"; a.t = 0;
-        if (!(state.openPens || []).some(e => e.id === a.ex)) { a.crated = true; a.ex = 0; bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate.` }); }
+        if (!(state.openPens || []).some(e => e.id === a.ex)) { crateUp(state, derived, a); bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate.` }); }
         continue;
       }
       a.home = a.ex; a.escaped = true; a.ex = 0; a.path = []; a.act = "idle"; a.t = 0;

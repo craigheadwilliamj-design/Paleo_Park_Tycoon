@@ -5,10 +5,11 @@ import { SPECIES, DANGEROUS, BUILDINGS } from "./data.js";
 import { neighbours, walkable, idx, isFence } from "./grid.js";
 import { route } from "./paths.js";
 import { walk, tileOf, placeAt } from "./movers.js";
-import { animalsIn } from "./animals.js";
+import { animalsIn, crateUp, uncrateProblem, letOut, crateOn } from "./animals.js";
 
 // ---- jobs ----
-// A job: {id, key, kind, role, ex?, tile?, type?, pri, by (staff id or 0), why}. key stops duplicates.
+// A job: {id, key, kind, role, ex?, tile?, type?, animal?, pri, by (staff id or 0), why}. key stops duplicates.
+// A haul job moves an animal (live in its pen, or already crated) to tile, in exhibit ex (0: outside, it stays a crate).
 export function postJob(state, job) {
   if (state.jobs.some(j => j.key === job.key)) return;
   state.jobs.push({ id: state.nextId++, by: 0, why: "", ...job });
@@ -53,6 +54,12 @@ function besideBuilding(state, b) {
   return [...out];
 }
 
+// Standable tiles just outside an exhibit's keeper gates.
+function outsideGates(state, derived, exId) {
+  const g = state.grid, t = derived.ex.get(exId);
+  return t ? t.gates.flatMap(i => neighbours(g, i).filter(j => derived.exOf[j] !== exId && walkable(g, j, "staff"))) : [];
+}
+
 // Goal tiles for each stage of a job. Returns [] when there is nowhere to go (the job gets a why).
 function goals(state, derived, s, job) {
   const g = state.grid;
@@ -66,6 +73,17 @@ function goals(state, derived, s, job) {
     return state.buildings.filter(b => t.feeders.includes(b.id)).flatMap(b => besideBuilding(state, b)).filter(j => derived.exOf[j] === job.ex);
   }
   if (job.kind === "repair") return neighbours(g, job.tile).filter(j => walkable(g, j, "staff"));
+  if (job.kind === "haul") {
+    const a = state.animals.find(a => a.id === job.animal);
+    if (!a || a.escaped) return [];
+    const near = i => [i, ...neighbours(g, i)].filter(j => walkable(g, j, "staff"));
+    if (s.stage === "fetch") {   // to the animal or its crate; a dangerous pen is worked from outside its gate
+      if (a.ex && dangerousPen(state, a.ex)) return outsideGates(state, derived, a.ex);
+      return near(tileOf(g, a)).filter(j => !a.ex || derived.exOf[j] === a.ex);
+    }
+    if (job.ex && dangerousPen(state, job.ex)) return outsideGates(state, derived, job.ex);
+    return near(job.tile).filter(j => derived.exOf[j] === job.ex);
+  }
   if (job.kind === "catch") {
     const a = state.animals.find(a => a.id === job.animal);
     if (!a || !a.escaped) return [];
@@ -83,13 +101,18 @@ function whyNot(state, derived, s, job) {
     if (dangerousPen(state, job.ex)) return t && t.chutes.length ? "Can't reach the chute." : "No feeding chute.";
     return t && t.gates.length ? "Can't reach the feeder." : "No keeper gate.";
   }
+  if (job.kind === "haul") {
+    const a = state.animals.find(a => a.id === job.animal), ex = s.stage === "fetch" ? a && a.ex : job.ex, t = ex && derived.ex.get(ex);
+    if (t && !t.gates.length) return "No keeper gate.";
+    return s.stage === "fetch" ? (a && a.crated ? "Can't reach the crate." : "Can't reach it.") : "Can't reach the spot.";
+  }
   return "Can't reach it.";
 }
 
 function startStage(state, derived, s, job) {
   const g = state.grid, gl = goals(state, derived, s, job);
   const p = gl.length ? route(g, tileOf(g, s), gl, "staff", staffAllow(state, derived)) : null;
-  if (!p) { job.why = whyNot(state, derived, s, job); job.by = 0; job.wait = 60; s.job = 0; s.carry = null; return false; }
+  if (!p) { job.why = whyNot(state, derived, s, job); job.by = 0; job.wait = 60; s.job = 0; setDown(state, derived, s); return false; }
   job.why = ""; s.path = p; return true;
 }
 
@@ -97,7 +120,7 @@ function claim(state, derived, s) {
   const open = state.jobs.filter(j => j.role === s.role && !j.by && !(j.wait > 0));
   open.sort((p, q) => q.pri - p.pri);
   for (const job of open) {
-    s.job = job.id; job.by = s.id; s.stage = job.kind === "feed" ? "fetch" : "go";
+    s.job = job.id; job.by = s.id; s.stage = job.kind === "feed" || job.kind === "haul" ? "fetch" : "go";
     if (startStage(state, derived, s, job)) return;
   }
   // Nothing to do: wander a few tiles along the paths.
@@ -126,11 +149,50 @@ function arrive(state, derived, bus, s, job) {
     if (s.stage !== "dart") { s.stage = "dart"; s.t = STAFF.dartMin; a.act = "held"; a.t = STAFF.dartMin + 1; a.path = []; return; }
     bus.emit("caught", { animal: a.id }); s.job = 0; dropJob(state, job); return;
   }
+  if (job.kind === "haul") return haul(state, derived, bus, s, job);
   if (job.kind === "repair") {
     if (s.stage === "go") { s.stage = "work"; s.t = 20; return; }
     if (isFence(g, job.tile)) { g.cond[job.tile] = 100; bus.emit("repaired", { tile: job.tile }); }
     s.job = 0; dropJob(state, job);
   }
+}
+
+// Haul: walk to the animal, crate it (or pick up its crate), carry it to the spot and set it down. Into an
+// exhibit, it comes out there; outside one, the crate waits where it was put.
+function haul(state, derived, bus, s, job) {
+  const g = state.grid, a = state.animals.find(a => a.id === job.animal);
+  if (!a || a.escaped) { setDown(state, derived, s); s.job = 0; dropJob(state, job); return; }
+  if (s.stage === "fetch") {
+    const fromGate = a.ex && dangerousPen(state, a.ex);
+    if (!fromGate && Math.hypot(a.x - s.x, a.y - s.y) > 1.6) return startStage(state, derived, s, job);   // it moved: follow
+    s.stage = "load"; s.t = STAFF.loadMin;
+    if (!a.crated) { a.act = "held"; a.t = STAFF.loadMin + 1; a.path = []; }
+    return;
+  }
+  if (s.stage === "load") {
+    if (!a.crated) { crateUp(state, derived, a); state.jobs = state.jobs.filter(j => j === job || j.animal !== a.id); }
+    a.carried = s.id; a.ex = 0; s.carry = { crate: a.id }; s.stage = "deliver";
+    return startStage(state, derived, s, job);
+  }
+  if (s.stage === "deliver") { s.stage = "unload"; s.t = STAFF.loadMin; return; }
+  // Unload: on the chosen tile if it's still free and the right place, else where the keeper stands.
+  const ok = walkable(g, job.tile, "staff") && !isFence(g, job.tile) && derived.exOf[job.tile] === job.ex && !crateOn(state, job.tile, a);
+  setDown(state, derived, s, ok ? job.tile : -1);
+  s.job = 0; dropJob(state, job);
+  if (!job.ex) return;
+  const why = uncrateProblem(state, derived, a);
+  if (why) bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate.` });
+  else letOut(state, derived, a);
+}
+
+// A keeper carrying a crate puts it down: on tile, or where the keeper stands.
+export function setDown(state, derived, s, tile = -1) {
+  const a = s.carry && s.carry.crate && state.animals.find(a => a.id === s.carry.crate);
+  s.carry = null;
+  if (!a) return;
+  a.carried = 0;
+  placeAt(state.grid, a, tile >= 0 ? tile : tileOf(state.grid, s));
+  a.ex = derived.exOf[tileOf(state.grid, a)] || 0;
 }
 
 // The way ahead changed: plan the current stage again (it drops the job if there's no way now).
@@ -144,10 +206,12 @@ export function staffTick(state, derived, bus, dt) {
   const g = state.grid;
   for (const j of state.jobs) if (j.wait > 0) j.wait -= dt;
   for (const s of state.staff) {
-    if (!walk(g, s, SPEED.staff, dt)) continue;
+    const done = walk(g, s, SPEED.staff, dt);
+    if (s.carry && s.carry.crate) { const a = state.animals.find(a => a.id === s.carry.crate); if (a) { a.x = s.x; a.y = s.y; } }
+    if (!done) continue;
     if ((s.t -= dt) > 0) continue;
     const job = s.job && state.jobs.find(j => j.id === s.job);
-    if (!job) { s.job = 0; s.carry = null; claim(state, derived, s); continue; }
+    if (!job) { s.job = 0; setDown(state, derived, s); claim(state, derived, s); continue; }
     arrive(state, derived, bus, s, job);
   }
 }

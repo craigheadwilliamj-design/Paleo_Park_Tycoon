@@ -4,7 +4,7 @@
 // minute it's due. No DOM; world.js wraps the commands.
 import { DAY_MIN, SCIENCE } from "./config.js";
 import { SPECIES, SITES, PERIODS, TRACKS, BUILDINGS, TIMELINE_FLOOR, TIMELINE_MAPS } from "./data.js";
-import { newAnimal } from "./animals.js";
+import { newAnimal, crateBeside } from "./animals.js";
 import { rand, chance } from "./rng.js";
 import { afford } from "./money.js";
 
@@ -182,7 +182,7 @@ export function scienceTick(state, bus, dt) {
   for (const c of sc.clones.filter(c => c.end <= now)) {
     sc.clones = sc.clones.filter(x => x !== c);
     const a = newAnimal(state, c.sp, 0);
-    a.crated = true; state.animals.push(a);
+    a.crated = true; crateBeside(state, a); state.animals.push(a);
     bus.emit("notify", { text: `${SPECIES[c.sp].name} clone is ready in a crate.` });
   }
 }

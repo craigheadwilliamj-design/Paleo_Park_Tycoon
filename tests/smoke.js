@@ -84,6 +84,30 @@ const moved = await page.evaluate(() => {
   return snack.x - x0;
 });
 if (moved !== -2) fails.push("move tool moved the stand by " + moved);
+// Animals: select a Lystrosaurus, crate it and uncrate it, then Move it with the crate ghost into the other pen; a keeper carries it.
+const herd = await page.evaluate(() => {
+  const { world: w, ui, cam } = window.__ppt, c = document.getElementById("view"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const at = (x, y) => ({ clientX: r.left + ((x + 0.5) * 16 - cam.x) * cam.zoom / dpr, clientY: r.top + ((y + 0.5) * 16 - cam.y) * cam.zoom / dpr, pointerId: 1, button: 0, bubbles: true });
+  const press = sel => { const b = document.querySelector("#side " + sel); if (!b) return false; b.click(); return true; };
+  const [pa, pb] = w.state.exhibits, a = w.state.animals.find(x => x.sp === "lyst"), out = {};
+  ui.click([Math.floor(a.x), Math.floor(a.y)], "click"); ui.lastPanel = ""; ui.refresh();
+  out.panel = ui.selected === a && /Sell \$1,750/.test(document.getElementById("side").textContent);
+  out.crated = press("[data-crate]") && a.crated; ui.refresh();
+  out.uncrated = press("[data-uncrate]") && !a.crated; ui.refresh();
+  press("[data-drop]");
+  out.tool = ui.tool;
+  const spot = w.derived.ex.get(pa.id).tiles.find(i => !w.state.grid.struct[i] && !w.state.grid.water[i] && !w.state.animals.some(m => Math.floor(m.x) + Math.floor(m.y) * w.state.grid.w === i));
+  const sx = spot % w.state.grid.w, sy = (spot / w.state.grid.w) | 0;
+  c.dispatchEvent(new PointerEvent("pointermove", at(sx, sy)));
+  out.ghost = !!(ui.ghost && ui.ghost.crate === a.id && ui.ghost.ok);
+  c.dispatchEvent(new PointerEvent("pointerdown", at(sx, sy))); c.dispatchEvent(new PointerEvent("pointerup", at(sx, sy)));
+  out.ordered = w.state.jobs.some(j => j.kind === "haul" && j.animal === a.id) && ui.tool === "select";
+  for (let k = 0; k < 200 && (a.crated || a.ex !== pa.id); k++) w.advance(2);
+  out.moved = !a.crated && a.ex === pa.id && pb.id !== pa.id;
+  ui.selected = null; ui.selectedEx = pa.id; ui.lastPanel = ""; ui.refresh();
+  return out;
+});
+if (!herd.panel || !herd.crated || !herd.uncrated || herd.tool !== "crate" || !herd.ghost || !herd.ordered || !herd.moved) fails.push("moving an animal: " + JSON.stringify(herd));
 // The build menu: a category opens its tray, a list head opens its bar above, a tool in it picks that tool; Esc backs out.
 const menu = await page.evaluate(() => {
   const { ui } = window.__ppt, q = s => document.querySelector(s), shown = el => !!el && el.getClientRects().length > 0;

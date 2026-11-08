@@ -1,7 +1,7 @@
 // The world: the saved state, the derived data rebuilt from it, the event bus, the commands that change it,
 // and the fixed-step tick. The UI and the tests only ever go through these commands.
 import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
-         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION } from "./config.js";
+         F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION, ANIMAL } from "./config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES, TRACKS } from "./data.js";
 import { fitProblem } from "./habitat.js";
 import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutProblem, expeditionProblem, sendTrip, scoutCost,
@@ -9,8 +9,8 @@ import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutP
 import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
 import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
-import { newAnimal, dropIn, animalTick, updateWellbeing, settleAnimals, animalsIn } from "./animals.js";
-import { planJobs, staffTick, hire, wages, reroute } from "./staff.js";
+import { newAnimal, dropIn, animalTick, updateWellbeing, settleAnimals, animalsIn, crateUp, uncrateProblem, letOut, crateOn } from "./animals.js";
+import { planJobs, staffTick, hire, wages, reroute, postJob, setDown } from "./staff.js";
 import { guestTick } from "./guests.js";
 import { Bus } from "./events.js";
 import { afford, charge } from "./money.js";
@@ -180,7 +180,7 @@ export class World {
       if (!inside(g, xx, yy)) return "Off the map.";
       const i = idx(g, xx, yy), own = skip && g.bld[i] === skip;
       if (!own && (g.struct[i] !== 0 || g.water[i])) return "Something is in the way.";
-      if ([...this.state.animals, ...this.state.staff, ...this.state.guests].some(m => !m.crated && Math.floor(m.x) === xx && Math.floor(m.y) === yy)) return "Someone is standing there.";
+      if ([...this.state.animals, ...this.state.staff, ...this.state.guests].some(m => !m.carried && Math.floor(m.x) === xx && Math.floor(m.y) === yy)) return "Someone is standing there.";
       const e = d.exOf[i] || 0;
       if (ex === null) ex = e; else if (ex !== e) return "Something is in the way.";
     }
@@ -306,13 +306,12 @@ export class World {
     sc.reports = sc.reports.filter(r => r.id !== id); return "";
   }
 
-  // A darted animal goes back to its exhibit if that pen is closed again, otherwise into a crate.
+  // A darted animal goes into a crate where it was caught, to wait until it's sent somewhere.
   caught(id) {
     const a = this.state.animals.find(a => a.id === id);
     if (!a) return;
-    a.escaped = false; a.path = []; a.act = "idle"; a.t = 0;
-    if (this.state.exhibits.some(e => e.id === a.home)) { a.ex = a.home; dropIn(this.state, this.derived, a); this.note(`${SPECIES[a.sp].name} is back in its exhibit.`); }
-    else { a.crated = true; a.ex = 0; this.note(`${SPECIES[a.sp].name} is in a crate.`); }
+    crateUp(this.state, this.derived, a);
+    this.note(`${SPECIES[a.sp].name} is in a crate.`);
   }
   // An animal whose health ran out: gone, with any job about it.
   died(id) {
@@ -323,21 +322,84 @@ export class World {
     s.books.today.deaths = (s.books.today.deaths || 0) + 1;
     this.note(`${SPECIES[a.sp].name} has died.`, true);
   }
-  release(id, exId) {
-    const a = this.state.animals.find(a => a.id === id && a.crated);
-    if (!a) return "No such crate.";
-    const e = this.state.exhibits.find(e => e.id === exId);
-    if (!e) return "Not in an exhibit.";
-    const misfit = fitProblem(a.sp, e.biome);
-    if (misfit) return misfit;
-    a.crated = false; a.ex = exId; dropIn(this.state, this.derived, a); return "";
-  }
-  // A crated animal you don't want: gone for good, no refund.
-  destroyCrate(id) {
-    const s = this.state, a = s.animals.find(a => a.id === id && a.crated);
-    if (!a) return "No such crate.";
-    s.animals = s.animals.filter(b => b !== a);
+
+  // ---- crates, moving and selling animals ----
+  // An animal in an exhibit goes into a crate where it stands, and waits there.
+  crate(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id);
+    if (!a) return "No such animal.";
+    if (a.escaped) return "Catch it first.";
+    if (a.crated) return "Already crated.";
+    crateUp(s, this.derived, a);
     s.jobs = s.jobs.filter(j => j.animal !== id);
+    return "";
+  }
+  // A crate sitting in an exhibit opens, and the animal comes out where it is.
+  uncrate(id) {
+    const a = this.state.animals.find(a => a.id === id);
+    const why = uncrateProblem(this.state, this.derived, a);
+    if (why) return why;
+    this.cancelMove(id);
+    letOut(this.state, this.derived, a);
+    return "";
+  }
+  // Read only: why a keeper couldn't take this animal (in its pen, or crated) to tile x, y, or "". The view's crate
+  // ghost turns red on it. Inside an exhibit the animal comes out there, so it must fit and be able to stand there;
+  // outside one the crate just waits.
+  dropProblem(id, x, y) {
+    const s = this.state, g = s.grid, d = this.derived, a = s.animals.find(a => a.id === id);
+    if (!a) return "No such animal.";
+    if (a.escaped) return "Catch it first.";
+    if (a.carried) return "It's on its way.";
+    if (!inside(g, x, y)) return "Off the map.";
+    const i = idx(g, x, y), ex = d.exOf[i] || 0;
+    if (g.struct[i] === S_BUILDING || g.struct[i] === S_FENCE || (g.water[i] === W_DEEP && !ex)) return "Can't put it there.";
+    if (crateOn(s, i, a)) return "A crate is there.";
+    if (a.ex && !d.ex.get(a.ex)?.gates.length) return "No keeper gate.";
+    if (!ex) return "";
+    if (!a.crated && ex === a.ex) return "Already lives here.";
+    if (!d.ex.get(ex).gates.length) return "No keeper gate.";
+    const misfit = fitProblem(a.sp, s.exhibits.find(e => e.id === ex).biome);
+    if (misfit) return misfit;
+    if (!walkable(g, i, SPECIES[a.sp].moves)) return SPECIES[a.sp].moves === "swim" ? "Needs water." : "Can't stand there.";
+    return "";
+  }
+  // Send a keeper to take it to tile x, y. A new spot replaces an order not yet picked up.
+  moveAnimal(id, x, y) {
+    const why = this.dropProblem(id, x, y);
+    if (why) return why;
+    const s = this.state, i = idx(s.grid, x, y), ex = this.derived.exOf[i] || 0;
+    const job = s.jobs.find(j => j.kind === "haul" && j.animal === id);
+    if (job) { job.ex = ex; job.tile = i; job.why = ""; job.wait = 0; return ""; }
+    postJob(s, { key: `haul:${id}`, kind: "haul", role: "keeper", animal: id, ex, tile: i, pri: 3 });
+    return "";
+  }
+  // Call off a move the keeper hasn't picked up yet.
+  cancelMove(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id), job = s.jobs.find(j => j.kind === "haul" && j.animal === id);
+    if (!job) return "No move ordered.";
+    if (a && a.carried) return "It's on its way.";
+    this.dropJob(job);
+    if (a && a.act === "held") a.t = 0;
+    return "";
+  }
+  // Take a job off the board, and off whoever was doing it.
+  dropJob(job) {
+    const st = job.by && this.state.staff.find(x => x.id === job.by);
+    if (st && st.job === job.id) { st.job = 0; st.path = []; st.stage = ""; st.t = 0; }
+    this.state.jobs = this.state.jobs.filter(j => j !== job);
+  }
+  // Sell an animal (or its crate) to a partner park for a share of its price.
+  sellAnimal(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id);
+    if (!a) return "No such animal.";
+    if (a.escaped) return "Catch it first.";
+    if (a.carried) return "It's on its way.";
+    const got = sellPrice(a.sp);
+    for (const j of s.jobs.filter(j => j.animal === id)) this.dropJob(j);
+    s.animals = s.animals.filter(b => b !== a);
+    s.money += got; s.books.today.sold += got;
+    this.note(`Sold a ${SPECIES[a.sp].name} for $${got.toLocaleString("en-US")}.`);
     return "";
   }
   hire(role) {
@@ -345,7 +407,11 @@ export class World {
     if (!this.spend(STAFF.hire[role], "wages")) return "Not enough money.";
     hire(this.state, this.derived, role); return "";
   }
-  fire(id) { this.state.staff = this.state.staff.filter(s => s.id !== id); this.state.jobs.forEach(j => { if (j.by === id) j.by = 0; }); }
+  fire(id) {
+    const st = this.state.staff.find(s => s.id === id);
+    if (st) setDown(this.state, this.derived, st);   // a carried crate stays where the keeper stood
+    this.state.staff = this.state.staff.filter(s => s.id !== id); this.state.jobs.forEach(j => { if (j.by === id) j.by = 0; });
+  }
   setTicket(p) { this.state.ticket = Math.max(0, Math.min(200, Math.round(p))); }
   setPower(on) { this.state.power.on = !!on; this.changed(); }
   // Sandbox: unlimited money for testing. The bank stays where it was while it's on.
@@ -396,6 +462,9 @@ export class World {
     this.bus.emit("dayEnded", { day: s.day });
   }
 }
+
+// What selling an animal of this species pays.
+export const sellPrice = sp => Math.round(SPECIES[sp].price * ANIMAL.sell);
 
 // A fresh park: an entrance at the bottom middle with a short path into the park.
 export function newPark(seed) {
