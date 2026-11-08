@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, based on `main` = `0feade2` (merge of PR #35). The published Artifact is version 62; its game files match `main`.
+**Last updated:** 2026-11-08, based on `main` = `63b591b` (merge of PR #37), plus directional art on `codex/building-back-and-side-sprites`.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -15,10 +15,11 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 - ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R or right click (Shift for back) or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R or a right press while carrying with Move, or a tap or right click with Move turns it in place; right drag still pans elsewhere. `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
 - ✅ Staff Path (`S_STAFF` = 4, Paths tray, $10/tile): staff walk it, guests never do, not a viewing spot. It gives staff no speed bonus: staff still walk open grass too, so it's guest separation and look only. ❓ The user may want staff to prefer or move faster on paths; not decided.
 - ✅ `SAVE_VERSION` is 3: `migrate()` gives old buildings the turn that already faces a path (`autoRot`).
-- ✅ Turned sprite buildings (all guest amenities) draw as their placeholder block with a door until other views exist; only the south view has art. Rotated views would be new art and need the user's approval.
+- ✅ All guest amenities have user-approved front/back/side views. East is a horizontal mirror of the west image. Kiosks share their rear and side shell; the bench has separate rear and side art. The bin is now a plain green trashcan: a front with an opening and one plain image reused for sides and back, as requested. Other buildings still use placeholders.
 
 ## Most recent state of `main`
 Recent merges set the context for what's fresh and most likely to need follow-up (details in the PRs, not here):
+- ✅ PR #37: labs use a stable tile anchor when turned, so full cycles and reverse turns no longer drift. Covered by a regression test including save/reload midway.
 - ✅ PR #35: buildings turn and are used only from their front; Staff Path tool; save version 3 (details in the section above).
 - ✅ PR #34: snack stand, gift stand, bench and trash bin sprites (approved), matching the restroom.
 - ✅ PR #32: approved restroom sprite (`art/buildings/restroom.png`; buildings can now carry a `sprite` path).
@@ -29,7 +30,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
-- Rotation drift fix on `codex/fix-building-rotation-drift`, prepared for review into `main`: rectangular labs keep a stable tile anchor instead of drifting northwest. Full cycles and opposite turns restore position and occupied tiles, including a save/reload midway. No save format changes. The new regression fails on the previous code; all 51 simulation tests and the browser smoke test pass with the fix. Browser smoke used installed Chrome and local-file interception because the bundled browser is absent and loopback networking is restricted; repository dependencies and smoke test are unchanged. Not merged or published.
+- Directional guest art on `codex/building-back-and-side-sprites`, prepared for review into `main`: front/back/side metadata and a locally scoped horizontal reflection for east, shared by placed buildings and placement/move ghosts. Kiosk/bench views were approved; the user approved the simplified bin front and requested the same plain view for sides and back. All 51 simulation tests and the expanded browser smoke pass. The smoke checks twenty type/facing combinations, twenty move ghosts, mirror direction and restored canvas state. Visual reviews found no material issues. Smoke used installed Chrome and local-file interception in this environment; no dependency changes. No simulation or save changes. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
@@ -39,7 +40,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
-- ✅ The published Artifact is version 62 (2026-11-08). It was published from PR #35's branch before the merge; its `index.html`, `src/` and art match `main` at `0feade2`, so no republish is needed. Old browser saves migrate to save version 3 on load. Republish from `main` after each merge.
+- The last documented published Artifact is version 62 (from PR #35). Publication of PR #37 or the directional art branch has not been verified here.
 
 ## Next steps (as documented)
 No prioritized task list is written down. What the docs point to:

@@ -138,15 +138,19 @@ function drawCrate(ctx, px, py, size, z) {
 }
 
 // Building sprites share the footprint width and sit on its bottom edge; other buildings keep placeholders.
-// Sprites are drawn facing south only, so a building turned another way (rot, grid.js) draws as its placeholder
-// until its other views exist. The placeholder marks its front: a door in the wall facing the camera, a door on
+// Buildings select their front, back or shared side sprite by rot (grid.js); east mirrors the west side.
+// Missing directions keep the placeholder. It marks its front: a door in the wall facing the camera, a door on
 // the side it faces, or an awning along the back, and a doorstep on the ground in front (not for anySide buildings).
 function drawBuilding(ctx, def, px, py, T, z, rot = 0) {
   const [bw, bh] = bldSize(def, rot), w = bw * T, h = bh * T, front = Math.round(h * 0.4);
-  const im = !rot && def.sprite && spriteImg(def.sprite);
+  const path = rot === 0 ? def.sprite : rot === 2 ? def.spriteBack : def.spriteSide;
+  const im = path && spriteImg(path);
   if (im) {
     const height = Math.round(w * im.naturalHeight / im.naturalWidth);
-    ctx.drawImage(im, px, py + h - height, w, height);
+    if (rot === 3) {   // east mirrors the west-facing side; keep the reflection inside this draw
+      ctx.save(); ctx.translate(px + w, py + h - height); ctx.scale(-1, 1);
+      ctx.drawImage(im, 0, 0, w, height); ctx.restore();
+    } else ctx.drawImage(im, px, py + h - height, w, height);
     return;
   }
   ctx.fillStyle = shade(def.color, -0.3); ctx.fillRect(px, py + h - front, w, front);
