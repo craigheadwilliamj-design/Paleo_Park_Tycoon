@@ -88,7 +88,7 @@ export class BuildMenu {
     const cats = categories();
     this.el.innerHTML = `<div class="lefttools">
         <div class="smallrow"><button class="tbtn sm" data-tool="bulldoze" aria-pressed="false" title="Bulldoze: ${Math.round(REFUND * 100)}% back" aria-label="Bulldoze">${svg(ICON.bulldoze)}</button>
-        <button class="tbtn sm" data-tool="move" aria-pressed="false" title="Move: drag a building to a new spot, tap it to turn it" aria-label="Move">${svg(ICON.move)}</button></div>
+        <button class="tbtn sm" data-tool="move" aria-pressed="false" title="Move: drag a building to a new spot; tap or right click it to turn it" aria-label="Move">${svg(ICON.move)}</button></div>
         ${cats.map(c => `<button class="tbtn big" data-cat="${c.id}" aria-expanded="false" title="${esc(c.label)}" aria-label="${esc(c.label)}">${svg(ICON[c.id])}</button>`).join("")}
       </div>
       ${cats.map(c => `<section class="tray" data-tray="${c.id}" hidden><div class="tray-tab">${esc(c.label)}</div><button class="xclose a" data-close="a" aria-label="Close menu">×</button>

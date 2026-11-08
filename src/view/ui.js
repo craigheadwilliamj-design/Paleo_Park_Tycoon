@@ -52,7 +52,7 @@ export class UI {
     if (next === this.tool && tool === "select") return;
     this.tool = next;
     this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; this.rot = null; $("stat").textContent = "";
-    $("turn").innerHTML = TOOL_KIND[this.tool] === "place" && !BUILDINGS[this.tool.slice(6)].anySide ? `<button data-turn title="Turn it (R)">Turn ⟳</button>` : "";
+    $("turn").innerHTML = TOOL_KIND[this.tool] === "place" && !BUILDINGS[this.tool.slice(6)].anySide ? `<button data-turn title="Turn it (R or right click)">Turn ⟳</button>` : "";
     if (this.tool !== "crate") this.dropId = 0;
     this.canvas.style.cursor = this.tool === "select" ? "default" : this.tool === "move" ? "grab" : "crosshair";
     this.menu.setTool(this.tool);
@@ -114,6 +114,15 @@ export class UI {
     this.rot = (now + (dir < 0 ? 3 : 1)) & 3;
     if (t) this.placeGhost(t); else $("stat").textContent = `Faces ${FACING[this.rot]}.`;
   }
+  // Right click turns whatever building is in hand: the placing ghost, the carried one, or (Move tool) the one under the cursor.
+  // Anywhere else it still pans. Returns true when it turned something.
+  rightTurn(t, back) {
+    const dir = back ? -1 : 1;
+    if (this.moving || TOOL_KIND[this.tool] === "place") { this.turn(dir); return true; }
+    const b = this.tool === "move" && this.buildingAt(t);
+    if (!b) return false;
+    this.say(this.world.rotateBuilding(b.id, dir)); this.moveHover(t); return true;
+  }
   // Place: the building follows the cursor, centred the way click() puts it down, red with the reason where it won't go.
   // Facing: the player's turn (this.rot) or, until they turn it, toward a path (World.facing).
   placeCorner(type, [x, y], rot = this.rot ?? 0) { const [w, h] = bldSize(BUILDINGS[type], rot); return [x - Math.floor((w - 1) / 2), y - Math.floor((h - 1) / 2)]; }
@@ -161,6 +170,7 @@ export class UI {
     c.addEventListener("contextmenu", e => e.preventDefault());
     c.addEventListener("pointerdown", e => {
       c.setPointerCapture(e.pointerId);
+      if (e.button === 2 && this.rightTurn(this.tileAt(e), e.shiftKey)) return;
       if (e.button === 2 || e.button === 1 || this.tool === "select" && e.shiftKey) { this.pan = { x: e.clientX, y: e.clientY, cx: this.cam.x, cy: this.cam.y }; return; }
       const t = this.tileAt(e), kind = TOOL_KIND[this.tool];
       if (kind === "move") { this.grab(t); return; }
@@ -172,6 +182,7 @@ export class UI {
     });
     c.addEventListener("pointermove", e => {
       this.hover = this.tileAt(e);
+      if (e.button === 2 && (e.buttons & 2) && this.moving) { this.turn(e.shiftKey ? -1 : 1); return; }   // right pressed while carrying (a chord: no pointerdown)
       if (this.pan) {
         const dpr = window.devicePixelRatio || 1, dx = e.clientX - this.pan.x, dy = e.clientY - this.pan.y;
         if (this.pan.click && Math.hypot(dx, dy) < 6) return;

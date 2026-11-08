@@ -12,7 +12,7 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 - ✅ Not built yet: see `docs/architecture.md` "Not built yet" (plants/browsing, power plants, custodians, staff morale/break rooms, attractions and museum, Guests research track, vandalism, weather, mixed-pen predation, more animations, real art).
 
 ## Open branch: `claude/elegant-newton-amndfo` (not merged; published as Artifact version 61)
-- ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R / Shift+R or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R while carrying with Move, or a tap with Move turns it in place. `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
+- ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R or right click (Shift for back) or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R or a right press while carrying with Move, or a tap or right click with Move turns it in place; right drag still pans elsewhere. Right click is not yet in the published Artifact (version 61). `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
 - ✅ Staff Path (`S_STAFF` = 4, Paths tray, $10/tile): staff walk it, guests never do, not a viewing spot. It gives staff no speed bonus: staff still walk open grass too, so it's guest separation and look only. ❓ The user may want staff to prefer or move faster on paths; not decided.
 - ✅ `SAVE_VERSION` is 3: `migrate()` gives old buildings the turn that already faces a path (`autoRot`).
 - ✅ Turned sprite buildings (all guest amenities) draw as their placeholder block with a door until other views exist; only the south view has art. Rotated views would be new art and need the user's approval.
@@ -48,7 +48,7 @@ No prioritized task list is written down. What the docs point to:
 - ❓ The user decides priorities; confirm before starting anything large.
 
 ## Build and test status
-- ✅ 2026-11-08 on `claude/elegant-newton-amndfo`: `npm test` passes: `tests/sim.test.js` 50/50, smoke `ok` (now also checks turning by tap, R, Shift+R and the Turn button, and painting a staff path).
+- ✅ 2026-11-08 on `claude/elegant-newton-amndfo`: `npm test` passes: `tests/sim.test.js` 50/50, smoke `ok` (now also checks turning by tap, R, Shift+R, right click, a right press while carrying and the Turn button, that right drag still pans, and painting a staff path).
 - ✅ 2026-11-08 at `b76ed7f`: `npm test` passes: `tests/sim.test.js` 45/45, smoke test `ok` (day 4, ~180 guests (varies run to run: the page seeds new parks from `Date.now()`), 0 escapes, 0 starving). Run in Claude Code's cloud container (Node 22, preinstalled Playwright/Chromium).
 - No build step; nothing to compile.
 

@@ -94,6 +94,19 @@ const turned = await page.evaluate(() => {
   const tap = () => { c.dispatchEvent(new PointerEvent("pointerdown", at(snack.x, snack.y))); c.dispatchEvent(new PointerEvent("pointerup", at(snack.x, snack.y))); };
   tap(); out.tapTurned = snack.rot === ((rot0 + 1) & 3);
   tap(); tap(); tap(); out.back = snack.rot === rot0;
+  const right = (x, y, extra = {}) => c.dispatchEvent(new PointerEvent("pointerdown", { ...at(x, y), button: 2, buttons: 2, ...extra }));
+  right(snack.x, snack.y); c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 2 }));
+  out.rightMove = snack.rot === ((rot0 + 1) & 3);
+  right(snack.x, snack.y, { shiftKey: true }); c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 2 }));
+  out.rightBack = snack.rot === rot0;
+  const camX = cam.x; right(2, 2); c.dispatchEvent(new PointerEvent("pointermove", { ...at(8, 2), buttons: 2 })); c.dispatchEvent(new PointerEvent("pointerup", { ...at(8, 2), button: 2 }));
+  out.rightPans = cam.x !== camX; cam.x = camX;
+  // Carrying with the left button held, a right press (a chord) turns it; letting go puts it down turned.
+  c.dispatchEvent(new PointerEvent("pointerdown", { ...at(snack.x, snack.y), button: 0, buttons: 1 }));
+  c.dispatchEvent(new PointerEvent("pointermove", { ...at(snack.x, snack.y), button: 2, buttons: 3 }));
+  c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 0 }));
+  out.rightCarry = snack.rot === ((rot0 + 1) & 3);
+  w.moveBuilding(snack.id, snack.x, snack.y, rot0);
   document.querySelector('[data-tool="move"]').click();
   ui.setTool("place:bench");
   c.dispatchEvent(new PointerEvent("pointermove", at(5, 5)));
@@ -101,6 +114,8 @@ const turned = await page.evaluate(() => {
   key("r"); out.keyTurned = ui.ghost.rot === ((r0 + 1) & 3);
   key("r", true); out.shiftBack = ui.ghost.rot === r0;
   document.querySelector("#turn [data-turn]").click(); out.buttonTurned = ui.ghost.rot === ((r0 + 1) & 3);
+  c.dispatchEvent(new PointerEvent("pointerdown", { ...at(5, 5), button: 2, buttons: 2 })); c.dispatchEvent(new PointerEvent("pointerup", { ...at(5, 5), button: 2 }));
+  out.rightPlace = ui.ghost.rot === ((r0 + 2) & 3) && !w.state.buildings.some(b => b.x === 5 && b.y === 5);
   ui.setTool("select"); out.buttonGone = !document.querySelector("#turn [data-turn]");
   document.querySelector('[data-cat="paths"]').click();
   document.querySelector('[data-tool="staffpath"]').click(); out.staffTool = ui.tool === "staffpath";
@@ -109,7 +124,7 @@ const turned = await page.evaluate(() => {
   document.querySelector('[data-tray="paths"] [data-close="a"]').click();
   return out;
 });
-if (!turned.tapTurned || !turned.back || !turned.keyTurned || !turned.shiftBack || !turned.buttonTurned || !turned.buttonGone || !turned.staffTool || turned.painted !== 3)
+if (!turned.tapTurned || !turned.back || !turned.rightMove || !turned.rightBack || !turned.rightPans || !turned.rightCarry || !turned.rightPlace || !turned.keyTurned || !turned.shiftBack || !turned.buttonTurned || !turned.buttonGone || !turned.staffTool || turned.painted !== 3)
   fails.push("turning / staff path: " + JSON.stringify(turned));
 // Animals: select a Lystrosaurus, crate it and uncrate it, then Move it with the crate ghost into the other pen; a keeper carries it.
 const herd = await page.evaluate(() => {
