@@ -947,3 +947,29 @@ test("version 2 saves: buildings face a path they already had", () => {
   assert.equal(rot("entrance"), 2, "the entrance faces its path, north");
   assert.ok(w2.state.buildings.filter(b => BUILDINGS[b.type].serves).every(b => pathsBeside(w2.state, b).length));
 });
+
+test("building turns keep the same anchor through full cycles and reverse turns", () => {
+  for (const type of ["research", "timetravel", "genetics", "snack"]) for (const rot of [0, 1, 2, 3]) for (const dir of [-1, 1]) {
+    const w = newPark(7);
+    w.setSandbox(true);
+    assert.equal(w.place(type, 20, 20, rot), "");
+    const b = w.state.buildings.at(-1), before = { x: b.x, y: b.y, rot: b.rot };
+    const footprint = () => [...w.state.grid.bld].map((id, i) => id === b.id ? i : -1).filter(i => i >= 0);
+    const tiles = footprint(), originalGrid = [...w.state.grid.bld];
+    for (let n = 0; n < 4; n++) assert.equal(w.rotateBuilding(b.id, dir), "");
+    assert.deepEqual({ x: b.x, y: b.y, rot: b.rot }, before, `${type} rot ${rot}, direction ${dir}: full cycle`);
+    assert.deepEqual(footprint(), tiles);
+    assert.equal(w.rotateBuilding(b.id, dir), "");
+    assert.equal(w.rotateBuilding(b.id, -dir), "");
+    assert.deepEqual({ x: b.x, y: b.y, rot: b.rot }, before, `${type}: turn and undo`);
+    // Reload halfway through a cycle: the anchor needs no extra saved field.
+    assert.equal(w.rotateBuilding(b.id, dir), "");
+    assert.equal(w.rotateBuilding(b.id, dir), "");
+    const loaded = new World(deserialize(serialize(w.state)));
+    assert.equal(loaded.rotateBuilding(b.id, dir), "");
+    assert.equal(loaded.rotateBuilding(b.id, dir), "");
+    const restored = loaded.state.buildings.find(x => x.id === b.id);
+    assert.deepEqual({ x: restored.x, y: restored.y, rot: restored.rot }, before);
+    assert.deepEqual([...loaded.state.grid.bld], originalGrid);
+  }
+});

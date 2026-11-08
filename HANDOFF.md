@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, based on `main` = `0feade2` (merge of PR #35). The published Artifact is version 62; its game files match `main`.
+**Last updated:** 2026-11-08, based on `main` = `63b591b` (merge of PR #37), plus directional art on `codex/building-back-and-side-sprites`.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -19,6 +19,7 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 
 ## Most recent state of `main`
 Recent merges set the context for what's fresh and most likely to need follow-up (details in the PRs, not here):
+- ✅ PR #37: labs use a stable tile anchor when turned, so full cycles and reverse turns no longer drift. Covered by a regression test including save/reload midway.
 - ✅ PR #35: buildings turn and are used only from their front; Staff Path tool; save version 3 (details in the section above).
 - ✅ PR #34: snack stand, gift stand, bench and trash bin sprites (approved), matching the restroom.
 - ✅ PR #32: approved restroom sprite (`art/buildings/restroom.png`; buildings can now carry a `sprite` path).
@@ -29,7 +30,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
-- Directional guest art on `codex/building-back-and-side-sprites`, prepared for review into `main`: front/back/side metadata and a locally scoped horizontal reflection for east, shared by placed buildings and placement/move ghosts. Kiosk/bench views were approved; the user approved the simplified bin front and requested the same plain view for sides and back. All 50 simulation tests and the expanded browser smoke pass. The smoke checks twenty type/facing combinations, twenty move ghosts, mirror direction and restored canvas state. Visual reviews found no material issues. Smoke used installed Chrome and local-file interception in this environment; no dependency changes. No simulation or save changes. Not merged or published.
+- Directional guest art on `codex/building-back-and-side-sprites`, prepared for review into `main`: front/back/side metadata and a locally scoped horizontal reflection for east, shared by placed buildings and placement/move ghosts. Kiosk/bench views were approved; the user approved the simplified bin front and requested the same plain view for sides and back. All 51 simulation tests and the expanded browser smoke pass. The smoke checks twenty type/facing combinations, twenty move ghosts, mirror direction and restored canvas state. Visual reviews found no material issues. Smoke used installed Chrome and local-file interception in this environment; no dependency changes. No simulation or save changes. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
@@ -39,7 +40,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
-- ✅ The published Artifact is version 62 (2026-11-08). It was published from PR #35's branch before the merge; its `index.html`, `src/` and art match `main` at `0feade2`, so no republish is needed. Old browser saves migrate to save version 3 on load. Republish from `main` after each merge.
+- The last documented published Artifact is version 62 (from PR #35). Publication of PR #37 or the directional art branch has not been verified here.
 
 ## Next steps (as documented)
 No prioritized task list is written down. What the docs point to:
