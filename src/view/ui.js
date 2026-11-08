@@ -3,7 +3,7 @@
 import { TILE } from "./display.js";
 import { BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
 import { DAY_MIN, STAFF, ANIMAL } from "../sim/config.js";
-import { habitatScore } from "../sim/habitat.js";
+import { habitatScore, fitProblem } from "../sim/habitat.js";
 import { animalsIn, needsOf } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { afford } from "../sim/money.js";
@@ -294,8 +294,8 @@ export class UI {
       <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
       ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(esc(SPECIES[a.sp].name), a.happy)).join("") : ""}
       ${meters}
-      ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}">Release here</button></div>`).join("") : ""}
-      <h4>Buy</h4>${Object.entries(SPECIES).filter(([, sp]) => sp.starter).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${!afford(s, sp.price) ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
+      ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}" ${fitProblem(a.sp, e.biome) ? "disabled" : ""}>Release here</button></div>`).join("") : ""}
+      <h4>Buy</h4>${Object.entries(SPECIES).filter(([id, sp]) => sp.starter && !fitProblem(id, e.biome)).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${!afford(s, sp.price) ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
   // Status chips over two tabs: Info (where it is, what it's doing, its species) and Health (meters and needs).
   animalPanel(a) {

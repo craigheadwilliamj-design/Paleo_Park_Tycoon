@@ -621,3 +621,40 @@ test("a pair of Dunkleosteus lives in a deep sea lagoon: eats and plays from the
   assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
   assert.ok(d.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_DEEP), "healthy, home and in deep water");
 });
+
+test("sea animals go only in sea exhibits, and land animals never do", () => {
+  const { w, e, ex } = buildPark("concrete");
+  w.state.money = 1e6;
+  assert.equal(w.buyAnimal("lyst", e.id), "", "a land animal in a land pen");
+  const crate = w.spawn("anom", 0); crate.crated = true;
+  assert.equal(w.release(crate.id, e.id), "Needs a sea exhibit.");
+  assert.equal(w.setBiome(e.id, "sea"), "Land animals live here.", "can't turn a pen with land animals into sea");
+  assert.equal(w.paint("fence:aquarium", ring(ex + 4, 24, ex + 14, 34)), "");
+  const sea = w.state.exhibits.find(x => x.id !== e.id);
+  assert.equal(w.setBiome(sea.id, "sea"), "");
+  assert.equal(w.paint("water:shallow", line(ex + 5, 25, ex + 13, 33)), "");
+  assert.equal(w.buyAnimal("lyst", sea.id), "Not a sea animal.");
+  assert.equal(w.release(crate.id, sea.id), "");
+  assert.equal(w.setBiome(sea.id, "tropical"), "Sea animals live here.", "can't drain the sea out from under them");
+});
+
+test("a swimmer never escapes: it waits in an open pen until the wall goes back up", () => {
+  const w = newPark(5), g = w.state.grid, ex = Math.floor(g.w / 2);
+  researchAll(w);
+  w.state.money = 1e6;
+  assert.equal(w.paint("fence:aquarium", ring(ex - 20, 24, ex - 8, 36)), "");
+  const e = w.state.exhibits[0];
+  assert.equal(w.setBiome(e.id, "sea"), "");
+  assert.equal(w.paint("water:shallow", line(ex - 19, 25, ex - 9, 35)), "");
+  const a = w.spawn("anom", e.id);
+  assert.equal(w.bulldoze([[ex - 20, 30]]), "");          // a hole in the wall
+  assert.ok(!w.state.exhibits.length, "the pen is open");
+  w.advance(120);
+  assert.ok(!a.escaped && !a.crated && a.ex === e.id, "still home, waiting for the wall");
+  assert.equal(w.paint("fence:aquarium", [[ex - 20, 30]]), "");
+  assert.ok(w.state.exhibits.some(x => x.id === e.id), "the pen closes again");
+  assert.ok(!a.escaped && a.ex === e.id);
+  assert.equal(w.bulldoze(ring(ex - 20, 24, ex - 8, 36)), "");
+  w.advance(60);
+  assert.ok(!a.escaped, "never loose");
+});
