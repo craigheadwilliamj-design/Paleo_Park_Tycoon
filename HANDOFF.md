@@ -19,7 +19,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 
 ## In progress / outstanding
 - ✅ No open pull requests (checked 2026-11-08).
-- ✅ One remote branch has a commit not in `main`: `claude/gifted-meitner-bae3jt` ("Cotylorhynchus drawing, skeleton and skeleton-posed walk strips", 2026-11-07, not wired into `data.js`). ❓ Probably superseded: `main` already has a Cotylorhynchus sprite built a different way. Ask the user before reviving or deleting it.
+- ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - This HANDOFF/AGENTS setup: on branch `claude/laughing-albattani-wageix`, PR pending review.
 
