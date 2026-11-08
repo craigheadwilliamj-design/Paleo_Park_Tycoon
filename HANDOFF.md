@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, based on `main` = `a74087f` (merge of PR #34), plus the open branch `claude/elegant-newton-amndfo` (building fronts/turning and staff paths, below). The published Artifact is version 60, from `b76ed7f`.
+**Last updated:** 2026-11-08, based on `main` = `a74087f` (merge of PR #34), plus the open branch `claude/elegant-newton-amndfo` (building fronts/turning and staff paths, below). The published Artifact is version 61, published from that branch at the user's say-so.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -11,7 +11,7 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 - ✅ All five guest amenities have user-approved sprites in `art/buildings/`: restroom, snack stand, gift stand, bench and trash bin. Other buildings and people remain placeholder art (blocks, flat colors).
 - ✅ Not built yet: see `docs/architecture.md` "Not built yet" (plants/browsing, power plants, custodians, staff morale/break rooms, attractions and museum, Guests research track, vandalism, weather, mixed-pen predation, more animations, real art).
 
-## Open branch: `claude/elegant-newton-amndfo` (not merged, not published)
+## Open branch: `claude/elegant-newton-amndfo` (not merged; published as Artifact version 61)
 - ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R / Shift+R or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R while carrying with Move, or a tap with Move turns it in place. `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
 - ✅ Staff Path (`S_STAFF` = 4, Paths tray, $10/tile): staff walk it, guests never do, not a viewing spot. It gives staff no speed bonus: staff still walk open grass too, so it's guest separation and look only. ❓ The user may want staff to prefer or move faster on paths; not decided.
 - ✅ `SAVE_VERSION` is 3: `migrate()` gives old buildings the turn that already faces a path (`autoRot`).
@@ -29,7 +29,6 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 
 ## In progress / outstanding
 - `claude/elegant-newton-amndfo` (above): building fronts/turning and staff paths, waiting for review.
-- ✅ The published Artifact (version 60) predates PR #34's guest art; republish from `main` after the next merge.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
@@ -39,7 +38,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
-- ✅ The published Artifact is version 60, from `b76ed7f` (before PR #34). Republish after each merge.
+- ✅ The published Artifact is version 61 (2026-11-08), from `claude/elegant-newton-amndfo` (so it's ahead of `main`: it has PR #34's art and the unmerged fronts/staff paths). Old browser saves migrate to save version 3 on load. Republish from `main` after each merge.
 
 ## Next steps (as documented)
 No prioritized task list is written down. What the docs point to:
