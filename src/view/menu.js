@@ -12,7 +12,7 @@ const money = n => "$" + Math.round(n).toLocaleString("en-US");
 // Every tool and how it takes the pointer: "rect" fills the dragged box, "ring" outlines it, "tile" is one tile,
 // "place" puts a building down, "click" picks, "move" drags a building.
 export const TOOL_KIND = {
-  select: "click", bulldoze: "rect", move: "move", path: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
+  select: "click", bulldoze: "rect", move: "move", crate: "drop", path: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
   ...Object.fromEntries(Object.keys(FENCES).map(id => [`fence:${id}`, "ring"])),
   ...Object.fromEntries(Object.keys(BUILDINGS).filter(id => !BUILDINGS[id].fixed).map(id => [`place:${id}`, "place"])),
 };

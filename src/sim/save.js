@@ -3,6 +3,7 @@
 import { SAVE_VERSION } from "./config.js";
 import { newGrid } from "./grid.js";
 import { newScience } from "./science.js";
+import { crateBeside } from "./animals.js";
 import { FENCES, FENCE_IDS } from "./data.js";
 
 const LAYERS = { water: Uint8Array, struct: Uint8Array, fence: Uint8Array, cond: Uint8Array, flags: Uint8Array, bld: Int32Array, ex: Int32Array };
@@ -61,6 +62,7 @@ export function migrate(s) {
     if (a.stress === undefined) a.stress = 0;
     if (a.health === undefined) a.health = 100;
   }
+  for (const a of s.animals || []) if (a.crated && !a.x && !a.y) crateBeside(s, a);   // crates used to wait off the map
   s.version = SAVE_VERSION;
   return s;
 }

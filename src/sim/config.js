@@ -35,6 +35,7 @@ export const ANIMAL = {
   bored: 60,             // enrichment need over this makes testing the fence likelier
   big: 3,                // size class from which a bored animal attacks its fence; smaller ones get sick instead
   maulFrom: 80,          // enrichment need from which a big animal attacks the fence
+  sell: 0.5,             // share of the species' price selling an animal pays
   stress: { needs: 1.5, weights: { hunger: 1, thirst: 1, enrich: 0.5 }, habitat: 0.8, loose: 0.6, ease: 0.3 },   // weights toward the stress target (boredom counts half), and the share of the way it moves an hour
   health: { starveFrom: 90, starve: 1.5, boredSick: 0.5, stressed: 0.5, stressFrom: 70, heal: 2, weak: 30 },   // hunger or thirst over starveFrom costs health, ramping up to starve points an hour at 100 (boredSick for boredom, small animals only); stressed: lost an hour under high stress; heal: gained an hour when all is well
 };
@@ -78,5 +79,6 @@ export const STAFF = {
   wage: { keeper: 60, mechanic: 70, guard: 80 },   // a day
   hire: { keeper: 500, mechanic: 600, guard: 700 },
   dartMin: 8,            // minutes a guard takes to dart an escaped animal
+  loadMin: 6,            // minutes a keeper takes to crate an animal and pick it up, or to set a crate down
   panicTiles: 5,         // guests this close to a loose animal of danger 3 or more run for the exit
 };

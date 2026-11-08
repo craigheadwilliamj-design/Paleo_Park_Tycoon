@@ -71,20 +71,34 @@ export function draw(ctx, world, cam, ui) {
   const movingId = ui.ghost && ui.ghost.id;
   for (const b of state.buildings) if (b.id !== movingId) drawBuilding(ctx, BUILDINGS[b.type], sx(b.x), sy(b.y), T, z);
 
-  // Walkers, sorted by their feet so nearer ones draw on top.
+  // Where each ordered move is headed: a faint crate outline.
+  for (const j of state.jobs) if (j.kind === "haul") {
+    const px = sx(j.tile % g.w), py = sy((j.tile / g.w) | 0);
+    ctx.strokeStyle = "#f2d39a99"; ctx.lineWidth = Math.max(1, z / 2); ctx.setLineDash([2 * z, 2 * z]);
+    ctx.strokeRect(px + T * 0.15, py + T * 0.15, T * 0.7, T * 0.7); ctx.setLineDash([]);
+  }
+
+  // Walkers and crates, sorted by their feet so nearer ones draw on top. A carried crate rides on its keeper.
   const walkers = [
-    ...state.animals.filter(a => !a.crated).map(a => ({ k: "a", m: a })), ...state.staff.map(s => ({ k: "s", m: s })), ...state.guests.map(gst => ({ k: "g", m: gst })),
+    ...state.animals.filter(a => !a.carried).map(a => ({ k: a.crated ? "c" : "a", m: a })), ...state.staff.map(s => ({ k: "s", m: s })), ...state.guests.map(gst => ({ k: "g", m: gst })),
   ].sort((p, q) => p.m.y - q.m.y);
   for (const { k, m } of walkers) {
     const fx = Math.round((m.x * TILE - cam.x) * z), fy = Math.round((m.y * TILE - cam.y) * z);
     if (k === "a") drawAnimal(ctx, m, fx, fy, z, ui.selected === m, g.water[tileOf(g, m)] !== W_NONE);
+    else if (k === "c") { drawCrate(ctx, fx - T * 0.4, fy - T * 0.55, T * 0.8, z); if (ui.selected === m) { ctx.strokeStyle = "#ffffff"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(fx - T * 0.5, fy - T * 0.65, T, T); } }
+    else if (m.carry && m.carry.crate) { drawPerson(ctx, fx, fy, z, "#3f6b3a"); drawCrate(ctx, fx - T * 0.3, fy - personPx() * z - T * 0.5, T * 0.6, z); }
     else drawPerson(ctx, fx, fy, z, k === "s" ? ({ keeper: "#3f6b3a", mechanic: "#4a5f86", guard: "#2f2f38" }[m.role] || "#555") : guestColor(m.id));
   }
 
   // Tool preview and hover.
   if (ui.preview) for (const [x, y] of ui.preview) { ctx.fillStyle = ui.previewOk ? "#ffffff55" : "#ff404055"; ctx.fillRect(sx(x), sy(y), T, T); }
   // Placement ghost: the footprint tinted (white fits, red doesn't) under a see-through copy of the building.
-  if (ui.ghost) {
+  if (ui.ghost && ui.ghost.crate) {   // moving an animal: a see-through crate on the tile
+    const gh = ui.ghost, px = sx(gh.x), py = sy(gh.y);
+    ctx.fillStyle = gh.ok ? "#ffffff40" : "#ff404066"; ctx.fillRect(px, py, T, T);
+    ctx.save(); ctx.globalAlpha = 0.6; drawCrate(ctx, px + T * 0.1, py + T * 0.05, T * 0.8, z); ctx.restore();
+    ctx.strokeStyle = gh.ok ? "#ffffffcc" : "#ff4040"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
+  } else if (ui.ghost) {
     const gh = ui.ghost, def = BUILDINGS[gh.type], px = sx(gh.x), py = sy(gh.y);
     ctx.fillStyle = gh.ok ? "#ffffff40" : "#ff404066"; ctx.fillRect(px, py, def.w * T, def.h * T);
     ctx.save(); ctx.globalAlpha = 0.55; drawBuilding(ctx, def, px, py, T, z); ctx.restore();
@@ -94,10 +108,23 @@ export function draw(ctx, world, cam, ui) {
   if (ui.selectedEx) {
     const t = derived.ex.get(ui.selectedEx);
     if (t) { ctx.fillStyle = "#ffffff22"; for (const i of t.tiles) ctx.fillRect(sx(i % g.w), sy((i / g.w) | 0), T, T);
-      const danger = Math.max(0, ...state.animals.filter(a => a.ex === ui.selectedEx).map(a => SPECIES[a.sp].danger));
+      const danger = Math.max(0, ...state.animals.filter(a => a.ex === ui.selectedEx && !a.crated).map(a => SPECIES[a.sp].danger));
       if (t.weakest >= 0 && danger > t.security) {   // mark the tile that will give way
         ctx.strokeStyle = "#ff5a3a"; ctx.lineWidth = 2; ctx.strokeRect(sx(t.weakest % g.w) + 1, sy((t.weakest / g.w) | 0) + 1, T - 2, T - 2); } }
   }
+}
+
+// Placeholder crate: a wooden box seen from the front and above, size px wide, top left at px, py.
+function drawCrate(ctx, px, py, size, z) {
+  const top = Math.round(size * 0.3), u = Math.max(1, Math.round(size / 10));
+  ctx.fillStyle = "#00000033"; ctx.fillRect(px - u, py + size - u, size + 2 * u, 2 * u);   // shadow
+  ctx.fillStyle = "#c8995a"; ctx.fillRect(px, py, size, top);                               // lid
+  ctx.fillStyle = "#9c6e3a"; ctx.fillRect(px, py + top, size, size - top);                  // front
+  ctx.fillStyle = "#6e4a24";
+  ctx.fillRect(px, py + top, size, u); ctx.fillRect(px, py + size - u, size, u);            // slats
+  ctx.fillRect(px, py + top, u, size - top); ctx.fillRect(px + size - u, py + top, u, size - top);
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py + top, size, size - top); ctx.clip();       // cross brace
+  ctx.strokeStyle = "#6e4a24"; ctx.lineWidth = u; ctx.beginPath(); ctx.moveTo(px, py + top); ctx.lineTo(px + size, py + size); ctx.stroke(); ctx.restore();
 }
 
 // Placeholder building: a flat roof and a front face, with a short label.

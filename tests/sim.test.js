@@ -176,8 +176,8 @@ test("save and load round-trip", () => {
   w2.advance(100);
 });
 
-test("a guard darts an escaped animal: back home if the pen is closed again, else a crate", () => {
-  const { w, e } = buildPark("hedge");
+test("a guard darts an escaped animal into a crate where it stands", () => {
+  const { w, e, ex } = buildPark("hedge");
   w.setBiome(e.id, "desert");
   w.spawn("dime", e.id);
   w.hire("guard");
@@ -186,7 +186,8 @@ test("a guard darts an escaped animal: back home if the pen is closed again, els
   assert.ok(a.escaped, "it got out");
   for (let k = 0; k < 24 && a.escaped; k++) w.advance(30);
   assert.ok(!a.escaped, "the guard caught it");
-  assert.ok(a.crated, "the pen is still open, so it's in a crate");
+  assert.ok(a.crated, "it's in a crate");
+  assert.ok(a.x > 0 && a.y > 0, "the crate sits on the map");
   assert.ok(w.state.bell.some(n => /in a crate/.test(n.text)));
   // Close the gap with concrete and release it.
   const gap = []; const g = w.state.grid;
@@ -196,7 +197,13 @@ test("a guard darts an escaped animal: back home if the pen is closed again, els
   }
   assert.equal(w.paint("fence:concrete", gap), "");
   assert.ok(w.state.exhibits.some(x => x.id === e.id), "closing the gap brings the exhibit back");
-  assert.equal(w.release(a.id, e.id), "");
+  // The gap fill doubled the wall inside the old one: a gate through it, in line with the old gate.
+  if (!w.derived.ex.get(e.id).gates.length) assert.equal(w.paint("gate", [[ex - 12, 38]]), "");
+  // Send it home: a keeper carries the crate back in and it comes out on the spot.
+  w.hire("keeper");
+  const g2 = w.state.grid, spot = w.derived.ex.get(e.id).tiles.find(i => !g2.water[i] && !g2.struct[i]);
+  assert.equal(w.moveAnimal(a.id, spot % g2.w, (spot / g2.w) | 0), "");
+  for (let k = 0; k < 24 && a.crated; k++) w.advance(30);
   assert.ok(!a.crated && a.ex === e.id);
 });
 
@@ -627,14 +634,20 @@ test("sea animals go only in sea exhibits, and land animals never do", () => {
   w.state.money = 1e6;
   assert.equal(w.buyAnimal("lyst", e.id), "", "a land animal in a land pen");
   const crate = w.spawn("anom", 0); crate.crated = true;
-  assert.equal(w.release(crate.id, e.id), "Needs a sea exhibit.");
+  const land = w.derived.ex.get(e.id).tiles.find(i => !w.state.grid.struct[i]);
+  assert.equal(w.dropProblem(crate.id, land % w.state.grid.w, (land / w.state.grid.w) | 0), "Needs a sea exhibit.");
   assert.equal(w.setBiome(e.id, "sea"), "Land animals live here.", "can't turn a pen with land animals into sea");
   assert.equal(w.paint("fence:aquarium", ring(ex + 4, 24, ex + 14, 34)), "");
   const sea = w.state.exhibits.find(x => x.id !== e.id);
   assert.equal(w.setBiome(sea.id, "sea"), "");
   assert.equal(w.paint("water:shallow", line(ex + 5, 25, ex + 13, 33)), "");
   assert.equal(w.buyAnimal("lyst", sea.id), "Not a sea animal.");
-  assert.equal(w.release(crate.id, sea.id), "");
+  const wet = w.derived.ex.get(sea.id).tiles.find(i => w.state.grid.water[i]);
+  assert.equal(w.dropProblem(crate.id, wet % w.state.grid.w, (wet / w.state.grid.w) | 0), "No keeper gate.");
+  assert.equal(w.paint("gate", [[ex + 9, 34]]), "");
+  assert.equal(w.dropProblem(crate.id, wet % w.state.grid.w, (wet / w.state.grid.w) | 0), "");
+  crate.x = wet % w.state.grid.w + 0.5; crate.y = ((wet / w.state.grid.w) | 0) + 0.5; w.changed();   // as if a keeper had carried it in
+  assert.equal(w.uncrate(crate.id), "");
   assert.equal(w.setBiome(sea.id, "tropical"), "Sea animals live here.", "can't drain the sea out from under them");
 });
 
@@ -659,12 +672,111 @@ test("a swimmer never escapes: it waits in an open pen until the wall goes back 
   assert.ok(!a.escaped, "never loose");
 });
 
-test("a crate can be destroyed; an animal out on the map can't", () => {
+test("an animal can be crated where it stands, uncrated again, and sold", () => {
   const { w, e } = buildPark();
-  const crate = w.spawn("saca", 0); crate.crated = true;
-  const lyst = w.spawn("lyst", e.id);
-  assert.equal(w.destroyCrate(lyst.id), "No such crate.");
-  assert.equal(w.destroyCrate(crate.id), "");
-  assert.ok(!w.state.animals.includes(crate) && w.state.animals.includes(lyst));
-  assert.equal(w.destroyCrate(crate.id), "No such crate.");
+  w.setBiome(e.id, "desert");
+  const lyst = w.spawn("lyst", e.id), other = w.spawn("lyst", e.id);
+  const at = [lyst.x, lyst.y];
+  assert.equal(w.crate(lyst.id), "");
+  assert.ok(lyst.crated && lyst.ex === e.id && lyst.x === at[0] && lyst.y === at[1], "a crate in the pen where it stood");
+  assert.equal(w.crate(lyst.id), "Already crated.");
+  w.advance(60);
+  assert.ok(lyst.x === at[0] && lyst.y === at[1], "a crate doesn't wander");
+  assert.equal(w.uncrate(lyst.id), "");
+  assert.ok(!lyst.crated && lyst.ex === e.id);
+  const money = w.state.money;
+  assert.equal(w.sellAnimal(other.id), "");
+  assert.equal(w.state.money, money + 1750, "half of $3,500");
+  assert.equal(w.state.books.today.sold, 1750);
+  assert.ok(!w.state.animals.includes(other));
+  assert.equal(w.crate(lyst.id), ""); assert.equal(w.sellAnimal(lyst.id), "", "a crate sells too");
+  assert.equal(w.state.animals.length, 0);
+  // An uncrate outside any exhibit is refused.
+  const loose = w.spawn("lyst", 0); loose.crated = true; loose.x = 3.5; loose.y = 3.5;
+  assert.equal(w.uncrate(loose.id), "Not in an exhibit.");
+});
+
+// Two pens side by side, each with a gate onto the path, a keeper, and a lyst in the first.
+function twoPens(fenceB = "palisade") {
+  const { w, e, ex } = buildPark();
+  w.state.money = 1e6;
+  assert.equal(w.paint(`fence:${fenceB}`, ring(ex + 4, 28, ex + 16, 39)), "");
+  assert.equal(w.paint("gate", [[ex + 10, 39]]), "");
+  const f = w.state.exhibits.find(x => x.id !== e.id);
+  w.setBiome(e.id, "grassland"); w.setBiome(f.id, "grassland");
+  return { w, e, f, ex, g: w.state.grid };
+}
+
+test("a keeper walks in, crates an animal, carries it to the spot picked in another pen, and it comes out there", () => {
+  const { w, e, f, ex, g } = twoPens();
+  const a = w.spawn("lyst", e.id);
+  assert.equal(w.dropProblem(a.id, ex - 10, 33), "Already lives here.");
+  assert.equal(w.dropProblem(a.id, ex + 5, 39), "Can't put it there.", "not on a fence");
+  assert.equal(w.moveAnimal(a.id, ex + 8, 31), "");
+  w.advance(60);
+  assert.ok(!a.crated, "no keeper yet, so it waits");
+  assert.ok(w.state.jobs.some(j => j.kind === "haul" && j.animal === a.id));
+  assert.equal(w.hire("keeper"), "");
+  let carried = false;
+  for (let k = 0; k < 120 && (a.crated || a.ex !== f.id); k++) { w.advance(2); carried = carried || !!a.carried; }
+  assert.ok(carried, "it was carried");
+  assert.ok(!a.crated && a.ex === f.id, "out in the new pen");
+  assert.equal(Math.floor(a.x) + "," + Math.floor(a.y), `${ex + 8},31`, "on the tile picked");
+  assert.ok(!w.state.jobs.some(j => j.kind === "haul"));
+  assert.ok(!w.state.staff[0].carry);
+});
+
+test("a crate set down outside an exhibit stays crated; cancel calls a move off", () => {
+  const { w, e, ex } = twoPens();
+  const a = w.spawn("lyst", e.id);
+  assert.equal(w.moveAnimal(a.id, ex + 2, 38), "");
+  assert.equal(w.cancelMove(a.id), "");
+  assert.equal(w.cancelMove(a.id), "No move ordered.");
+  assert.equal(w.moveAnimal(a.id, ex + 2, 38), "");
+  w.hire("keeper");
+  for (let k = 0; k < 120 && !(a.crated && !a.carried && Math.floor(a.x) === ex + 2); k++) w.advance(2);
+  assert.ok(a.crated && !a.carried && a.ex === 0, "a crate on open ground");
+  assert.equal(Math.floor(a.x) + "," + Math.floor(a.y), `${ex + 2},38`);
+  assert.equal(w.sellAnimal(a.id), "");
+});
+
+test("a dangerous animal is crated and passed out through the gate, never walked in on", () => {
+  const { w, e, f, ex } = twoPens("concrete");
+  w.setBiome(e.id, "desert"); w.setBiome(f.id, "desert");
+  w.paint("fence:concrete", ring(ex - 18, 28, ex - 6, 39)); w.paint("gate", [[ex - 12, 39]]);
+  const a = w.spawn("dime", e.id), b = w.spawn("dime", e.id);
+  w.hire("keeper");
+  const k = w.state.staff[0];
+  assert.equal(w.moveAnimal(a.id, ex + 8, 31), "");
+  let inside = false;
+  for (let n = 0; n < 200 && (a.crated || a.ex !== f.id); n++) { w.advance(1); if (w.derived.exOf[Math.floor(k.y) * w.state.grid.w + Math.floor(k.x)] === e.id) inside = true; }
+  assert.ok(!a.crated && a.ex === f.id, "it made it");
+  assert.ok(!inside, "the keeper never stepped into the pen with the other Dimetrodon");
+  assert.ok(!b.crated && b.ex === e.id);
+});
+
+test("a clone's crate appears beside the Genetics Lab and a keeper delivers it", () => {
+  const { w, e, ex } = twoPens();
+  w.setBiome(e.id, "desert");
+  assert.equal(w.place("genetics", ex + 4, 46), "");
+  const lab = w.state.buildings.find(b => b.type === "genetics");
+  w.state.sandbox = true; w.hireCrew("geneticist");
+  w.state.science.genome.dime = 100;
+  assert.equal(w.clone("dime"), "");
+  const a = w.state.animals.find(x => x.sp === "dime");
+  assert.ok(a.crated && a.x > 0, "a crate on the map");
+  assert.ok(Math.abs(a.x - (lab.x + 1)) < 4 && Math.abs(a.y - (lab.y + 1)) < 4, "beside the lab");
+  w.hire("keeper");
+  assert.equal(w.moveAnimal(a.id, ex - 10, 31), "");
+  for (let k = 0; k < 200 && a.crated; k++) w.advance(2);
+  assert.ok(!a.crated && a.ex === e.id);
+});
+
+test("old saves' off-map crates land on the map", () => {
+  const { w } = buildPark();
+  w.place("genetics", 5, 5);
+  const a = w.spawn("lyst", 0); a.crated = true; a.x = 0; a.y = 0;
+  const w2 = new World(deserialize(serialize(w.state)));
+  const b = w2.state.animals.find(x => x.id === a.id);
+  assert.ok(b.crated && b.x > 0 && b.y > 0);
 });

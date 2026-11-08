@@ -179,20 +179,20 @@ function timeTravelHtml(ui, state) {
   return h + `<div class="fcols wide gt-cols"><div class="fcol">${l}</div><div class="fcol">${r}</div><div class="fcol">${c}</div></div>`;
 }
 
-// A crate's Destroy button, or the "Are you sure?" that replaces its buttons once it's pressed (ui.destroyAsk).
-export const crateSure = (ui, a) => ui.destroyAsk === a.id
-  ? `<span class="btns"><span class="warn">Are you sure?</span><button class="small" data-destroy-yes="${a.id}">Yes</button><button class="small" data-destroy-no>No</button></span>` : "";
-export const destroyBtn = a => `<button data-destroy="${a.id}">Destroy</button>`;
+// An animal's Sell button, or the "Are you sure?" that replaces its buttons once it's pressed (ui.sellAsk).
+export const sellSure = (ui, a) => ui.sellAsk === a.id
+  ? `<span class="btns"><span class="warn">Are you sure?</span><button class="small" data-sell-yes="${a.id}">Yes</button><button class="small" data-sell-no>No</button></span>` : "";
+export const sellBtn = (a, price) => `<button data-sell="${a.id}">Sell $${price.toLocaleString("en-US")}</button>`;
 
 // ---- Genetics Lab ----
 function geneticsHtml(ui, state) {
   const sc = state.science, crates = state.animals.filter(a => a.crated);
+  const where = a => a.carried ? "Being carried" : state.exhibits.find(e => e.id === a.ex)?.name || "Outside";
   if (!["clone", "crates"].includes(ui.gnTab)) ui.gnTab = "clone";
   const h = head(state, "genetics") + tabBar("gn", [{ key: "clone", label: "Cloning" }, { key: "crates", label: `Crates${crates.length ? ` (${crates.length})` : ""}` }], ui.gnTab);
   if (ui.gnTab === "crates") {
-    const opts = state.exhibits.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join("");
-    return h + `<section><h3>Crates <span class="muted">${crates.length}</span></h3>${crates.length ? `<ul class="shop">${crates.map(a => `<li><span class="nm"><span class="dot" style="background:${PERIOD_COLOR[SPECIES[a.sp].period]}"></span>${esc(SPECIES[a.sp].name)}</span>
-      ${crateSure(ui, a) || `<span class="btns">${opts ? `<select data-crate-ex="${a.id}">${opts}</select>${btn("Release", `data-release-crate="${a.id}"`)}` : `<span class="muted">No exhibits.</span>`}${destroyBtn(a)}</span>`}</li>`).join("")}</ul>` : `<div class="muted">No crates waiting.</div>`}</section>`;
+    return h + `<section><h3>Crates <span class="muted">${crates.length}</span></h3>${crates.length ? `<ul class="shop">${crates.map(a => `<li><span class="nm"><span class="dot" style="background:${PERIOD_COLOR[SPECIES[a.sp].period]}"></span>${esc(SPECIES[a.sp].name)} <span class="muted">${esc(where(a))}</span></span>
+      ${a.carried ? "" : sellSure(ui, a) || `<span class="btns">${ui.crateBtns(a)}</span>`}</li>`).join("")}</ul>` : `<div class="muted">No crates waiting.</div>`}</section>`;
   }
   const inc = incubators(state);
   let l = staffHtml(state, "geneticist", "Geneticists");
@@ -254,10 +254,9 @@ export function labAction(ui, el) {
   if (d.dig) { const why = d.sp ? w.expedition(d.dig, d.sp) : "Pick a target first."; if (!why) ui.ttPick = ""; return why; }
   if (d.report) return w.dismissReport(Number(d.report));
   if (d.clone) return w.clone(d.clone);
-  if (d.destroy) { ui.destroyAsk = Number(d.destroy); return ""; }
-  if (d.destroyNo !== undefined) { ui.destroyAsk = 0; return ""; }
-  if (d.destroyYes) { ui.destroyAsk = 0; return w.destroyCrate(Number(d.destroyYes)); }
-  if (d.releaseCrate) { const sel = el.parentElement.querySelector("select"); return w.release(Number(d.releaseCrate), Number(sel && sel.value)); }
+  if (d.sell) { ui.sellAsk = Number(d.sell); return ""; }
+  if (d.sellNo !== undefined) { ui.sellAsk = 0; return ""; }
+  if (d.sellYes) { ui.sellAsk = 0; return w.sellAnimal(Number(d.sellYes)); }
   return "";
 }
 
