@@ -41,7 +41,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // the four diagonals northeast..southwest and north and south, or north_r, north_l, south_r, south_l: up or down the map with the head
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
 // bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle),
-// scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5).
+// scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5, the Sacabambaspis 0.25).
 // Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
 // minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
 // <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
@@ -68,6 +68,11 @@ export const SPECIES = {
           sprite: { name: "anomalocaris", frame: [96, 40], frames: 8, anchor: [48, 39], scale: 0.5, cycle: 0.6,
                     idle: { frames: 8, s: 2.0 }, lie: { frames: 8, min: 4 }, rest: { frames: 8, s: 2.8 }, eat: { frames: 18, s: 1.8 },
                     box: { east: [14, 9, 88, 39], west: [8, 9, 82, 39] } } },
+  saca: { name: "Sacabambaspis", size: 1, active: "day", period: "Ordovician", stars: 0.5, len: 0.25, danger: 1, biomes: ["sea"], water: 0.9, waterKind: "shallow",
+          space: 3, group: [4, 12], foodType: "greens", food: 1, appeal: 6, price: 3000, moves: "swim", sea: true, cruise: true, color: "#8a7a3a",
+          sprite: { name: "sacabambaspis", frame: [96, 42], frames: 12, anchor: [48, 41], scale: 0.25, cycle: 0.4,
+                    idle: { frames: 16, s: 2.0 }, eat: { frames: 16, s: 2.4 },
+                    box: { east: [10, 6, 85, 40], west: [11, 6, 86, 40] } } },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
           space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
   trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
@@ -158,6 +163,7 @@ export const TIMELINE_MAP_SIZE = [260, 130];
 // at: its marker's pixel on each map it shows on (placed by plate reconstruction in v1's tools/timeline/placesites.py).
 export const SITES = [
   { id: "burgess",   name: "Burgess Shale", where: "British Columbia, Canada", period: "Cambrian", from: 507e6, to: 505e6, at: { cambrian: [68, 66] }, fauna: ["anom"] },
+  { id: "anzaldo",   name: "Anzaldo Formation", where: "Sacabamba, Cochabamba, Bolivia", period: "Ordovician", from: 467e6, to: 460e6, at: { ordovician: [32, 86] }, fauna: ["saca"] },
   { id: "fram",      name: "Fram Formation", where: "Ellesmere Island, Canada", period: "Devonian", from: 378e6, to: 372e6, at: { devonian: [117, 65] }, fauna: ["tikt"] },
   { id: "joggins",   name: "Joggins Fossil Cliffs", where: "Nova Scotia, Canada", period: "Carboniferous", from: 315e6, to: 312e6, at: { carboniferous: [126, 70] }, fauna: ["arth"] },
   { id: "texasred",  name: "Texas Red Beds", where: "Texas, USA", period: "Permian", from: 290e6, to: 275e6, at: { permian: [106, 61] }, fauna: ["dime"] },

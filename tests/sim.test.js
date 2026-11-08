@@ -5,7 +5,7 @@ import { newPark, World } from "../src/sim/world.js";
 import { serialize, deserialize } from "../src/sim/save.js";
 import { idx } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH, S_FENCE, DAY_MIN, W_DEEP } from "../src/sim/config.js";
+import { S_PATH, S_FENCE, DAY_MIN, W_DEEP, W_SHALLOW } from "../src/sim/config.js";
 import { TRACKS, SITES } from "../src/sim/data.js";
 import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
 
@@ -570,4 +570,29 @@ test("a cruiser keeps swimming while it wanders; a land animal stops at each spo
   const share = k => moving[k][0] / moving[k][1];
   assert.ok(share("anom") > 0.9, "the Anomalocaris swims through its wanders: " + share("anom"));
   assert.ok(share("dime") < 0.8, "the Dimetrodon stops and stands: " + share("dime"));
+});
+
+test("a shoal of Sacabambaspis lives in a shallow aquarium: eats and plays from the edge, stays healthy and in the water", () => {
+  const w = newPark(3), g = w.state.grid, ex = Math.floor(g.w / 2);
+  researchAll(w);
+  w.state.money = 1e6;
+  assert.equal(w.paint("path", line(ex - 22, 40, ex + 2, 40)), "");
+  assert.equal(w.paint("path", line(ex, 40, ex, g.h - 3)), "");
+  assert.equal(w.paint("fence:aquarium", ring(ex - 14, 30, ex - 2, 39)), "");
+  assert.equal(w.paint("gate", [[ex - 4, 39]]), "");
+  const e = w.state.exhibits[0];
+  assert.equal(w.setBiome(e.id, "sea"), "");
+  assert.equal(w.paint("water:shallow", line(ex - 13, 31, ex - 3, 37)), "");
+  assert.equal(w.place("feeder", ex - 8, 38), "");   // on the land strip, beside the water
+  assert.equal(w.place("log", ex - 12, 38), "");
+  assert.equal(w.place("shed", ex + 2, 42), "");
+  assert.equal(w.paint("path", line(ex + 1, 41, ex + 1, 44)), "");
+  assert.equal(w.hire("keeper"), "");
+  for (let i = 0; i < 6; i++) w.spawn("saca", e.id);
+  const acts = new Set();
+  for (let h = 0; h < 24 * 4; h++) { w.advance(60); for (const a of w.state.animals) acts.add(a.act); }
+  const f = w.state.animals.filter(a => a.sp === "saca");
+  assert.equal(f.length, 6);
+  assert.ok(acts.has("eat") && acts.has("play"), "reaches its feeder and log: " + [...acts]);
+  assert.ok(f.every(a => !a.escaped && a.health > 90 && g.water[Math.floor(a.y) * g.w + Math.floor(a.x)] === W_SHALLOW), "healthy, home and in the water");
 });
