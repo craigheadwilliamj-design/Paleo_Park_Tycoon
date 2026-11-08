@@ -1,5 +1,5 @@
 // How well an exhibit suits a species: one meter per need (0 to 1) and an overall score.
-import { SPECIES, FENCES } from "./data.js";
+import { SPECIES, FENCES, BIOMES } from "./data.js";
 import { fenceId } from "./grid.js";
 
 // Which sea water a sea exhibit's walls can hold: "deep" if every wall is lagoon, "shallow" if every wall holds sea water.
@@ -28,4 +28,11 @@ export function habitatScore(state, sp, t, count) {
   out.group = count < s.group[0] ? count / s.group[0] : count > s.group[1] ? s.group[1] / count : 1;
   out.overall = (out.biome + out.space + out.water + out.group) / 4;
   return out;
+}
+
+// Sea species live only in sea exhibits, and nothing else goes in one. "" when the species fits that biome.
+export function fitProblem(sp, biome) {
+  const sea = !!SPECIES[sp].sea;
+  if (sea === !!BIOMES[biome]?.sea) return "";
+  return sea ? "Needs a sea exhibit." : "Not a sea animal.";
 }

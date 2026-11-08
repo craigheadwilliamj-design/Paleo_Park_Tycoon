@@ -216,7 +216,9 @@ export function updateWellbeing(state, derived, bus) {
   for (const a of state.animals.filter(a => !a.crated && a.health <= 0)) bus.emit("animalDied", { animal: a.id });
 }
 
-// After the grid changes: an animal no longer standing in its exhibit has escaped.
+// After the grid changes: an animal no longer standing in its exhibit has escaped. Swimmers can't leave the
+// water, so they never escape: an open pen keeps them (it waits in openPens) until it closes again, and one that's
+// gone for good puts them in a crate.
 export function settleAnimals(state, derived, bus) {
   const g = state.grid;
   for (const a of state.animals) {
@@ -224,6 +226,11 @@ export function settleAnimals(state, derived, bus) {
     const here = derived.exOf[tileOf(g, a)];
     if (!a.escaped && here !== a.ex) {
       if (here && state.exhibits.some(e => e.id === here)) { a.ex = here; continue; }
+      if (SPECIES[a.sp].moves === "swim") {
+        a.path = []; a.act = "idle"; a.t = 0;
+        if (!(state.openPens || []).some(e => e.id === a.ex)) { a.crated = true; a.ex = 0; bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate.` }); }
+        continue;
+      }
       a.home = a.ex; a.escaped = true; a.ex = 0; a.path = []; a.act = "idle"; a.t = 0;
       bus.emit("notify", { text: `${SPECIES[a.sp].name} has escaped!`, urgent: true });
     }

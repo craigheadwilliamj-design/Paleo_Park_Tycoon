@@ -3,6 +3,7 @@
 import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
          F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION } from "./config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES, TRACKS } from "./data.js";
+import { fitProblem } from "./habitat.js";
 import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutProblem, expeditionProblem, sendTrip, scoutCost,
          expeditionCost, cloneProblem, cloneMinutes, nextDronePrice, nowMin, crewOf, freeSlot } from "./science.js";
 import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
@@ -218,6 +219,7 @@ export class World {
     const e = this.state.exhibits.find(e => e.id === exId);
     if (!e || !BIOMES[biome]) return "No such exhibit.";
     if (e.biome === biome) return "";
+    if (animalsIn(this.state, exId).some(a => fitProblem(a.sp, biome))) return BIOMES[biome].sea ? "Land animals live here." : "Sea animals live here.";
     const cost = e.biome === "none" ? 0 : 5 * (this.derived.ex.get(exId)?.tiles.length || 0);
     if (!this.spend(cost, "build")) return "Not enough money.";
     e.biome = biome; this.changed(); return "";
@@ -230,6 +232,8 @@ export class World {
     if (!s) return "No such animal.";
     if (!s.starter) return "Clone it at the Genetics Lab.";
     if (!e) return "Not in an exhibit.";
+    const misfit = fitProblem(sp, e.biome);
+    if (misfit) return misfit;
     if (!this.spend(s.price, "animals")) return "Not enough money.";
     const a = newAnimal(this.state, sp, exId);
     dropIn(this.state, this.derived, a);
@@ -322,8 +326,19 @@ export class World {
   release(id, exId) {
     const a = this.state.animals.find(a => a.id === id && a.crated);
     if (!a) return "No such crate.";
-    if (!this.state.exhibits.some(e => e.id === exId)) return "Not in an exhibit.";
+    const e = this.state.exhibits.find(e => e.id === exId);
+    if (!e) return "Not in an exhibit.";
+    const misfit = fitProblem(a.sp, e.biome);
+    if (misfit) return misfit;
     a.crated = false; a.ex = exId; dropIn(this.state, this.derived, a); return "";
+  }
+  // A crated animal you don't want: gone for good, no refund.
+  destroyCrate(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id && a.crated);
+    if (!a) return "No such crate.";
+    s.animals = s.animals.filter(b => b !== a);
+    s.jobs = s.jobs.filter(j => j.animal !== id);
+    return "";
   }
   hire(role) {
     if (!STAFF.hire[role]) return "No such job.";
