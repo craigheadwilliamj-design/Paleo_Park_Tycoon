@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, based on `main` = `d363fdb` (merge of PR #38), plus distinct kiosk art on `codex/distinct-kiosk-colors`.
+**Last updated:** 2026-11-08, based on `main` = `738ba4e` (merge of PR #39), plus the approved bench perspective fix on `codex/bench-side-perspective`.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -15,10 +15,11 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 - ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R or right click (Shift for back) or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R or a right press while carrying with Move, or a tap or right click with Move turns it in place; right drag still pans elsewhere. `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
 - ✅ Staff Path (`S_STAFF` = 4, Paths tray, $10/tile): staff walk it, guests never do, not a viewing spot. It gives staff no speed bonus: staff still walk open grass too, so it's guest separation and look only. ❓ The user may want staff to prefer or move faster on paths; not decided.
 - ✅ `SAVE_VERSION` is 3: `migrate()` gives old buildings the turn that already faces a path (`autoRot`).
-- ✅ All guest amenities have user-approved front/back/side views. East is a horizontal mirror of the west image. Kiosks now have separate colored rear and side views: blue restroom with privacy windows/vents, terracotta snack stand with exhaust, and plum gift stand with display windows. Front wall colors match; the restroom front is unchanged; the bench has separate rear and side art. The bin is now a plain green trashcan: a front with an opening and one plain image reused for sides and back, as requested. Other buildings still use placeholders.
+- ✅ All guest amenities have user-approved front/back/side views. East is a horizontal mirror of the west image. Kiosks now have separate colored rear and side views: blue restroom with privacy windows/vents, terracotta snack stand with exhaust, and plum gift stand with display windows. Front wall colors match; the restroom front is unchanged; the bench front/back art is unchanged, and its approved side view now shows the full seat length vertically from above, instead of a chair-like end profile. The bin is now a plain green trashcan: a front with an opening and one plain image reused for sides and back, as requested. Other buildings still use placeholders.
 
 ## Most recent state of `main`
 Recent merges set the context for what's fresh and most likely to need follow-up (details in the PRs, not here):
+- ✅ PR #39: blue restroom, terracotta snack stand and plum gift stand colors/details across all faces, including recolored snack/gift fronts.
 - ✅ PR #38: approved guest back/side sprites, mirrored east views, and the simplified green bin with one plain image shared by sides and back.
 - ✅ PR #37: labs use a stable tile anchor when turned, so full cycles and reverse turns no longer drift. Covered by a regression test including save/reload midway.
 - ✅ PR #35: buildings turn and are used only from their front; Staff Path tool; save version 3 (details in the section above).
@@ -31,7 +32,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
-- Distinct kiosk colors/art on `codex/distinct-kiosk-colors`, prepared for review into `main`. Eight approved images replace the shared kiosk shell: snack/gift fronts plus three individual back/side pairs. Color identity carries over all faces, including fallback drawing colors. All 51 simulation tests and the expanded browser smoke passed before and after; normal-zoom screenshot and independent art review found no material issues. Smoke used installed Chrome with local-file interception for this environment; tests and dependencies are unchanged. No gameplay, footprints or save changes. Not merged or published.
+- Bench side perspective on `codex/bench-side-perspective`, prepared for review into `main`. Replaces only `art/buildings/bench-side.png`: a centered 10×30 drawing in a 32×32 transparent frame, with long north/south seat slats, a raised backrest along one edge and armrests at the ends, matching the user's reference. The existing renderer mirrors the west image for east. User approved the corrected view; front/back sprites, buildings, bin, footprint, simulation and saves are unchanged. All 51 simulation tests and the expanded browser smoke pass before and after. Park screenshots at zooms 2 and 4 and independent art review found no material issues. Smoke used installed Chrome with local-file interception; no test or dependency changes. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
