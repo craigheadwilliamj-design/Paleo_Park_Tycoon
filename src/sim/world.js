@@ -332,6 +332,14 @@ export class World {
     if (misfit) return misfit;
     a.crated = false; a.ex = exId; dropIn(this.state, this.derived, a); return "";
   }
+  // A crated animal you don't want: gone for good, no refund.
+  destroyCrate(id) {
+    const s = this.state, a = s.animals.find(a => a.id === id && a.crated);
+    if (!a) return "No such crate.";
+    s.animals = s.animals.filter(b => b !== a);
+    s.jobs = s.jobs.filter(j => j.animal !== id);
+    return "";
+  }
   hire(role) {
     if (!STAFF.hire[role]) return "No such job.";
     if (!this.spend(STAFF.hire[role], "wages")) return "Not enough money.";

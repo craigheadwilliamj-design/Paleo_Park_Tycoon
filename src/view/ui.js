@@ -8,7 +8,7 @@ import { animalsIn, needsOf } from "../sim/animals.js";
 import { condition } from "../sim/exhibits.js";
 import { afford } from "../sim/money.js";
 import { BuildMenu, TOOL_KIND } from "./menu.js";
-import { labHtml, labAction, labLive, labBind, tabBar } from "./labs.js";
+import { labHtml, labAction, labLive, labBind, tabBar, crateSure, destroyBtn } from "./labs.js";
 
 export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // A labelled meter, full = good: amber under half, red under a quarter.
@@ -223,7 +223,7 @@ export class UI {
   }
 
   // Close whatever panel is open (its ×, Esc, or a tap on empty ground).
-  closePanel() { this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.lastPanel = null; this.panel(); }
+  closePanel() { this.destroyAsk = 0; this.selected = null; this.selectedEx = 0; this.selectedBld = 0; this.lastPanel = null; this.panel(); }
 
   // The panel is rebuilt when its HTML changes, never mid-press: a button replaced between pointerdown and pointerup
   // loses its click. lastPanel = null forces the next rebuild.
@@ -247,6 +247,7 @@ export class UI {
         if (b.dataset.tab === "an") this.anTab = b.dataset.k;   // the animal panel's tabs (labAction knows only the labs')
         else { const why = labAction(this, b); if (why) this.say(why); }
         this.lastPanel = null; this.panel();
+        if (this.pressing) setTimeout(() => this.panel(), 0);   // a real press holds rebuilds: go again once it clears
       };
       side.onchange = ev => { if (ev.target.dataset.biome) { this.say(w.setBiome(Number(ev.target.dataset.biome), ev.target.value)); this.lastPanel = null; this.panel(); } };
     }
@@ -294,7 +295,7 @@ export class UI {
       <div>${chips.map(([c, k]) => `<span class="chip ${k}">${esc(c)}</span>`).join("")}</div>
       ${here.length ? `<h4>Animals</h4>` + here.map(a => meter(esc(SPECIES[a.sp].name), a.happy)).join("") : ""}
       ${meters}
-      ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span><button data-release="${a.id}" data-ex="${e.id}" ${fitProblem(a.sp, e.biome) ? "disabled" : ""}>Release here</button></div>`).join("") : ""}
+      ${s.animals.some(a => a.crated) ? `<h4>Crates</h4>` + s.animals.filter(a => a.crated).map(a => `<div class="row"><span>${esc(SPECIES[a.sp].name)}</span>${crateSure(this, a) || `<span class="btns"><button data-release="${a.id}" data-ex="${e.id}" ${fitProblem(a.sp, e.biome) ? "disabled" : ""}>Release here</button>${destroyBtn(a)}</span>`}</div>`).join("") : ""}
       <h4>Buy</h4>${Object.entries(SPECIES).filter(([id, sp]) => sp.starter && !fitProblem(id, e.biome)).map(([id, sp]) => `<div class="row"><span>${esc(sp.name)} <span class="muted">D${sp.danger}</span></span><button data-buy="${id}" data-ex="${e.id}" ${!afford(s, sp.price) ? "disabled" : ""}>${fmtMoney(sp.price)}</button></div>`).join("")}`;
   }
   // Status chips over two tabs: Info (where it is, what it's doing, its species) and Health (meters and needs).

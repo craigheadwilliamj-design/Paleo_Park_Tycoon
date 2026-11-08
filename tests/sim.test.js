@@ -658,3 +658,13 @@ test("a swimmer never escapes: it waits in an open pen until the wall goes back 
   w.advance(60);
   assert.ok(!a.escaped, "never loose");
 });
+
+test("a crate can be destroyed; an animal out on the map can't", () => {
+  const { w, e } = buildPark();
+  const crate = w.spawn("saca", 0); crate.crated = true;
+  const lyst = w.spawn("lyst", e.id);
+  assert.equal(w.destroyCrate(lyst.id), "No such crate.");
+  assert.equal(w.destroyCrate(crate.id), "");
+  assert.ok(!w.state.animals.includes(crate) && w.state.animals.includes(lyst));
+  assert.equal(w.destroyCrate(crate.id), "No such crate.");
+});
