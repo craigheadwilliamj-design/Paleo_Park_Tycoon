@@ -2,6 +2,8 @@
 
 The ground-up restart (design in `docs/plan.md` and `docs/systems.md`). Browser game, ES modules, no build step, canvas renderer. v1 (the `craigheadwilliamj-design/genesis-game` repo) stays the playable reference: read it for how something worked, never copy its code wholesale.
 
+Shared rules for every assistant are in `AGENTS.md` (including the start/end-of-session protocol); the current state of work is in `HANDOFF.md`. Read both at the start of a session and update `HANDOFF.md` at the end. This file adds the Claude-specific parts (publishing, GIF review with SendUserFile).
+
 ## Keep context small
 - This file is an index. How the code fits together is in `docs/architecture.md`; read it before changing a system. The design is `docs/plan.md` (decisions, art pipeline, phases, roster) and `docs/systems.md` (how the systems work).
 - When you change a system, update `docs/architecture.md` (or `docs/plan.md` / `docs/systems.md` if the design changed), not this file.
