@@ -780,3 +780,61 @@ test("old saves' off-map crates land on the map", () => {
   const b = w2.state.animals.find(x => x.id === a.id);
   assert.ok(b.crated && b.x > 0 && b.y > 0);
 });
+
+test("keepers deliver swimmers into deep water and collect them through the gate", () => {
+  for (const sp of ["anom", "dunk"]) {
+    const { w, e, ex } = buildPark("lagoon"), g = w.state.grid;
+    w.state.money = 1e6;
+    assert.equal(w.setBiome(e.id, "sea"), "");
+    assert.equal(w.paint("water:deep", line(ex - 17, 29, ex - 7, 34)), "");
+    const a = w.spawn(sp, 0); a.crated = true; a.x = ex + 2.5; a.y = 38.5;
+    assert.equal(w.hire("keeper"), "");
+    const keeper = w.state.staff[0];
+    const finish = () => {
+      for (let n = 0; n < 600 && w.state.jobs.some(j => j.animal === a.id); n++) {
+        w.advance(0.5);
+        assert.notEqual(w.derived.exOf[Math.floor(keeper.y) * g.w + Math.floor(keeper.x)], e.id, "keeper stays outside the water pen");
+      }
+      assert.ok(!w.state.jobs.some(j => j.animal === a.id), "haul completed");
+    };
+    assert.equal(w.moveAnimal(a.id, ex - 12, 32), ""); finish();
+    assert.ok(!a.crated && a.ex === e.id, "released into deep water");
+    assert.equal(Math.floor(a.x), ex - 12); assert.equal(Math.floor(a.y), 32);
+    assert.equal(w.moveAnimal(a.id, ex + 2, 38), ""); finish();
+    assert.ok(a.crated && !a.carried && a.ex === 0, "collected from deep water into storage");
+    assert.equal(Math.floor(a.x), ex + 2); assert.equal(Math.floor(a.y), 38);
+  }
+});
+
+test("the first dangerous animal in an empty pen is delivered from outside its gate", () => {
+  const { w, e, ex } = buildPark("concrete"), g = w.state.grid;
+  w.state.money = 1e6; w.setBiome(e.id, "desert");
+  const a = w.spawn("dime", 0); a.crated = true; a.x = ex + 2.5; a.y = 38.5;
+  assert.equal(w.hire("keeper"), "");
+  assert.equal(w.moveAnimal(a.id, ex - 12, 33), "");
+  const keeper = w.state.staff[0];
+  for (let n = 0; n < 600 && w.state.jobs.some(j => j.animal === a.id); n++) {
+    w.advance(0.5);
+    assert.notEqual(w.derived.exOf[Math.floor(keeper.y) * g.w + Math.floor(keeper.x)], e.id, "keeper never enters the destination pen");
+  }
+  assert.ok(!a.crated && a.ex === e.id, "animal released");
+  assert.ok(!w.state.jobs.some(j => j.animal === a.id));
+});
+
+test("a destination changed during a haul leaves the animal crated and reports why", () => {
+  for (const change of ["biome", "water", "building"]) {
+    const { w, e, ex } = buildPark("concrete");
+    w.state.money = 1e6; w.setBiome(e.id, "desert");
+    const a = w.spawn("dime", 0); a.crated = true; a.x = ex + 2.5; a.y = 38.5;
+    w.hire("keeper"); assert.equal(w.moveAnimal(a.id, ex - 12, 33), "");
+    for (let n = 0; n < 600 && w.state.staff[0].stage !== "unload"; n++) w.advance(0.5);
+    assert.equal(w.state.staff[0].stage, "unload"); assert.ok(a.carried);
+    if (change === "biome") assert.equal(w.setBiome(e.id, "sea"), "");
+    if (change === "water") assert.equal(w.paint("water:deep", [[ex - 12, 33]]), "");
+    if (change === "building") assert.equal(w.place("feeder", ex - 12, 33), "");
+    w.advance(7);
+    assert.ok(a.crated && !a.carried && a.ex === 0, "invalid delivery stays boxed outside");
+    assert.ok(!w.state.jobs.some(j => j.animal === a.id));
+    assert.ok(w.state.bell.some(n => /in a crate\./.test(n.text) && /Not a sea animal|Can't stand there/.test(n.text)), "reports the destination problem");
+  }
+});

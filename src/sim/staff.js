@@ -40,6 +40,10 @@ export function newStaff(state, role) {
 
 const dangerousPen = (state, exId) => animalsIn(state, exId).some(a => SPECIES[a.sp].danger >= DANGEROUS);
 
+// Work from the gate when the animal or its tile makes walking into the pen unsafe.
+const haulFromGate = (state, exId, a, tile) => exId && (SPECIES[a.sp].danger >= DANGEROUS
+  || SPECIES[a.sp].moves === "swim" || dangerousPen(state, exId) || !walkable(state.grid, tile, "staff"));
+
 // Where staff may walk: anywhere outside, and inside pens that hold nothing dangerous.
 function staffAllow(state, derived) {
   const bad = new Set(state.exhibits.filter(e => dangerousPen(state, e.id)).map(e => e.id));
@@ -78,10 +82,10 @@ function goals(state, derived, s, job) {
     if (!a || a.escaped) return [];
     const near = i => [i, ...neighbours(g, i)].filter(j => walkable(g, j, "staff"));
     if (s.stage === "fetch") {   // to the animal or its crate; a dangerous pen is worked from outside its gate
-      if (a.ex && dangerousPen(state, a.ex)) return outsideGates(state, derived, a.ex);
+      if (haulFromGate(state, a.ex, a, tileOf(g, a))) return outsideGates(state, derived, a.ex);
       return near(tileOf(g, a)).filter(j => !a.ex || derived.exOf[j] === a.ex);
     }
-    if (job.ex && dangerousPen(state, job.ex)) return outsideGates(state, derived, job.ex);
+    if (haulFromGate(state, job.ex, a, job.tile)) return outsideGates(state, derived, job.ex);
     return near(job.tile).filter(j => derived.exOf[j] === job.ex);
   }
   if (job.kind === "catch") {
@@ -163,7 +167,7 @@ function haul(state, derived, bus, s, job) {
   const g = state.grid, a = state.animals.find(a => a.id === job.animal);
   if (!a || a.escaped) { setDown(state, derived, s); s.job = 0; dropJob(state, job); return; }
   if (s.stage === "fetch") {
-    const fromGate = a.ex && dangerousPen(state, a.ex);
+    const fromGate = haulFromGate(state, a.ex, a, tileOf(g, a));
     if (!fromGate && Math.hypot(a.x - s.x, a.y - s.y) > 1.6) return startStage(state, derived, s, job);   // it moved: follow
     s.stage = "load"; s.t = STAFF.loadMin;
     if (!a.crated) { a.act = "held"; a.t = STAFF.loadMin + 1; a.path = []; }
@@ -175,14 +179,18 @@ function haul(state, derived, bus, s, job) {
     return startStage(state, derived, s, job);
   }
   if (s.stage === "deliver") { s.stage = "unload"; s.t = STAFF.loadMin; return; }
-  // Unload: on the chosen tile if it's still free and the right place, else where the keeper stands.
-  const ok = walkable(g, job.tile, "staff") && !isFence(g, job.tile) && derived.exOf[job.tile] === job.ex && !crateOn(state, job.tile, a);
-  setDown(state, derived, s, ok ? job.tile : -1);
+  // The keeper's footing and the animal's destination are different: swimmers can go into deep water.
+  // Recheck the destination after the journey. If it changed, leave a crate with the keeper, never release it there.
+  const target = { ...a, x: job.tile % g.w + 0.5, y: ((job.tile / g.w) | 0) + 0.5, carried: 0 };
+  const why = derived.exOf[job.tile] !== job.ex ? "The exhibit changed."
+    : crateOn(state, job.tile, a) ? "A crate is there."
+    : job.ex ? uncrateProblem(state, derived, target)
+    : !walkable(g, job.tile, "staff") || isFence(g, job.tile) ? "Can't put it there." : "";
+  setDown(state, derived, s, why ? -1 : job.tile);
   s.job = 0; dropJob(state, job);
+  if (why) { bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate. ${why}` }); return; }
   if (!job.ex) return;
-  const why = uncrateProblem(state, derived, a);
-  if (why) bus.emit("notify", { text: `${SPECIES[a.sp].name} is in a crate.` });
-  else letOut(state, derived, a);
+  letOut(state, derived, a);
 }
 
 // A keeper carrying a crate puts it down: on tile, or where the keeper stands.

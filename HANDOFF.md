@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, at `main` = `e04ab67` (merge of PR #28).
+**Last updated:** 2026-11-08, based on `main` = `6829de2` (merge of PR #29); transport fixes on `codex/fix-animal-transport`.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -18,14 +18,14 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
-- ✅ No open pull requests (checked 2026-11-08).
+- Transport fixes on `codex/fix-animal-transport`, submitted as a draft PR into `main`. Run the full tests in the normal development environment before merge.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
-- This HANDOFF/AGENTS setup: on branch `claude/laughing-albattani-wageix`, PR pending review.
+- ✅ The HANDOFF/AGENTS setup was merged in PR #29.
 
 ## Known issues
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
-- ❓ No known bugs are recorded anywhere in the repo. Bugs reported by the user in past chat sessions may not be written down; ask if unsure.
+- ✅ Transport bugs reproduced on `main`: deep-water hauls retry indefinitely, and the first dangerous animal delivered into an empty pen leaves its keeper inside. Fixed on `codex/fix-animal-transport`: gate handoffs account for the animal and its tile; unloading rechecks movement, biome, exhibit and crate occupancy. Invalid destinations leave a crate with the keeper and a reason in the bell. Awaiting review and merge.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
 - ❓ Whether the published Artifact currently matches `main` is not checked here.
@@ -39,6 +39,8 @@ No prioritized task list is written down. What the docs point to:
 
 ## Build and test status
 - ✅ 2026-11-08 at `e04ab67`: `npm test` passes: `tests/sim.test.js` 42/42, smoke test `ok` (day 4, ~180 guests (varies run to run: the page seeds new parks from `Date.now()`), 0 escapes, 0 starving). Run in Claude Code's cloud container (Node 22.23, preinstalled Playwright/Chromium).
+- ✅ Transport branch: 44/45 simulation tests pass through the bundled Node test runner, including 3 new regression tests (deep-water delivery and pickup for safe/dangerous swimmers, keeper safety in an empty pen, and biome/water/building changes during unloading). All 3 new tests fail against the original staff code and pass after the fix.
+- Environment limits for this run: the local review copy omits artwork, so the existing timeline-map file-presence test fails; `npm` is not on PATH and Playwright is unavailable, so the full `npm test` / browser smoke test still needs to run in the normal development environment before merge. No dependencies or artwork were changed.
 - No build step; nothing to compile.
 
 ## Before you modify code
