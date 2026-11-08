@@ -1,6 +1,6 @@
 // Tuning that applies everywhere. Content (species, fences, buildings) lives in data.js.
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export const MAP_W = 96, MAP_H = 64;     // tiles
 export const DAY_MIN = 720;              // park minutes a day; the day rolls over at minute 0
