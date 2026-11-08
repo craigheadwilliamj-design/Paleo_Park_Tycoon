@@ -9,7 +9,7 @@ art/source/<name>/<strip>-0.png .. -N.png (the frame count and size must match t
 Prints how many pixels changed per frame.
 """
 import base64, io, os, sys
-from PIL import Image, ImageChops
+from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 
@@ -37,7 +37,7 @@ def main():
     total = 0
     for i, f in enumerate(files):
         new = im.crop((i * w, 0, (i + 1) * w, h)); old = Image.open(f).convert("RGBA")
-        diff = ImageChops.difference(new, old); c = sum(1 for p in diff.getdata() if any(p))
+        c = sum(1 for p, q in zip(new.getdata(), old.getdata()) if p[3] != q[3] or (p[3] and p != q))   # color under a fully see-through pixel doesn't count
         if c: new.save(f); total += c; print(f"  {os.path.basename(f)}: {c} px changed")
     print(f"{name}/{strip}: {total} px changed across {len(files)} frames")
 
