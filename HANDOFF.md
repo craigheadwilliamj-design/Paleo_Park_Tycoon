@@ -2,7 +2,7 @@
 
 A snapshot of where the project stands, for whoever picks it up next. Edit it in place to keep it true; it is not a change log (use `git log` and the PRs for history). Protocol: `AGENTS.md` section 0.
 
-**Last updated:** 2026-11-08, based on `main` = `6829de2` (merge of PR #29); transport fixes on `codex/fix-animal-transport`.
+**Last updated:** 2026-11-08, based on `main` = `b76ed7f` (merge of PR #32); the published Artifact is version 60, published from this commit.
 Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified / assumption.
 
 ## Status
@@ -13,26 +13,25 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 
 ## Most recent state of `main`
 Recent merges set the context for what's fresh and most likely to need follow-up (details in the PRs, not here):
+- ✅ PR #32: approved restroom sprite (`art/buildings/restroom.png`; buildings can now carry a `sprite` path).
+- ✅ PR #31: T. rex walks at 2x (`speed: 2` in its `data.js` entry; per-species `speed` multiplier read in `animals.js`). Shipped without a GIF review at the user's say-so.
+- ✅ PR #30: transport fixes. Deep-water hauls no longer retry forever; gate handoffs account for the animal and its tile (dangerous, swimmer, unwalkable); unloading rechecks movement, biome, exhibit and crate occupancy, and an invalid destination leaves a crate with the keeper and a reason in the bell. Covered by 3 regression tests.
 - ✅ PR #28: crates sit on the map; sell animals; move animals with a crate ghost and keeper hauling.
 - ✅ PR #27: destroy/sell crates with in-row confirm; sea animals only in sea exhibits; swimmers can't escape.
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
-- ✅ Restroom artwork merged into `main` in PR #32 (`b76ed7f`); published Artifact status is unverified.
 - Guest artwork on `codex/guest-building-art`, prepared for review into `main`: snack and gift stands, bench and trash bin match the approved restroom. The user approved all four concepts before commit. Images were trimmed and resized with nearest-neighbor sampling; footprints, guest behavior, prices, upkeep and saves are unchanged. All 45 simulation checks and the existing browser smoke test passed before and after the changes. Smoke ran in installed Chrome with local-file request interception (bundled browser absent; loopback networking restricted), without changing repository tests or dependencies. Visually inspected zooms 2 and 4; canvas instrumentation verified all five sprites at zooms 1–4 and all four new placement/move ghosts, with no browser errors or missing assets. Independent art review found no material issues. Not merged or published.
-- Transport fixes on `codex/fix-animal-transport`, submitted as a draft PR into `main`. Run the full tests in the normal development environment before merge.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
 
-- ✅ T. rex walks at 2x (`speed: 2` in its `data.js` entry; per-species `speed` multiplier read in `animals.js`). Shipped without a GIF review at the user's say-so.
 
 ## Known issues
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
-- ✅ Transport bugs reproduced on `main`: deep-water hauls retry indefinitely, and the first dangerous animal delivered into an empty pen leaves its keeper inside. Fixed on `codex/fix-animal-transport`: gate handoffs account for the animal and its tile; unloading rechecks movement, biome, exhibit and crate occupancy. Invalid destinations leave a crate with the keeper and a reason in the bell. Awaiting review and merge.
 - ✅ Environment gaps for non-Claude assistants: `tests/smoke.js` needs Playwright + Chromium, which aren't in `package.json`; PixelLab scripts (`tools/sprites/animate.py`, `skelwalk.py`) only authenticate inside Claude Code's cloud proxy. See `AGENTS.md` section 3.
 - ✅ The published Artifact can only be updated from a Claude Code session (`CLAUDE.md` "Publish").
-- ❓ Whether the published Artifact currently matches `main` is not checked here.
+- ✅ The published Artifact matches `main` at `b76ed7f` (version 60, 2026-11-08). Republish after each merge.
 
 ## Next steps (as documented)
 No prioritized task list is written down. What the docs point to:
@@ -42,9 +41,7 @@ No prioritized task list is written down. What the docs point to:
 - ❓ The user decides priorities; confirm before starting anything large.
 
 ## Build and test status
-- ✅ 2026-11-08 at `e04ab67`: `npm test` passes: `tests/sim.test.js` 42/42, smoke test `ok` (day 4, ~180 guests (varies run to run: the page seeds new parks from `Date.now()`), 0 escapes, 0 starving). Run in Claude Code's cloud container (Node 22.23, preinstalled Playwright/Chromium).
-- ✅ Transport branch: 44/45 simulation tests pass through the bundled Node test runner, including 3 new regression tests (deep-water delivery and pickup for safe/dangerous swimmers, keeper safety in an empty pen, and biome/water/building changes during unloading). All 3 new tests fail against the original staff code and pass after the fix.
-- Environment limits for this run: the local review copy omits artwork, so the existing timeline-map file-presence test fails; `npm` is not on PATH and Playwright is unavailable, so the full `npm test` / browser smoke test still needs to run in the normal development environment before merge. No dependencies or artwork were changed.
+- ✅ 2026-11-08 at `b76ed7f`: `npm test` passes: `tests/sim.test.js` 45/45, smoke test `ok` (day 4, ~180 guests (varies run to run: the page seeds new parks from `Date.now()`), 0 escapes, 0 starving). Run in Claude Code's cloud container (Node 22, preinstalled Playwright/Chromium).
 - No build step; nothing to compile.
 
 ## Before you modify code
