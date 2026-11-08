@@ -15,7 +15,7 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 - ✅ Buildings turn in quarter turns (`b.rot`, 0 south / 1 west / 2 north / 3 east) and are used only from their front: guests from a guest path in front, staff from a standable tile in front. Feeders and logs have `anySide`. Controls: R or right click (Shift for back) or the status bar's Turn button while placing (the ghost auto-faces a path until turned, its front tinted yellow), R or a right press while carrying with Move, or a tap or right click with Move turns it in place; right drag still pans elsewhere. `frontProblem` shows "No path at the front." / "Front is blocked." without refusing.
 - ✅ Staff Path (`S_STAFF` = 4, Paths tray, $10/tile): staff walk it, guests never do, not a viewing spot. It gives staff no speed bonus: staff still walk open grass too, so it's guest separation and look only. ❓ The user may want staff to prefer or move faster on paths; not decided.
 - ✅ `SAVE_VERSION` is 3: `migrate()` gives old buildings the turn that already faces a path (`autoRot`).
-- ✅ Turned sprite buildings (all guest amenities) draw as their placeholder block with a door until other views exist; only the south view has art. Rotated views would be new art and need the user's approval.
+- ✅ All guest amenities have user-approved front/back/side views. East is a horizontal mirror of the west image. Kiosks share their rear and side shell; the bench has separate rear and side art. The bin is now a plain green trashcan: a front with an opening and one plain image reused for sides and back, as requested. Other buildings still use placeholders.
 
 ## Most recent state of `main`
 Recent merges set the context for what's fresh and most likely to need follow-up (details in the PRs, not here):
@@ -29,6 +29,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
+- Directional guest art on `codex/building-back-and-side-sprites`, prepared for review into `main`: front/back/side metadata and a locally scoped horizontal reflection for east, shared by placed buildings and placement/move ghosts. Kiosk/bench views were approved; the user approved the simplified bin front and requested the same plain view for sides and back. All 50 simulation tests and the expanded browser smoke pass. The smoke checks twenty type/facing combinations, twenty move ghosts, mirror direction and restored canvas state. Visual reviews found no material issues. Smoke used installed Chrome and local-file interception in this environment; no dependency changes. No simulation or save changes. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.

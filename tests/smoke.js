@@ -241,6 +241,42 @@ if (!okMenu) fails.push("build menu: " + JSON.stringify(menu));
 const panel = await page.textContent("#side");
 if (!/Exhibit/.test(panel || "")) fails.push("exhibit panel did not open: " + (panel || "").slice(0, 200));
 
+
+// Rotated building art: exercise the real renderer and image loading for all guest types.
+const buildingArt = await page.evaluate(async () => {
+  const { draw } = await import("./src/view/renderer.js");
+  const { newPark } = await import("./src/sim/world.js");
+  const { BUILDINGS } = await import("./src/sim/data.js");
+  const w = newPark(7); w.setSandbox(true);
+  const types = ["restroom", "snack", "gift", "bench", "bin"];
+  for (let row = 0; row < types.length; row++) for (let rot = 0; rot < 4; rot++) w.place(types[row], 10 + rot * 5, 10 + row * 4, rot);
+  const canvas = document.createElement("canvas"); canvas.width = 512; canvas.height = 512;
+  const ctx = canvas.getContext("2d"), original = ctx.drawImage, cam = { x: 0, y: 0, zoom: 2 };
+  let calls = [];
+  ctx.drawImage = function(im, ...args) {
+    calls.push({ path: new URL(im.src).pathname, mirrored: this.getTransform().a < 0, alpha: this.globalAlpha });
+    return original.call(this, im, ...args);
+  };
+  const render = view => { calls = []; draw(ctx, w, cam, view || {}); return calls; };
+  // The renderer loads its images lazily; wait for all twenty placed instances to draw sprites.
+  for (let n = 0; n < 100 && render().length !== 20; n++) await new Promise(r => setTimeout(r, 10));
+  const placed = render(), out = [];
+  for (let row = 0; row < types.length; row++) {
+    const type = types[row], def = BUILDINGS[type];
+    const expected = [def.sprite, def.spriteSide, def.spriteBack, def.spriteSide];
+    for (let rot = 0; rot < 4; rot++) {
+      const actual = placed[row * 4 + rot];
+      if (!actual || actual.path !== "/" + expected[rot] || actual.mirrored !== (rot === 3)) out.push(type + " facing " + rot);
+      const b = w.state.buildings.find(b => b.type === type && b.rot === rot);
+      const ghost = render({ ghost: { id: b.id, type, x: 35, y: 10, rot, ok: true } }).filter(c => c.alpha < 1);
+      if (ghost.length !== 1 || ghost[0].path !== "/" + expected[rot] || ghost[0].mirrored !== (rot === 3)) out.push(type + " ghost " + rot);
+      if (!ctx.getTransform().isIdentity || ctx.globalAlpha !== 1) out.push("canvas state leaked");
+    }
+  }
+  return out;
+});
+if (buildingArt.length) fails.push("building art: " + buildingArt.join(", "));
+
 const shot = process.argv.indexOf("--shot");
 if (shot > 0) await page.screenshot({ path: process.argv[shot + 1] });
 await browser.close(); server.close();
