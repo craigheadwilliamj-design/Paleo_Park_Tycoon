@@ -3,10 +3,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { newPark, World } from "../src/sim/world.js";
 import { serialize, deserialize } from "../src/sim/save.js";
-import { idx } from "../src/sim/grid.js";
+import { pathsBeside } from "../src/sim/guests.js";
+import { idx, walkable, frontTiles } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH, S_FENCE, DAY_MIN, W_DEEP, W_SHALLOW } from "../src/sim/config.js";
-import { TRACKS, SITES } from "../src/sim/data.js";
+import { S_PATH, S_STAFF, S_FENCE, DAY_MIN, W_DEEP, W_SHALLOW, SAVE_VERSION } from "../src/sim/config.js";
+import { TRACKS, SITES, BUILDINGS } from "../src/sim/data.js";
 import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
 
 // Every research step done, so tests can build any fence.
@@ -456,7 +457,7 @@ test("version 1 saves get enrichment, stress and health", () => {
   for (const a of w.state.animals) { delete a.need.enrich; delete a.stress; delete a.health; }
   const w2 = new World(deserialize(serialize(w.state)));
   const a = w2.state.animals[0];
-  assert.equal(w2.state.version, 2);
+  assert.equal(w2.state.version, SAVE_VERSION);
   assert.equal(a.health, 100);
   assert.equal(a.stress, 0);
   assert.equal(typeof a.need.enrich, "number");
@@ -837,4 +838,112 @@ test("a destination changed during a haul leaves the animal crated and reports w
     assert.ok(!w.state.jobs.some(j => j.animal === a.id));
     assert.ok(w.state.bell.some(n => /in a crate\./.test(n.text) && /Not a sea animal|Can't stand there/.test(n.text)), "reports the destination problem");
   }
+});
+
+// ---- building fronts and staff paths ----
+
+test("a building is used only from its front; left unturned it faces a path beside it", () => {
+  const w = newPark(7), g = w.state.grid, ex = Math.floor(g.w / 2);
+  assert.equal(w.paint("path", line(ex, 30, ex, g.h - 3)), "");
+  assert.equal(w.place("snack", ex - 2, 40), "");   // the path runs down its east side
+  const snack = w.state.buildings.at(-1);
+  assert.equal(snack.rot, 3, "faces east, onto the path");
+  assert.deepEqual(pathsBeside(w.state, snack), [idx(g, ex, 40), idx(g, ex, 41)]);
+  assert.equal(w.frontProblem("snack", ex - 2, 40, 3), "");
+  assert.equal(w.frontProblem("snack", ex - 2, 40, 0), "No path at the front.");
+  // Turned away from the path, guests can't buy from it.
+  assert.equal(w.rotateBuilding(snack.id), "");
+  assert.equal(snack.rot, 0);
+  assert.deepEqual(pathsBeside(w.state, snack), []);
+  for (const gst of w.state.guests) gst.hunger = 0;
+  w.state.guests.push({ id: 999, x: ex + 0.5, y: 35.5, face: 1, fx: 0, fy: 0, path: [], plan: "", t: 0, fun: 0, hunger: 90, bladder: 0, tired: 0, litter: 0, gift: false, seen: [], until: 9999, at: 0 });
+  w.advance(1);
+  const gst = w.state.guests.find(x => x.id === 999);
+  assert.notEqual(gst?.plan, "use", "no front on a path: no snack");
+  // Turned back to face the path, it sells again.
+  for (let k = 0; k < 3; k++) assert.equal(w.rotateBuilding(snack.id), "");
+  assert.equal(snack.rot, 3);
+  const before = w.state.books.today.shops;
+  w.state.guests.push({ id: 1000, x: ex + 0.5, y: 35.5, face: 1, fx: 0, fy: 0, path: [], plan: "", t: 0, fun: 0, hunger: 90, bladder: 0, tired: 0, litter: 0, gift: false, seen: [], until: 9999, at: 0 });
+  w.advance(20);
+  assert.ok(w.state.books.today.shops > before, "a guest bought a snack from the front");
+});
+
+test("turning a building swaps its footprint and refuses where the turn won't fit", () => {
+  const w = newPark(7), g = w.state.grid;
+  assert.equal(w.place("research", 10, 10, 1), "");   // 4 x 3, turned to face west: 3 wide, 4 tall
+  const lab = w.state.buildings.at(-1);
+  const tiles = [];
+  for (let i = 0; i < g.bld.length; i++) if (g.bld[i] === lab.id) tiles.push(i);
+  assert.equal(tiles.length, 12);
+  assert.ok(tiles.every(i => i % g.w >= 10 && i % g.w <= 12 && ((i / g.w) | 0) >= 10 && ((i / g.w) | 0) <= 13));
+  assert.deepEqual(frontTiles(g, lab.x, lab.y, BUILDINGS.research, lab.rot), [10, 11, 12, 13].map(y => idx(g, 9, y)));
+  // Moving keeps the way it faces.
+  assert.equal(w.moveBuilding(lab.id, 20, 10), "");
+  assert.equal(lab.rot, 1);
+  // Something in the way of the turned footprint: refused, and it stays as it was.
+  assert.equal(w.paint("path", [[19, 11]]), "");   // the turn about its middle puts the 4 x 3 at 19..22, 10..12
+  assert.equal(w.rotateBuilding(lab.id), "Something is in the way.");
+  assert.equal(lab.rot, 1);
+  assert.equal(w.rotateBuilding(w.state.buildings[0].id), "Can't turn that.", "the entrance stays");
+});
+
+test("feeders and props work from any side; a shed's keeper fetches only at its front", () => {
+  const { w, e } = buildPark();
+  const g = w.state.grid, shed = w.state.buildings.find(b => b.type === "shed");
+  const feeder = w.state.buildings.find(b => b.type === "feeder");
+  assert.equal(frontTiles(g, feeder.x, feeder.y, BUILDINGS.feeder, feeder.rot).length, 4);
+  assert.equal(shed.rot, 0, "open ground to the south");
+  // A fence across the shed's front: blocked, so the feeder stays empty though its sides are open.
+  assert.equal(w.paint("fence:palisade", line(shed.x, shed.y + 2, shed.x + 1, shed.y + 2)), "");
+  assert.equal(w.frontProblem("shed", shed.x, shed.y, shed.rot), "Front is blocked.");
+  w.setBiome(e.id, "desert"); w.buyAnimal("lyst", e.id); w.hire("keeper");
+  w.advance(180);
+  assert.ok(w.state.jobs.some(j => j.kind === "feed" && j.why === "Can't reach the shed."), "the keeper can't reach the front");
+  // Turned to face the path on its west, the keeper fetches and feeds.
+  assert.equal(w.moveBuilding(shed.id, shed.x, shed.y, 1), "");
+  w.advance(DAY_MIN);
+  assert.ok(Object.values(w.state.exhibits.find(x => x.id === e.id).food).some(n => n > 0), "fed from the shed's front");
+});
+
+test("staff paths: staff walk them, guests never do, and they aren't viewing spots", () => {
+  const { w, e, ex } = buildPark();
+  const g = w.state.grid, i = idx(g, ex - 3, 41);
+  assert.equal(w.paint("staffpath", line(ex - 5, 41, ex - 1, 41)), "");
+  assert.equal(g.struct[i], S_STAFF);
+  assert.ok(walkable(g, i, "staff") && !walkable(g, i, "guest"));
+  // Next to the pen's fence a staff path is no viewing spot.
+  assert.equal(w.paint("staffpath", [[ex - 12, 27]]), "");
+  assert.ok(!w.derived.ex.get(e.id).viewing.includes(idx(g, ex - 12, 27)));
+  // Guest paths and staff paths paint over each other, and bulldoze for a quarter back.
+  assert.equal(w.paint("path", [[ex - 3, 41]]), "");
+  assert.equal(g.struct[i], S_PATH);
+  assert.equal(w.paint("staffpath", [[ex - 3, 41]]), "");
+  assert.equal(g.struct[i], S_STAFF);
+  assert.equal(w.paint("staffpath", [[ex - 3, 41]]), "Nothing to change.");
+  const plan = w.bulldozePlan([[ex - 3, 41]]);
+  assert.equal(plan.clear.length, 1);
+  assert.equal(w.bulldoze([[ex - 3, 41]]), "");
+  assert.equal(g.struct[i], 0);
+  // A snack stand facing only a staff path is no use to guests.
+  assert.equal(w.paint("staffpath", line(ex - 8, 50, ex - 3, 50)), "");
+  assert.equal(w.place("snack", ex - 6, 48, 0), "");
+  assert.equal(w.frontProblem("snack", ex - 6, 48, 0), "No path at the front.");
+  assert.deepEqual(pathsBeside(w.state, w.state.buildings.at(-1)), []);
+});
+
+test("version 2 saves: buildings face a path they already had", () => {
+  const w = newPark(7), g = w.state.grid, ex = Math.floor(g.w / 2);
+  w.paint("path", line(ex, 30, ex, g.h - 3));
+  w.place("snack", ex + 1, 40); w.place("restroom", ex - 2, 44); w.place("shed", 10, 10);
+  w.state.version = 2;
+  for (const b of w.state.buildings) delete b.rot;
+  const w2 = new World(deserialize(serialize(w.state)));
+  assert.equal(w2.state.version, SAVE_VERSION);
+  const rot = t => w2.state.buildings.find(b => b.type === t).rot;
+  assert.equal(rot("snack"), 1, "path on its west");
+  assert.equal(rot("restroom"), 3, "path on its east");
+  assert.equal(rot("shed"), 0, "open ground all round: south");
+  assert.equal(rot("entrance"), 2, "the entrance faces its path, north");
+  assert.ok(w2.state.buildings.filter(b => BUILDINGS[b.type].serves).every(b => pathsBeside(w2.state, b).length));
 });

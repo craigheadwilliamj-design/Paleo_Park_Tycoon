@@ -84,6 +84,48 @@ const moved = await page.evaluate(() => {
   return snack.x - x0;
 });
 if (moved !== -2) fails.push("move tool moved the stand by " + moved);
+// Turning: with Move a tap turns a building where it stands; placing, R and the Turn button turn the ghost. Then the Staff Path tool paints.
+const turned = await page.evaluate(() => {
+  const { world: w, ui, cam } = window.__ppt, g = w.state.grid, c = document.getElementById("view"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  const at = (x, y) => ({ clientX: r.left + ((x + 0.5) * 16 - cam.x) * cam.zoom / dpr, clientY: r.top + ((y + 0.5) * 16 - cam.y) * cam.zoom / dpr, pointerId: 1, button: 0, bubbles: true });
+  const key = (k, shiftKey = false) => window.dispatchEvent(new KeyboardEvent("keydown", { key: k, shiftKey }));
+  const out = {}, snack = w.state.buildings.find(b => b.type === "snack"), rot0 = snack.rot;
+  document.querySelector('[data-tool="move"]').click();
+  const tap = () => { c.dispatchEvent(new PointerEvent("pointerdown", at(snack.x, snack.y))); c.dispatchEvent(new PointerEvent("pointerup", at(snack.x, snack.y))); };
+  tap(); out.tapTurned = snack.rot === ((rot0 + 1) & 3);
+  tap(); tap(); tap(); out.back = snack.rot === rot0;
+  const right = (x, y, extra = {}) => c.dispatchEvent(new PointerEvent("pointerdown", { ...at(x, y), button: 2, buttons: 2, ...extra }));
+  right(snack.x, snack.y); c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 2 }));
+  out.rightMove = snack.rot === ((rot0 + 1) & 3);
+  right(snack.x, snack.y, { shiftKey: true }); c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 2 }));
+  out.rightBack = snack.rot === rot0;
+  const camX = cam.x; right(2, 2); c.dispatchEvent(new PointerEvent("pointermove", { ...at(8, 2), buttons: 2 })); c.dispatchEvent(new PointerEvent("pointerup", { ...at(8, 2), button: 2 }));
+  out.rightPans = cam.x !== camX; cam.x = camX;
+  // Carrying with the left button held, a right press (a chord) turns it; letting go puts it down turned.
+  c.dispatchEvent(new PointerEvent("pointerdown", { ...at(snack.x, snack.y), button: 0, buttons: 1 }));
+  c.dispatchEvent(new PointerEvent("pointermove", { ...at(snack.x, snack.y), button: 2, buttons: 3 }));
+  c.dispatchEvent(new PointerEvent("pointerup", { ...at(snack.x, snack.y), button: 0 }));
+  out.rightCarry = snack.rot === ((rot0 + 1) & 3);
+  w.moveBuilding(snack.id, snack.x, snack.y, rot0);
+  document.querySelector('[data-tool="move"]').click();
+  ui.setTool("place:bench");
+  c.dispatchEvent(new PointerEvent("pointermove", at(5, 5)));
+  const r0 = ui.ghost && ui.ghost.rot;
+  key("r"); out.keyTurned = ui.ghost.rot === ((r0 + 1) & 3);
+  key("r", true); out.shiftBack = ui.ghost.rot === r0;
+  document.querySelector("#turn [data-turn]").click(); out.buttonTurned = ui.ghost.rot === ((r0 + 1) & 3);
+  c.dispatchEvent(new PointerEvent("pointerdown", { ...at(5, 5), button: 2, buttons: 2 })); c.dispatchEvent(new PointerEvent("pointerup", { ...at(5, 5), button: 2 }));
+  out.rightPlace = ui.ghost.rot === ((r0 + 2) & 3) && !w.state.buildings.some(b => b.x === 5 && b.y === 5);
+  ui.setTool("select"); out.buttonGone = !document.querySelector("#turn [data-turn]");
+  document.querySelector('[data-cat="paths"]').click();
+  document.querySelector('[data-tool="staffpath"]').click(); out.staffTool = ui.tool === "staffpath";
+  c.dispatchEvent(new PointerEvent("pointerdown", at(4, 8))); c.dispatchEvent(new PointerEvent("pointermove", at(6, 8))); c.dispatchEvent(new PointerEvent("pointerup", at(6, 8)));
+  out.painted = [4, 5, 6].filter(x => g.struct[8 * g.w + x] === 4).length;
+  document.querySelector('[data-tray="paths"] [data-close="a"]').click();
+  return out;
+});
+if (!turned.tapTurned || !turned.back || !turned.rightMove || !turned.rightBack || !turned.rightPans || !turned.rightCarry || !turned.rightPlace || !turned.keyTurned || !turned.shiftBack || !turned.buttonTurned || !turned.buttonGone || !turned.staffTool || turned.painted !== 3)
+  fails.push("turning / staff path: " + JSON.stringify(turned));
 // Animals: select a Lystrosaurus, crate it and uncrate it, then Move it with the crate ghost into the other pen; a keeper carries it.
 const herd = await page.evaluate(() => {
   const { world: w, ui, cam } = window.__ppt, c = document.getElementById("view"), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;

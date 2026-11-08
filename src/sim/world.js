@@ -1,12 +1,12 @@
 // The world: the saved state, the derived data rebuilt from it, the event bus, the commands that change it,
 // and the fixed-step tick. The UI and the tests only ever go through these commands.
-import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
+import { MAP_W, MAP_H, DAY_MIN, STEP_MIN, START_MONEY, S_PATH, S_STAFF, S_BUILDING, S_FENCE, W_NONE, W_SHALLOW, W_DEEP,
          F_GATE, F_CHUTE, FOOD, WEAR, GUESTS, STAFF, PRICE, REFUND, SCIENCE, SAVE_VERSION, ANIMAL } from "./config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, FOOD_TYPES, TRACKS } from "./data.js";
 import { fitProblem } from "./habitat.js";
 import { newScience, scienceTick, scienceBill, hasTech, effect, siteById, scoutProblem, expeditionProblem, sendTrip, scoutCost,
          expeditionCost, cloneProblem, cloneMinutes, nextDronePrice, nowMin, crewOf, freeSlot } from "./science.js";
-import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable } from "./grid.js";
+import { newGrid, inside, idx, xy, setFence, clearTile, isFence, fenceId, walkable, bldSize, bldTiles, frontTiles, autoRot } from "./grid.js";
 import { findRegions } from "./exhibits.js";
 import { rebuildExhibits } from "./exhibits.js";
 import { newAnimal, dropIn, animalTick, updateWellbeing, settleAnimals, animalsIn, crateUp, uncrateProblem, letOut, crateOn } from "./animals.js";
@@ -56,7 +56,7 @@ export class World {
 
   // ---- commands. Each returns "" when it worked, or a short reason when it was refused. ----
 
-  // Paint a tool over a list of [x, y] tiles. Tools: path, water:shallow, water:deep, water:none,
+  // Paint a tool over a list of [x, y] tiles. Tools: path, staffpath (staff only), water:shallow, water:deep, water:none,
   // fence:<type>, gate, chute. Bulldoze takes things away.
   paint(tool, tiles) {
     const g = this.state.grid;
@@ -66,7 +66,11 @@ export class World {
       if (!inside(g, x, y)) continue;
       const i = idx(g, x, y), s = g.struct[i];
       if (s === S_BUILDING) { why = "Something is built there."; continue; }
-      if (tool === "path") { if (s !== S_PATH && g.water[i] === W_NONE) { ops.push(() => { clearTile(g, i); g.struct[i] = S_PATH; }); cost += PRICE.path; } else if (g.water[i]) why = "Not on water."; }
+      if (tool === "path" || tool === "staffpath") {
+        const kind = tool === "path" ? S_PATH : S_STAFF;
+        if (g.water[i]) why = "Not on water.";
+        else if (s !== kind) { ops.push(() => { clearTile(g, i); g.struct[i] = kind; }); cost += PRICE[tool]; }
+      }
       else if (tool.startsWith("water:")) {
         const w = { none: W_NONE, shallow: W_SHALLOW, deep: W_DEEP }[tool.slice(6)];
         if (s === 0) { ops.push(() => { g.water[i] = w; }); cost += w ? PRICE.water : 0; } else why = "Clear it first.";   // bare ground only
@@ -109,6 +113,7 @@ export class World {
       } else if (s === S_FENCE && fl && tiles.length === 1) { plan.flags.push(i); plan.refund += PRICE[fl & F_GATE ? "gate" : "chute"]; }
       else if (s === S_FENCE) { plan.clear.push(i); plan.refund += (FENCES[fenceId(g, i)]?.price || 0) + (fl ? PRICE[fl & F_GATE ? "gate" : "chute"] : 0); }
       else if (s === S_PATH) { plan.clear.push(i); plan.refund += PRICE.path; }
+      else if (s === S_STAFF) { plan.clear.push(i); plan.refund += PRICE.staffpath; }
       else if (g.water[i]) { plan.water.push(i); plan.refund += PRICE.water; }
     }
     plan.blds = [...blds];
@@ -122,7 +127,7 @@ export class World {
   // Every tile a plan takes, for the view to mark.
   planTiles(plan) {
     const g = this.state.grid, out = [...plan.clear, ...plan.flags, ...plan.water];
-    for (const b of plan.blds) { const d = BUILDINGS[b.type]; for (let y = b.y; y < b.y + d.h; y++) for (let x = b.x; x < b.x + d.w; x++) out.push(idx(g, x, y)); }
+    for (const b of plan.blds) out.push(...bldTiles(g, b.x, b.y, BUILDINGS[b.type], b.rot));
     return out.map(i => xy(g, i));
   }
   // The exhibits holding animals that would open to the park if these fence tiles went.
@@ -156,27 +161,39 @@ export class World {
     for (const st of s.staff) if (stale(st, "staff")) reroute(s, this.derived, st);
   }
 
-  place(type, x, y) {
-    const why = this.placeProblem(type, x, y);
+  // rot: which way it faces (grid.js FACING); left out, it faces a path beside it (autoRot).
+  place(type, x, y, rot) {
+    const why = this.placeProblem(type, x, y, rot);
     if (why) return why;
     const def = BUILDINGS[type];
     if (!this.spend(def.price, "build")) return "Not enough money.";
-    this.putBuilding(type, x, y);
+    this.putBuilding(type, x, y, rot);
     this.changed();
     return "";
   }
   // Read only: why place(type, x, y) would be refused, or "". The view's placement ghost turns red on it.
-  placeProblem(type, x, y) {
+  placeProblem(type, x, y, rot) {
     const def = BUILDINGS[type];
     if (!def || def.fixed) return "Can't build that.";
     if (def.unique && this.state.buildings.some(b => b.type === type)) return "Only one a park.";
-    return this.spotProblem(type, x, y) || (!afford(this.state, def.price) ? "Not enough money." : "");
+    return this.spotProblem(type, x, y, 0, rot) || (!afford(this.state, def.price) ? "Not enough money." : "");
+  }
+  // The way a building placed at x, y would face if rot is left out.
+  facing(type, x, y, rot) { return rot === undefined ? autoRot(this.state.grid, x, y, BUILDINGS[type]) : rot & 3; }
+  // Read only: what's wrong at a building's front, or "" (it still goes down). Guests need a guest path there; anyone else a tile staff can stand on.
+  frontProblem(type, x, y, rot) {
+    const def = BUILDINGS[type], g = this.state.grid;
+    if (!def || def.anySide) return "";
+    const front = frontTiles(g, x, y, def, this.facing(type, x, y, rot));
+    if (def.serves) return front.some(i => g.struct[i] === S_PATH) ? "" : "No path at the front.";
+    return front.some(i => walkable(g, i, "staff")) ? "" : "Front is blocked.";
   }
   // Why a building of this type can't stand with its top left corner at x, y, or "". skip: a building to ignore (the one being moved).
-  spotProblem(type, x, y, skip = 0) {
+  spotProblem(type, x, y, skip = 0, rot) {
     const def = BUILDINGS[type], g = this.state.grid, d = this.derived;
+    const [w, h] = bldSize(def, this.facing(type, x, y, rot));
     let ex = null;
-    for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) {
+    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
       if (!inside(g, xx, yy)) return "Off the map.";
       const i = idx(g, xx, yy), own = skip && g.bld[i] === skip;
       if (!own && (g.struct[i] !== 0 || g.water[i])) return "Something is in the way.";
@@ -188,30 +205,41 @@ export class World {
     if (!def.inside && ex) return "Not inside an exhibit.";
     return "";
   }
-  // Move a building so its top left corner is at x, y. Free, and it keeps everything it holds.
-  moveBuilding(id, x, y) {
+  // Move a building so its top left corner is at x, y, facing rot (left out: the way it faces now). Free, and it keeps everything it holds.
+  moveBuilding(id, x, y, rot) {
     const b = this.state.buildings.find(b => b.id === id), g = this.state.grid;
     if (!b) return "Nothing to move.";
     const def = BUILDINGS[b.type];
     if (def.fixed) return "Can't move that.";
-    if (b.x === x && b.y === y) return "";
-    const why = this.spotProblem(b.type, x, y, id);
+    const r = rot === undefined ? b.rot || 0 : rot & 3;
+    if (b.x === x && b.y === y && (b.rot || 0) === r) return "";
+    const why = this.spotProblem(b.type, x, y, id, r);
     if (why) return why;
     const before = [];
     for (let k = 0; k < g.bld.length; k++) if (g.bld[k] === id) { g.bld[k] = 0; g.struct[k] = 0; before.push(k); }
-    b.x = x; b.y = y;
-    for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) { const i = idx(g, xx, yy); g.struct[i] = S_BUILDING; g.bld[i] = id; before.push(i); }
+    b.x = x; b.y = y; b.rot = r;
+    for (const i of bldTiles(g, x, y, def, r)) { g.struct[i] = S_BUILDING; g.bld[i] = id; before.push(i); }
     this.changed();
     this.replan(before);
     if (def.serves) for (const gst of this.state.guests) if (gst.plan === "use") { gst.path = []; gst.plan = ""; gst.t = 0; }   // heading for the old spot
+    for (const st of this.state.staff) if (st.job) reroute(this.state, this.derived, st);   // its front may have moved
     return "";
   }
-  putBuilding(type, x, y) {
+  // Turn a building a quarter turn clockwise (dir 1) or back (-1) where it stands, about its middle.
+  rotateBuilding(id, dir = 1) {
+    const b = this.state.buildings.find(b => b.id === id);
+    if (!b) return "Nothing to turn.";
+    const def = BUILDINGS[b.type], r0 = b.rot || 0, r = (r0 + (dir < 0 ? 3 : 1)) & 3;
+    const [w0, h0] = bldSize(def, r0), [w, h] = bldSize(def, r);
+    if (def.fixed) return "Can't turn that.";
+    return this.moveBuilding(id, b.x + Math.floor((w0 - w) / 2), b.y + Math.floor((h0 - h) / 2), r);
+  }
+  putBuilding(type, x, y, rot) {
     const def = BUILDINGS[type], g = this.state.grid;
-    const b = { id: this.state.nextId++, type, x, y };
+    const b = { id: this.state.nextId++, type, x, y, rot: this.facing(type, x, y, rot) };
     if (type === "shed") b.stock = Object.fromEntries(FOOD_TYPES.map(t => [t, FOOD.firstDelivery]));
     if (def.lab === "timetravel" && !this.state.science.drones) this.state.science.drones = 1;   // comes with one drone
-    for (let yy = y; yy < y + def.h; yy++) for (let xx = x; xx < x + def.w; xx++) { const i = idx(g, xx, yy); clearTile(g, i); g.struct[i] = S_BUILDING; g.bld[i] = b.id; }
+    for (const i of bldTiles(g, x, y, def, b.rot)) { clearTile(g, i); g.struct[i] = S_BUILDING; g.bld[i] = b.id; }
     this.state.buildings.push(b);
     return b;
   }
@@ -466,11 +494,11 @@ export class World {
 // What selling an animal of this species pays.
 export const sellPrice = sp => Math.round(SPECIES[sp].price * ANIMAL.sell);
 
-// A fresh park: an entrance at the bottom middle with a short path into the park.
+// A fresh park: an entrance at the bottom middle, facing north, with a short path into the park.
 export function newPark(seed) {
   const w = new World(newState(seed)), g = w.state.grid;
   const ex = Math.floor(g.w / 2) - 1, ey = g.h - 2;
-  w.putBuilding("entrance", ex, ey);
+  w.putBuilding("entrance", ex, ey, 2);
   for (let y = ey - 1; y > ey - 6; y--) g.struct[idx(g, ex + 1, y)] = S_PATH;
   w.changed();
   return w;

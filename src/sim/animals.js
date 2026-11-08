@@ -3,7 +3,7 @@
 // Hourly, updateWellbeing turns needs and the habitat score into stress, health and happiness.
 import { SPEED, WEAR, W_NONE, ANIMAL, DAY_MIN } from "./config.js";
 import { SPECIES, BUILDINGS } from "./data.js";
-import { neighbours, walkable, idx, S_FENCE } from "./grid.js";
+import { neighbours, walkable, idx, bldTiles, S_FENCE } from "./grid.js";
 import { route } from "./paths.js";
 import { walk, tileOf, placeAt } from "./movers.js";
 import { habitatScore, fitProblem } from "./habitat.js";
@@ -30,8 +30,7 @@ const crateOn = (state, i, but) => state.animals.some(b => b !== but && b.crated
 export function crateBeside(state, a) {
   const g = state.grid, b = state.buildings.find(b => BUILDINGS[b.type].lab === "genetics") || state.buildings.find(b => b.type === "entrance");
   if (!b) return;
-  const def = BUILDINGS[b.type], seen = new Set(), queue = [];
-  for (let y = b.y; y < b.y + def.h; y++) for (let x = b.x; x < b.x + def.w; x++) { const i = idx(g, x, y); seen.add(i); queue.push(i); }
+  const seen = new Set(bldTiles(g, b.x, b.y, BUILDINGS[b.type], b.rot)), queue = [...seen];
   while (queue.length) {   // out from the building over open ground, never through a fence into a pen
     const i = queue.shift();
     for (const j of neighbours(g, i)) {
