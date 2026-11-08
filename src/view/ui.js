@@ -2,6 +2,7 @@
 // a refused command shows its reason in the tool bar.
 import { TILE } from "./display.js";
 import { BIOMES, BUILDINGS, SPECIES } from "../sim/data.js";
+import { bldSize, FACING } from "../sim/grid.js";
 import { DAY_MIN, STAFF, ANIMAL } from "../sim/config.js";
 import { habitatScore, fitProblem } from "../sim/habitat.js";
 import { animalsIn, needsOf, uncrateProblem } from "../sim/animals.js";
@@ -36,11 +37,12 @@ export class UI {
   // The status bar under the map: why a click was refused, the money back while bulldozing, a yes/cancel when it asks.
   buildTools() {
     const bar = $("tools");
-    bar.innerHTML = `<span id="why"></span><span id="stat"></span><span id="ask"></span>`;
+    bar.innerHTML = `<span id="why"></span><span id="stat"></span><span id="turn"></span><span id="ask"></span>`;
     bar.onclick = e => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.yes !== undefined) { const t = this.asking; this.cancelAsk(); if (t) this.say(this.world.bulldoze(t)); }
       if (b.dataset.no !== undefined) this.cancelAsk();
+      if (b.dataset.turn !== undefined) this.turn(1);
     };
     this.menu = new BuildMenu($("build"), tool => this.setTool(tool));
   }
@@ -49,7 +51,8 @@ export class UI {
     const next = tool === this.tool ? "select" : tool;
     if (next === this.tool && tool === "select") return;
     this.tool = next;
-    this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; $("stat").textContent = "";
+    this.cancelAsk(); this.preview = null; this.ghost = null; this.drag = null; this.moving = null; this.rot = null; $("stat").textContent = "";
+    $("turn").innerHTML = TOOL_KIND[this.tool] === "place" && !BUILDINGS[this.tool.slice(6)].anySide ? `<button data-turn title="Turn it (R)">Turn ⟳</button>` : "";
     if (this.tool !== "crate") this.dropId = 0;
     this.canvas.style.cursor = this.tool === "select" ? "default" : this.tool === "move" ? "grab" : "crosshair";
     this.menu.setTool(this.tool);
@@ -78,25 +81,50 @@ export class UI {
     const id = g.bld[y * g.w + x], b = id && this.world.state.buildings.find(b => b.id === id);
     return b && !BUILDINGS[b.type].fixed ? b : null;
   }
-  footprint(type, x, y) { const d = BUILDINGS[type], out = []; for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) out.push([xx, yy]); return out; }
+  footprint(type, x, y, rot) { const [w, h] = bldSize(BUILDINGS[type], rot), out = []; for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) out.push([xx, yy]); return out; }
   grab(t) {
     const b = this.buildingAt(t);
     if (!b) { const g = this.world.state.grid, id = t[0] >= 0 && t[1] >= 0 && t[0] < g.w && t[1] < g.h && g.bld[t[1] * g.w + t[0]]; this.say(id ? "Can't move that." : "Nothing to move."); return; }
-    this.moving = { id: b.id, type: b.type, dx: t[0] - b.x, dy: t[1] - b.y, x: b.x, y: b.y };
+    this.moving = { id: b.id, type: b.type, dx: t[0] - b.x, dy: t[1] - b.y, x: b.x, y: b.y, rot: b.rot || 0, from: t, moved: false };
     this.moveGhost(t);
   }
   moveGhost(t) {
     const m = this.moving; if (!t) return;
-    m.x = t[0] - m.dx; m.y = t[1] - m.dy; this.preview = null;
-    this.ghost = { id: m.id, type: m.type, x: m.x, y: m.y, ok: !this.world.spotProblem(m.type, m.x, m.y, m.id) };
+    if (t[0] !== m.from[0] || t[1] !== m.from[1]) m.moved = true;
+    m.x = t[0] - m.dx; m.y = t[1] - m.dy; this.preview = null; this.last = t;
+    const why = this.world.spotProblem(m.type, m.x, m.y, m.id, m.rot);
+    this.ghost = { id: m.id, type: m.type, x: m.x, y: m.y, rot: m.rot, ok: !why };
+    $("stat").textContent = why || this.world.frontProblem(m.type, m.x, m.y, m.rot);
+  }
+  // Let go: a tap (no drag, no turn) turns the building a quarter turn where it stands; otherwise it goes down where the ghost is.
+  putDown() {
+    const m = this.moving; this.moving = null; this.ghost = null; $("stat").textContent = "";
+    const b = this.world.state.buildings.find(b => b.id === m.id);
+    this.say(!m.moved && b && m.rot === (b.rot || 0) ? this.world.rotateBuilding(m.id, 1) : this.world.moveBuilding(m.id, m.x, m.y, m.rot));
+  }
+  // R (Shift+R back), or the Turn button: turn the building being placed or carried a quarter turn. Placing, it faces a path on its own until turned.
+  turn(dir) {
+    if (this.moving) {
+      const m = this.moving, [w, h] = bldSize(BUILDINGS[m.type], (m.rot = (m.rot + (dir < 0 ? 3 : 1)) & 3));
+      m.dx = Math.min(m.dx, w - 1); m.dy = Math.min(m.dy, h - 1); m.moved = true; this.moveGhost(this.last || m.from); return;
+    }
+    if (TOOL_KIND[this.tool] !== "place") return;
+    const t = this.hover || this.last;
+    const now = this.rot ?? (this.ghost ? this.ghost.rot : 0);
+    this.rot = (now + (dir < 0 ? 3 : 1)) & 3;
+    if (t) this.placeGhost(t); else $("stat").textContent = `Faces ${FACING[this.rot]}.`;
   }
   // Place: the building follows the cursor, centred the way click() puts it down, red with the reason where it won't go.
-  placeCorner(type, [x, y]) { const d = BUILDINGS[type]; return [x - Math.floor((d.w - 1) / 2), y - Math.floor((d.h - 1) / 2)]; }
+  // Facing: the player's turn (this.rot) or, until they turn it, toward a path (World.facing).
+  placeCorner(type, [x, y], rot = this.rot ?? 0) { const [w, h] = bldSize(BUILDINGS[type], rot); return [x - Math.floor((w - 1) / 2), y - Math.floor((h - 1) / 2)]; }
+  placeRot() { return this.rot ?? undefined; }
   placeGhost(t) {
     if (!t) { this.ghost = null; $("stat").textContent = ""; return; }
-    const type = this.tool.slice(6), [x, y] = this.placeCorner(type, t), why = this.world.placeProblem(type, x, y);
-    this.ghost = { type, x, y, ok: !why };
-    $("stat").textContent = why;
+    this.last = t;
+    const type = this.tool.slice(6), [x, y] = this.placeCorner(type, t), rot = this.world.facing(type, x, y, this.placeRot());
+    const why = this.world.placeProblem(type, x, y, rot);
+    this.ghost = { type, x, y, rot, ok: !why };
+    $("stat").textContent = why || this.world.frontProblem(type, x, y, rot);
   }
   // Move an animal: a crate follows the cursor, red with the reason where a keeper can't take it; a click sends one.
   startDrop(id) {
@@ -112,7 +140,7 @@ export class UI {
   }
   moveHover(t) {
     const b = t && this.buildingAt(t);
-    this.preview = b ? this.footprint(b.type, b.x, b.y) : null; this.previewOk = true;
+    this.preview = b ? this.footprint(b.type, b.x, b.y, b.rot) : null; this.previewOk = true;
   }
 
   tileAt(ev) {
@@ -159,7 +187,7 @@ export class UI {
       else if (this.preview && !this.asking) this.preview = null;
     });
     c.addEventListener("pointerup", () => {
-      if (this.moving) { const m = this.moving; this.moving = null; this.ghost = null; this.say(this.world.moveBuilding(m.id, m.x, m.y)); }
+      if (this.moving) this.putDown();
       if (this.drag) {
         const tiles = this.dragTiles(this.drag.from, this.hover || this.drag.from, this.drag.kind);
         if (this.tool === "bulldoze") this.bulldoze(tiles); else this.say(this.world.paint(this.tool, this.preview));
@@ -176,6 +204,7 @@ export class UI {
       if (k === "arrowleft" || k === "a") this.cam.x -= step; else if (k === "arrowright" || k === "d") this.cam.x += step;
       else if (k === "arrowup" || k === "w") this.cam.y -= step; else if (k === "arrowdown" || k === "s") this.cam.y += step;
       else if (k === " ") { this.speed = this.speed ? 0 : 1; e.preventDefault(); }
+      else if (k === "r" && (this.moving || TOOL_KIND[this.tool] === "place")) this.turn(e.shiftKey ? -1 : 1);
       else if (k === "escape") {   // drop Bulldoze or Move first, then close the list, then the tray (a tool in them goes with it), then the panel
         if (["bulldoze", "move", "crate"].includes(this.tool)) this.setTool("select");
         else if (!this.menu.back()) { if (!$("bell").hidden) $("bell").hidden = true; else this.closePanel(); }
@@ -192,7 +221,7 @@ export class UI {
   }
   click([x, y], kind) {
     const w = this.world, g = w.state.grid;
-    if (kind === "place") { const type = this.tool.slice(6); this.say(w.place(type, ...this.placeCorner(type, [x, y]))); this.placeGhost([x, y]); return; }
+    if (kind === "place") { const type = this.tool.slice(6); this.say(w.place(type, ...this.placeCorner(type, [x, y]), this.placeRot())); this.placeGhost([x, y]); return; }
     // Select: the nearest animal or crate under the cursor, else a lab, else the exhibit.
     const a = w.state.animals.find(a => !a.carried && Math.abs(a.x - (x + 0.5)) < 1.2 && Math.abs(a.y - (y + 0.5)) < 1.2);
     const on = x >= 0 && y >= 0 && x < g.w && y < g.h, b = !a && on && w.state.buildings.find(b => b.id === g.bld[y * g.w + x] && BUILDINGS[b.type].lab);

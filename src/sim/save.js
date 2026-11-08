@@ -1,10 +1,10 @@
 // Saving: the state as JSON, typed-array grid layers as base64. Derived data is rebuilt on load.
 // Every save carries a version; migrate() brings older saves up to date one version at a time.
 import { SAVE_VERSION } from "./config.js";
-import { newGrid } from "./grid.js";
+import { newGrid, autoRot } from "./grid.js";
 import { newScience } from "./science.js";
 import { crateBeside } from "./animals.js";
-import { FENCES, FENCE_IDS } from "./data.js";
+import { FENCES, FENCE_IDS, BUILDINGS } from "./data.js";
 
 const LAYERS = { water: Uint8Array, struct: Uint8Array, fence: Uint8Array, cond: Uint8Array, flags: Uint8Array, bld: Int32Array, ex: Int32Array };
 
@@ -63,6 +63,7 @@ export function migrate(s) {
     if (a.health === undefined) a.health = 100;
   }
   for (const a of s.animals || []) if (a.crated && !a.x && !a.y) crateBeside(s, a);   // crates used to wait off the map
+  for (const b of s.buildings || []) if (b.rot === undefined) b.rot = autoRot(s.grid, b.x, b.y, BUILDINGS[b.type]);   // v2 -> v3: buildings face a path they already had
   s.version = SAVE_VERSION;
   return s;
 }

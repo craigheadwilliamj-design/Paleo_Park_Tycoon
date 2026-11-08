@@ -1,9 +1,9 @@
 // Draws the world onto a canvas. Reads the sim, never writes to it.
 // Approved sprites replace placeholders as artwork becomes available.
 import { TILE, displayPx, personPx } from "./display.js";
-import { S_PATH, S_FENCE, W_NONE, W_DEEP, F_GATE, F_CHUTE } from "../sim/config.js";
+import { S_PATH, S_STAFF, S_FENCE, W_NONE, W_DEEP, F_GATE, F_CHUTE } from "../sim/config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, PARK_GROUND, PARK_WATER } from "../sim/data.js";
-import { fenceId } from "../sim/grid.js";
+import { fenceId, bldSize, frontTiles } from "../sim/grid.js";
 import { condition } from "../sim/exhibits.js";
 import { tileOf } from "../sim/movers.js";
 
@@ -48,6 +48,15 @@ export function draw(ctx, world, cam, ui) {
       ctx.fillStyle = "#c8b48a"; ctx.fillRect(px, py, T, T);
       ctx.fillStyle = "#b3a079"; if (r < 0.3) ctx.fillRect(px + ((r * 41) % 1) * (T - 2 * z), py + ((r * 29) % 1) * (T - 2 * z), 2 * z, 2 * z);
     }
+    if (g.struct[i] === S_STAFF) {   // staff only: grey service concrete with a yellow edge line where it meets anything else
+      ctx.fillStyle = "#9c9a90"; ctx.fillRect(px, py, T, T);
+      ctx.fillStyle = "#8a887e"; if (r < 0.3) ctx.fillRect(px + ((r * 41) % 1) * (T - 2 * z), py + ((r * 29) % 1) * (T - 2 * z), 2 * z, 2 * z);
+      ctx.fillStyle = "#d9b84a"; const u = Math.max(1, z | 0);
+      if (y === 0 || g.struct[i - g.w] !== S_STAFF) ctx.fillRect(px, py, T, u);
+      if (y === g.h - 1 || g.struct[i + g.w] !== S_STAFF) ctx.fillRect(px, py + T - u, T, u);
+      if (x === 0 || g.struct[i - 1] !== S_STAFF) ctx.fillRect(px, py, u, T);
+      if (x === g.w - 1 || g.struct[i + 1] !== S_STAFF) ctx.fillRect(px + T - u, py, u, T);
+    }
   }
 
   // Fences: a top and a short front face, both tinted by condition. Gates and chutes are marked.
@@ -69,7 +78,7 @@ export function draw(ctx, world, cam, ui) {
   // Buildings.
   // The one being moved draws only as the ghost.
   const movingId = ui.ghost && ui.ghost.id;
-  for (const b of state.buildings) if (b.id !== movingId) drawBuilding(ctx, BUILDINGS[b.type], sx(b.x), sy(b.y), T, z);
+  for (const b of state.buildings) if (b.id !== movingId) drawBuilding(ctx, BUILDINGS[b.type], sx(b.x), sy(b.y), T, z, b.rot);
 
   // Where each ordered move is headed: a faint crate outline.
   for (const j of state.jobs) if (j.kind === "haul") {
@@ -99,10 +108,11 @@ export function draw(ctx, world, cam, ui) {
     ctx.save(); ctx.globalAlpha = 0.6; drawCrate(ctx, px + T * 0.1, py + T * 0.05, T * 0.8, z); ctx.restore();
     ctx.strokeStyle = gh.ok ? "#ffffffcc" : "#ff4040"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(px + 0.5, py + 0.5, T - 1, T - 1);
   } else if (ui.ghost) {
-    const gh = ui.ghost, def = BUILDINGS[gh.type], px = sx(gh.x), py = sy(gh.y);
-    ctx.fillStyle = gh.ok ? "#ffffff40" : "#ff404066"; ctx.fillRect(px, py, def.w * T, def.h * T);
-    ctx.save(); ctx.globalAlpha = 0.55; drawBuilding(ctx, def, px, py, T, z); ctx.restore();
-    ctx.strokeStyle = gh.ok ? "#ffffffcc" : "#ff4040"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(px + 0.5, py + 0.5, def.w * T - 1, def.h * T - 1);
+    const gh = ui.ghost, def = BUILDINGS[gh.type], px = sx(gh.x), py = sy(gh.y), [bw, bh] = bldSize(def, gh.rot);
+    if (!def.anySide) { ctx.fillStyle = "#ffd76a55"; for (const i of frontTiles(g, gh.x, gh.y, def, gh.rot)) ctx.fillRect(sx(i % g.w), sy((i / g.w) | 0), T, T); }   // where it's used from
+    ctx.fillStyle = gh.ok ? "#ffffff40" : "#ff404066"; ctx.fillRect(px, py, bw * T, bh * T);
+    ctx.save(); ctx.globalAlpha = 0.55; drawBuilding(ctx, def, px, py, T, z, gh.rot); ctx.restore();
+    ctx.strokeStyle = gh.ok ? "#ffffffcc" : "#ff4040"; ctx.lineWidth = Math.max(1, z / 2); ctx.strokeRect(px + 0.5, py + 0.5, bw * T - 1, bh * T - 1);
   }
   if (ui.hover && !ui.preview && !ui.ghost) { ctx.strokeStyle = "#ffffff88"; ctx.lineWidth = 1; ctx.strokeRect(sx(ui.hover[0]) + 0.5, sy(ui.hover[1]) + 0.5, T - 1, T - 1); }
   if (ui.selectedEx) {
@@ -128,9 +138,12 @@ function drawCrate(ctx, px, py, size, z) {
 }
 
 // Building sprites share the footprint width and sit on its bottom edge; other buildings keep placeholders.
-function drawBuilding(ctx, def, px, py, T, z) {
-  const w = def.w * T, h = def.h * T, front = Math.round(h * 0.4);
-  const im = def.sprite && spriteImg(def.sprite);
+// Sprites are drawn facing south only, so a building turned another way (rot, grid.js) draws as its placeholder
+// until its other views exist. The placeholder marks its front: a door in the wall facing the camera, a door on
+// the side it faces, or an awning along the back, and a doorstep on the ground in front (not for anySide buildings).
+function drawBuilding(ctx, def, px, py, T, z, rot = 0) {
+  const [bw, bh] = bldSize(def, rot), w = bw * T, h = bh * T, front = Math.round(h * 0.4);
+  const im = !rot && def.sprite && spriteImg(def.sprite);
   if (im) {
     const height = Math.round(w * im.naturalHeight / im.naturalWidth);
     ctx.drawImage(im, px, py + h - height, w, height);
@@ -138,7 +151,18 @@ function drawBuilding(ctx, def, px, py, T, z) {
   }
   ctx.fillStyle = shade(def.color, -0.3); ctx.fillRect(px, py + h - front, w, front);
   ctx.fillStyle = def.color; ctx.fillRect(px, py - front * 0.3, w, h - front * 0.7);
-  if (z >= 2 && def.w > 1) { ctx.fillStyle = "#fff8"; ctx.font = `${6 * z}px sans-serif`; ctx.fillText(def.name, px + 2 * z, py + 7 * z); }
+  if (!def.anySide) {
+    const dw = Math.max(2, Math.round(Math.min(w, h) * 0.3)), u = Math.max(1, Math.round(z)), step = Math.round(T * 0.25);
+    ctx.fillStyle = shade(def.color, -0.6);
+    if (rot === 0) ctx.fillRect(px + (w - dw) / 2, py + h - front * 0.85, dw, front * 0.85);
+    else if (rot === 2) { ctx.fillStyle = shade(def.color, 0.35); ctx.fillRect(px, py - front * 0.3, w, 2 * u); }
+    else ctx.fillRect(rot === 1 ? px : px + w - 2 * u, py + h - front - dw, 2 * u, dw + front * 0.85);
+    ctx.fillStyle = "#d8c9a0";   // the doorstep
+    if (rot === 0) ctx.fillRect(px + (w - dw) / 2, py + h, dw, step);
+    else if (rot === 2) ctx.fillRect(px + (w - dw) / 2, py - front * 0.3 - step, dw, step);
+    else ctx.fillRect(rot === 1 ? px - step : px + w, py + h - front - dw, step, dw);
+  }
+  if (z >= 2 && bw > 1) { ctx.fillStyle = "#fff8"; ctx.font = `${6 * z}px sans-serif`; ctx.fillText(def.name, px + 2 * z, py + 7 * z); }
 }
 
 const GUEST_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#f79646", "#d9a441", "#4bacc6"];

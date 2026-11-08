@@ -2,7 +2,7 @@
 // for their distance, do it, and free it. Nobody else tells staff what to do.
 import { SPEED, FOOD, COND, STAFF } from "./config.js";
 import { SPECIES, DANGEROUS, BUILDINGS } from "./data.js";
-import { neighbours, walkable, idx, isFence } from "./grid.js";
+import { neighbours, walkable, idx, isFence, frontTiles } from "./grid.js";
 import { route } from "./paths.js";
 import { walk, tileOf, placeAt } from "./movers.js";
 import { animalsIn, crateUp, uncrateProblem, letOut, crateOn } from "./animals.js";
@@ -50,12 +50,10 @@ function staffAllow(state, derived) {
   return i => !bad.has(derived.exOf[i]);
 }
 
-// Standable tiles beside a building, for staff.
+// Standable tiles at a building's front (any side for feeders and props), for staff.
 function besideBuilding(state, b) {
-  const g = state.grid, def = BUILDINGS[b.type], out = new Set();
-  for (let y = b.y; y < b.y + def.h; y++) for (let x = b.x; x < b.x + def.w; x++)
-    for (const j of neighbours(g, idx(g, x, y))) if (walkable(g, j, "staff")) out.add(j);
-  return [...out];
+  const g = state.grid;
+  return frontTiles(g, b.x, b.y, BUILDINGS[b.type], b.rot).filter(j => walkable(g, j, "staff"));
 }
 
 // Standable tiles just outside an exhibit's keeper gates.
@@ -98,7 +96,10 @@ function goals(state, derived, s, job) {
 }
 
 function whyNot(state, derived, s, job) {
-  if (job.kind === "feed" && s.stage === "fetch") return state.buildings.some(b => b.type === "shed") ? "Out of " + job.type + "." : "No food shed.";
+  if (job.kind === "feed" && s.stage === "fetch") {
+    const sheds = state.buildings.filter(b => b.type === "shed");
+    return !sheds.length ? "No food shed." : sheds.some(b => (b.stock[job.type] || 0) > 0) ? "Can't reach the shed." : "Out of " + job.type + ".";
+  }
   if (job.kind === "feed") {
     const t = derived.ex.get(job.ex);
     if (t && !t.feeders.length) return "No feeder.";

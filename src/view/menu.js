@@ -12,7 +12,7 @@ const money = n => "$" + Math.round(n).toLocaleString("en-US");
 // Every tool and how it takes the pointer: "rect" fills the dragged box, "ring" outlines it, "tile" is one tile,
 // "place" puts a building down, "click" picks, "move" drags a building.
 export const TOOL_KIND = {
-  select: "click", bulldoze: "rect", move: "move", crate: "drop", path: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
+  select: "click", bulldoze: "rect", move: "move", crate: "drop", path: "rect", staffpath: "rect", gate: "tile", chute: "tile", "water:shallow": "rect", "water:deep": "rect",
   ...Object.fromEntries(Object.keys(FENCES).map(id => [`fence:${id}`, "ring"])),
   ...Object.fromEntries(Object.keys(BUILDINGS).filter(id => !BUILDINGS[id].fixed).map(id => [`place:${id}`, "place"])),
 };
@@ -33,6 +33,7 @@ const ICON = {
   build: '<path d="M3 11l9-7 9 7M5 10v10h14V10" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><rect x="10" y="14" width="4" height="6" fill="currentColor"/>',
   land: '<g transform="translate(12 12) rotate(40) scale(1.2) translate(-12 -12)"><path d="M9 1.5h6v3.5H9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M11 5h2v9h-2z" fill="currentColor"/><path d="M7.5 13.5h9v4.5c0 2.5-2 4-4.5 5-2.5-1-4.5-2.5-4.5-5z" fill="currentColor"/></g>',
   exhibits: '<path d="M5 3v18M19 3v18M5 7h14M5 12h14M5 17h14" stroke="currentColor" stroke-width="2"/>',
+  staffpath: '<path d="M5 21c1-6 5-6 7-10s2-6 6-8" fill="none" stroke="#9c9a90" stroke-width="5" stroke-linecap="round"/><path d="M5 21c1-6 5-6 7-10s2-6 6-8" fill="none" stroke="#d9b84a" stroke-width="1.2" stroke-dasharray="3 2"/>',
   paths: '<path d="M8 21c0-5 6-5 6-9s-5-5-5-9M15 21c0-5 6-5 6-9s-5-5-5-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
 };
 const svg = inner => `<svg viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`;
@@ -62,7 +63,10 @@ function categories() {
       { tool: "chute", label: "Feeding Chute", cost: PRICE.chute, icon: ICON.chute, tip: "Keepers feed dangerous animals through it from outside. Goes on a fence." },
       ...buildingTools("exhibits"),
     ] },
-    { id: "paths", label: "Paths", items: [{ tool: "path", label: "Guest Path", cost: PRICE.path, unit: "/tile", icon: ICON.path, tip: "Guests only walk on paths." }] },
+    { id: "paths", label: "Paths", items: [
+      { tool: "path", label: "Guest Path", cost: PRICE.path, unit: "/tile", icon: ICON.path, tip: "Guests only walk on paths." },
+      { tool: "staffpath", label: "Staff Path", cost: PRICE.staffpath, unit: "/tile", icon: ICON.staffpath, tip: "Staff only. Guests never walk on it." },
+    ] },
   ];
 }
 
@@ -84,7 +88,7 @@ export class BuildMenu {
     const cats = categories();
     this.el.innerHTML = `<div class="lefttools">
         <div class="smallrow"><button class="tbtn sm" data-tool="bulldoze" aria-pressed="false" title="Bulldoze: ${Math.round(REFUND * 100)}% back" aria-label="Bulldoze">${svg(ICON.bulldoze)}</button>
-        <button class="tbtn sm" data-tool="move" aria-pressed="false" title="Move: drag a building to a new spot" aria-label="Move">${svg(ICON.move)}</button></div>
+        <button class="tbtn sm" data-tool="move" aria-pressed="false" title="Move: drag a building to a new spot, tap it to turn it" aria-label="Move">${svg(ICON.move)}</button></div>
         ${cats.map(c => `<button class="tbtn big" data-cat="${c.id}" aria-expanded="false" title="${esc(c.label)}" aria-label="${esc(c.label)}">${svg(ICON[c.id])}</button>`).join("")}
       </div>
       ${cats.map(c => `<section class="tray" data-tray="${c.id}" hidden><div class="tray-tab">${esc(c.label)}</div><button class="xclose a" data-close="a" aria-label="Close menu">×</button>

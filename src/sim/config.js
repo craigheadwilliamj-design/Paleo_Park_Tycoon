@@ -1,6 +1,6 @@
 // Tuning that applies everywhere. Content (species, fences, buildings) lives in data.js.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export const MAP_W = 96, MAP_H = 64;     // tiles
 export const DAY_MIN = 720;              // park minutes a day; the day rolls over at minute 0
@@ -8,14 +8,14 @@ export const STEP_MIN = 0.25;            // one sim step, in park minutes
 export const START_MONEY = 60000;
 
 // Tile layers (grid.js). Values of the struct layer:
-export const S_NONE = 0, S_PATH = 1, S_FENCE = 2, S_BUILDING = 3;
+export const S_NONE = 0, S_PATH = 1, S_FENCE = 2, S_BUILDING = 3, S_STAFF = 4;   // S_STAFF: a staff only path
 // Values of the water layer:
 export const W_NONE = 0, W_SHALLOW = 1, W_DEEP = 2;
 // Bits of the flags layer (fence tiles only):
 export const F_GATE = 1, F_CHUTE = 2;
 
 // Prices a tile. Fences and buildings carry their own price in data.js.
-export const PRICE = { path: 10, water: 15, gate: 50, chute: 50 };
+export const PRICE = { path: 10, staffpath: 10, water: 15, gate: 50, chute: 50 };
 export const REFUND = 0.25;   // share of what something cost that bulldozing it gives back
 
 // Fence condition, 0 to 100.

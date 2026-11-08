@@ -2,18 +2,16 @@
 // Same utility idea as animals: a pressing need first, then the most appealing unseen exhibit, then home.
 import { SPEED, GUESTS, S_PATH, STAFF } from "./config.js";
 import { SPECIES, BUILDINGS } from "./data.js";
-import { neighbours, idx } from "./grid.js";
+import { frontTiles } from "./grid.js";
 import { route } from "./paths.js";
 import { walk, tileOf, placeAt } from "./movers.js";
 import { animalsIn } from "./animals.js";
 import { rand, range } from "./rng.js";
 
-// Path tiles beside a building (where guests queue or leave from).
+// Guest path tiles at a building's front (where guests queue or leave from). Staff paths don't count.
 export function pathsBeside(state, b) {
-  const g = state.grid, def = BUILDINGS[b.type], out = new Set();
-  for (let y = b.y; y < b.y + def.h; y++) for (let x = b.x; x < b.x + def.w; x++)
-    for (const j of neighbours(g, idx(g, x, y))) if (g.struct[j] === S_PATH) out.add(j);
-  return [...out];
+  const g = state.grid;
+  return frontTiles(g, b.x, b.y, BUILDINGS[b.type], b.rot).filter(j => g.struct[j] === S_PATH);
 }
 
 // How much an exhibit draws guests right now: its animals' appeal, scaled by how happy they are.
