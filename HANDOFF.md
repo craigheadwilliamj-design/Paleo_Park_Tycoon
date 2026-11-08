@@ -29,6 +29,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
+- Rotation drift fix on `codex/fix-building-rotation-drift`, prepared for review into `main`: rectangular labs keep a stable tile anchor instead of drifting northwest. Full cycles and opposite turns restore position and occupied tiles, including a save/reload midway. No save format changes. The new regression fails on the previous code; all 51 simulation tests and the browser smoke test pass with the fix. Browser smoke used installed Chrome and local-file interception because the bundled browser is absent and loopback networking is restricted; repository dependencies and smoke test are unchanged. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
