@@ -1,10 +1,11 @@
 // Saving: the state as JSON, typed-array grid layers as base64. Derived data is rebuilt on load.
 // Every save carries a version; migrate() brings older saves up to date one version at a time.
 import { SAVE_VERSION } from "./config.js";
-import { newGrid, autoRot } from "./grid.js";
+import { newGrid, autoRot, bldTiles } from "./grid.js";
 import { newScience } from "./science.js";
 import { crateBeside } from "./animals.js";
 import { FENCES, FENCE_IDS, BUILDINGS } from "./data.js";
+import { S_BUILDING } from "./config.js";
 
 const LAYERS = { water: Uint8Array, struct: Uint8Array, fence: Uint8Array, cond: Uint8Array, flags: Uint8Array, bld: Int32Array, ex: Int32Array };
 
@@ -64,6 +65,10 @@ export function migrate(s) {
   }
   for (const a of s.animals || []) if (a.crated && !a.x && !a.y) crateBeside(s, a);   // crates used to wait off the map
   for (const b of s.buildings || []) if (b.rot === undefined) b.rot = autoRot(s.grid, b.x, b.y, BUILDINGS[b.type]);   // v2 -> v3: buildings face a path they already had
+  if (s.version < 4) for (const b of s.buildings || []) {   // v3 -> v4: benches are two tiles long; stamp the new one where it is free
+    if (b.type !== "bench") continue;
+    for (const i of bldTiles(s.grid, b.x, b.y, BUILDINGS.bench, b.rot || 0)) if (s.grid.struct[i] === 0 && !s.grid.water[i]) { s.grid.struct[i] = S_BUILDING; s.grid.bld[i] = b.id; }
+  }
   s.version = SAVE_VERSION;
   return s;
 }

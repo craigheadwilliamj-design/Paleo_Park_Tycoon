@@ -6,7 +6,7 @@ import { serialize, deserialize } from "../src/sim/save.js";
 import { pathsBeside } from "../src/sim/guests.js";
 import { idx, walkable, frontTiles } from "../src/sim/grid.js";
 import { tileTier } from "../src/sim/exhibits.js";
-import { S_PATH, S_STAFF, S_FENCE, DAY_MIN, W_DEEP, W_SHALLOW, SAVE_VERSION } from "../src/sim/config.js";
+import { S_PATH, S_STAFF, S_FENCE, S_BUILDING, DAY_MIN, W_DEEP, W_SHALLOW, SAVE_VERSION } from "../src/sim/config.js";
 import { TRACKS, SITES, BUILDINGS } from "../src/sim/data.js";
 import { trackStep, stepMinutes, tripOdds, siteById } from "../src/sim/science.js";
 
@@ -119,7 +119,7 @@ test("guests sit on benches and bin their rubbish", () => {
   const { w, e, ex } = buildPark();
   w.setBiome(e.id, "desert");
   for (let k = 0; k < 4; k++) assert.equal(w.buyAnimal("lyst", e.id), "");
-  assert.equal(w.place("bench", ex + 1, 46), "");
+  assert.equal(w.place("bench", ex + 1, 46, 1), "");   // two tiles long: turned west to face the path
   assert.equal(w.place("bin", ex - 1, 46), "");
   w.advance(200);
   const s = w.state, gst = s.guests.find(x => x.plan === "watch" || x.plan === "leave" || x.plan === "use") || s.guests[0];
@@ -972,4 +972,20 @@ test("building turns keep the same anchor through full cycles and reverse turns"
     assert.deepEqual({ x: restored.x, y: restored.y, rot: restored.rot }, before);
     assert.deepEqual([...loaded.state.grid.bld], originalGrid);
   }
+});
+
+test("version 3 saves: a bench gets its second tile where it is free", () => {
+  const w = newPark(7), g = w.state.grid, ex = Math.floor(g.w / 2);
+  w.paint("path", line(ex, 30, ex, g.h - 3));
+  w.place("bench", ex + 1, 40, 1);   // turned west: tiles (ex+1, 40) and (ex+1, 41)
+  const b = w.state.buildings.find(b => b.type === "bench"), free = (ex + 1) + 41 * g.w, taken = (ex + 1) + 42 * g.w;
+  // Make it an old 1x1 bench: only its first tile was stamped, and a path already runs over the tile beside it.
+  g.struct[free] = 0; g.bld[free] = 0;
+  b.rot = 1; w.state.grid.struct[taken] = 1;   // S_PATH
+  w.state.version = 3;
+  const w2 = new World(deserialize(serialize(w.state)));
+  assert.equal(w2.state.version, SAVE_VERSION);
+  assert.equal(w2.state.grid.bld[free], b.id, "the free tile is stamped as the bench");
+  assert.equal(w2.state.grid.struct[free], S_BUILDING);
+  assert.equal(w2.state.grid.struct[taken], 1, "a tile already in use is left alone");
 });
