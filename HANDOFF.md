@@ -8,7 +8,7 @@ Legend: ✅ confirmed (checked in the repo or by running it) · ❓ unverified /
 ## Status
 - ✅ Phase: between plan phases 3 (core systems) and 4 (content ramp). Core sim is in: grid and tools, fence-made exhibits with biomes, 8 fence types with tiers/wear/power/escapes, animals with needs/behavior/wellbeing/death, crates (crate, uncrate, move by keeper haul, sell), keepers/mechanics/guards on a job board, guests with stands/benches/bins/litter/rating, sandbox mode, all three labs (research tracks, Time Travel expeditions for genome, Genetics cloning), versioned saves.
 - ✅ 10 species in `SPECIES`; 9 have sprites (all but Arthropleura): Dimetrodon, Cotylorhynchus, T. rex, Anomalocaris, Mosasaurus, Sacabambaspis, Dunkleosteus, Lystrosaurus, Tiktaalik. The roster in `docs/plan.md` is 100 species.
-- ✅ The restroom now has the user-approved green-roof, blue-wall sprite (`art/buildings/restroom.png`); other buildings and people remain placeholder art (blocks, flat colors).
+- ✅ All five guest amenities have user-approved sprites in `art/buildings/`: restroom, snack stand, gift stand, bench and trash bin. Other buildings and people remain placeholder art (blocks, flat colors).
 - ✅ Not built yet: see `docs/architecture.md` "Not built yet" (plants/browsing, power plants, custodians, staff morale/break rooms, attractions and museum, Guests research track, vandalism, weather, mixed-pen predation, more animations, real art).
 
 ## Most recent state of `main`
@@ -21,6 +21,7 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ PRs #24-#26: Sacabambaspis and Dunkleosteus added; Lystrosaurus and Tiktaalik sprites.
 
 ## In progress / outstanding
+- Guest artwork on `codex/guest-building-art`, prepared for review into `main`: snack and gift stands, bench and trash bin match the approved restroom. The user approved all four concepts before commit. Images were trimmed and resized with nearest-neighbor sampling; footprints, guest behavior, prices, upkeep and saves are unchanged. All 45 simulation checks and the existing browser smoke test passed before and after the changes. Smoke ran in installed Chrome with local-file request interception (bundled browser absent; loopback networking restricted), without changing repository tests or dependencies. Visually inspected zooms 2 and 4; canvas instrumentation verified all five sprites at zooms 1–4 and all four new placement/move ghosts, with no browser errors or missing assets. Independent art review found no material issues. Not merged or published.
 - ✅ `claude/gifted-meitner-bae3jt` (an alternate Cotylorhynchus walk, never wired in) is dead per the user; don't revive it. If it still exists on the remote, it's waiting to be deleted.
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
