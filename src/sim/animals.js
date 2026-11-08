@@ -203,7 +203,7 @@ export function animalTick(state, derived, bus, dt) {
       const rate = (100 / (ANIMAL.fullDays[k] * DAY_MIN)) * ((s.drain && s.drain[k]) || 1);
       a.need[k] = Math.min(100, a.need[k] + rate * dt);
     }
-    if (!walk(g, a, SPEED.animal, dt)) { if (ACTIONS[a.act] && ACTIONS[a.act].clockMoving && ACTIONS[a.act].clockMoving(s)) a.t -= dt; continue; }
+    if (!walk(g, a, SPEED.animal * (s.speed || 1), dt)) { if (ACTIONS[a.act] && ACTIONS[a.act].clockMoving && ACTIONS[a.act].clockMoving(s)) a.t -= dt; continue; }
     if (ACTIONS[a.act] && ACTIONS[a.act].faces) faceTo(g, a, j => ACTIONS[a.act].faces(state, derived, a, j));
     if (a.act === "test") testFence(state, derived, bus, a, dt);
     if (a.act === "maul" && a.fence !== undefined) g.cond[a.fence] = Math.max(0, g.cond[a.fence] - (WEAR.mauledPerHour * dt) / 60);
