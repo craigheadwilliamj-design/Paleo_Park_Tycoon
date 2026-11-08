@@ -232,7 +232,9 @@ export class World {
     const def = BUILDINGS[b.type], r0 = b.rot || 0, r = (r0 + (dir < 0 ? 3 : 1)) & 3;
     const [w0, h0] = bldSize(def, r0), [w, h] = bldSize(def, r);
     if (def.fixed) return "Can't turn that.";
-    return this.moveBuilding(id, b.x + Math.floor((w0 - w) / 2), b.y + Math.floor((h0 - h) / 2), r);
+    // Round each half-size separately so opposite turns undo each other on the tile grid.
+    const x = b.x + Math.floor(w0 / 2) - Math.floor(w / 2), y = b.y + Math.floor(h0 / 2) - Math.floor(h / 2);
+    return this.moveBuilding(id, x, y, r);
   }
   putBuilding(type, x, y, rot) {
     const def = BUILDINGS[type], g = this.state.grid;
