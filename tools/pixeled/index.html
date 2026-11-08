@@ -1,0 +1,163 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pixel Editor</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<!-- The park's sprite editor, its own artifact (docs/art.md: Pixel editor). Stored without the publish wrapper, like index.html. -->
+<style>
+/* the game's tokens and base styles (index.html), so the editor looks like the park */
+:root{
+  --font-head:Silkscreen,"Pixelify Sans",monospace; --font-body:"Pixelify Sans",system-ui,sans-serif;
+  --chrome:#EEF1E8; --chrome-2:#E1E7D8; --ink:#1D2B22; --ink-2:#4F5E53; --line:#C3CCB8;
+  --gold:#B8912F; --gold-ink:#7A5E14; --forest:#1F3A2B; --on-forest:#F3EFD9; --money:#E9C766;
+  --outside:#C9D2B8; --grass:#B7C995; --contour:rgba(50,75,45,.13); --boundary:#1F3A2B; --field:#FFFFFF;
+  --grid:rgba(40,62,36,.10); --grid-major:rgba(40,62,36,.2); --halo:rgba(238,241,232,.92);
+  --sel:#C8961E; --good:#2F7D4A; --warn:#A8701A; --bad:#B3261E;
+  --fence:#3B3226; --dirt:#CDBF95;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --chrome:#15241B; --chrome-2:#1C2F23; --ink:#E6EDE2; --ink-2:#A3B3A5; --line:#304739;
+    --gold:#D8B04A; --gold-ink:#E9C766; --forest:#0E1912; --on-forest:#F3EFD9; --money:#F0C24A;
+    --outside:#17251C; --grass:#2A3E2C; --contour:rgba(200,225,190,.07); --boundary:#E6D48E; --field:#0F1B14;
+    --grid:rgba(200,225,190,.06); --grid-major:rgba(200,225,190,.13); --halo:rgba(21,36,27,.92);
+    --sel:#F0C24A; --good:#6BC38A; --warn:#E3A948; --bad:#F2867D;
+    --fence:#0E0B07; --dirt:#5A5238;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --chrome:#15241B; --chrome-2:#1C2F23; --ink:#E6EDE2; --ink-2:#A3B3A5; --line:#304739;
+  --gold:#D8B04A; --gold-ink:#E9C766; --forest:#0E1912; --on-forest:#F3EFD9; --money:#F0C24A;
+  --outside:#17251C; --grass:#2A3E2C; --contour:rgba(200,225,190,.07); --boundary:#E6D48E; --field:#0F1B14;
+  --grid:rgba(200,225,190,.06); --grid-major:rgba(200,225,190,.13); --halo:rgba(21,36,27,.92);
+  --sel:#F0C24A; --good:#6BC38A; --warn:#E3A948; --bad:#F2867D;
+  --fence:#0E0B07; --dirt:#5A5238;
+  color-scheme:dark;
+}
+html{height:100%}
+*,*::before,*::after{box-sizing:border-box}
+body{height:100%;margin:0;background:var(--chrome);color:var(--ink);font:15px/1.45 var(--font-body);overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.meta{color:var(--ink-2);font-size:14px}
+.btn{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--chrome-2);font-weight:500}
+.btn:hover:not(:disabled){border-color:var(--ink-2)}
+.btn:disabled{opacity:.45}
+.btn[aria-pressed="true"]{background:var(--forest);color:var(--on-forest);border-color:var(--forest)}
+.field{display:flex;flex-direction:column;gap:3px}
+.field > span{font-size:13px;font-weight:600;color:var(--ink-2)}
+.field input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--field)}
+.toasts{position:absolute;right:64px;bottom:16px;align-items:flex-end;z-index:9;display:flex;flex-direction:column;gap:8px;max-width:min(380px,calc(100% - 24px));pointer-events:none}
+dialog .toasts{position:fixed;right:16px;bottom:16px}   /* toasts shown over a modal sit in the screen corner, not on the dialog */
+.toast{pointer-events:auto;background:var(--chrome);border:1px solid var(--line);border-left:4px solid var(--ink-2);border-radius:9px;padding:9px 12px;box-shadow:0 6px 18px rgba(0,0,0,.2);font-size:14px;animation:tin .25s ease-out}
+.toast.good{border-left-color:var(--good)}
+.toast.bad{border-left-color:var(--bad)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--chrome);color:var(--ink);padding:20px;width:min(520px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+/* pixel editor (js/pixeled.js) */
+dialog.pixed{width:calc(100vw - 24px);max-width:none;height:calc(100vh - 24px);max-height:none;padding:0;display:none;flex-direction:column;overflow:hidden}
+dialog.pixed[open]{display:flex}
+.pxbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;background:var(--forest);color:var(--on-forest)}
+.pxbar .btn{padding:4px 10px;border-radius:7px;border:1px solid rgba(243,239,217,.3);background:transparent;color:var(--on-forest);cursor:pointer}
+.pxbar .btn[aria-pressed="true"]{background:var(--money);color:#1D2B22;border-color:var(--money)}
+.pxname{font:600 16px/1.1 var(--font-head);margin-right:8px;white-space:pre;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+.pxsep{width:1px;height:20px;background:rgba(243,239,217,.25);margin:0 2px}
+.pxgrow{flex:1}
+.pxmain{flex:1;min-height:0;display:grid;grid-template-columns:56px 1fr 300px}
+.pxtools{display:flex;flex-direction:column;gap:3px;padding:6px 5px;border-right:1px solid var(--line);background:var(--chrome-2);overflow-y:auto}
+.pxtools button{width:46px;height:42px;border:1px solid transparent;border-radius:8px;background:none;display:grid;place-items:center;color:var(--ink)}
+.pxtools button:hover{background:var(--chrome);border-color:var(--line)}
+.pxtools button[aria-pressed="true"]{background:var(--forest);color:var(--on-forest)}
+.pxsize{display:flex;flex-direction:column;gap:2px;margin-top:8px;border-top:1px solid var(--line);padding-top:6px}
+.pxsize button{height:28px;font-weight:700;font-size:14px}
+.pxsize small{font-size:10px;text-align:center;color:var(--ink-2)}
+.pxstage{overflow:auto;display:flex;padding:20px;background:var(--outside);min-width:0}
+.pxstage.grab,.pxstage.grab canvas{cursor:grab !important}
+.pxstage.panning,.pxstage.panning canvas{cursor:grabbing !important}
+.pxstage canvas{flex:none;margin:auto;display:block;image-rendering:pixelated;touch-action:none;box-shadow:0 2px 12px rgba(0,0,0,.2);cursor:crosshair}
+.pxside{overflow-y:auto;border-left:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.pxside h3{margin:0 0 6px;font:600 12px/1.2 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.pxside .btn,.pxcard .btn{padding:4px 9px;border-radius:7px;border:1px solid var(--line);background:var(--chrome-2);cursor:pointer}
+.pxside .btn.primary,.pxcard .btn.primary{background:var(--forest);color:var(--on-forest);border-color:var(--forest);font-weight:600}
+.pxside .meta{font-size:12.5px;margin-top:4px}
+.pxrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.pxrow select{max-width:100%;padding:3px 4px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
+.pxnum{width:58px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
+.pxcols{display:flex;align-items:center;gap:8px}
+.pxsw{width:20px;height:20px;padding:0;border:1px solid rgba(0,0,0,.25);border-radius:4px;cursor:pointer}
+.pxsw.big{width:34px;height:34px}
+.pxsw.clear{background:repeating-conic-gradient(#cfd4c8 0 25%,#fff 0 50%) 0 0/10px 10px !important}
+.pxpal{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+#pxCount.warn{color:var(--warn);font-weight:600}
+.pxframes{display:flex;gap:4px;overflow-x:auto;padding-bottom:4px}
+.pxframes button{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:6px;background:var(--chrome-2);font-size:11px;cursor:pointer}
+.pxframes button[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.pxframes canvas{image-rendering:pixelated;background:repeating-conic-gradient(#e2e6dc 0 25%,#f3f5ef 0 50%) 0 0/8px 8px}
+#pxPrev{display:block;margin-top:8px;image-rendering:pixelated;max-width:100%}
+.pxq{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:3px}
+.pxq li{display:flex;align-items:center;gap:6px}
+.pxq li .btn{margin-left:auto;padding:0 7px}
+.linkish{border:0;background:none;padding:0;color:var(--gold-ink);font-weight:600;cursor:pointer;text-align:left}
+.pxover{position:absolute;inset:0;background:rgba(14,25,18,.45);display:grid;place-items:center;z-index:2}
+.pxover[hidden]{display:none}
+.pxcard{background:var(--chrome);border-radius:12px;padding:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.pxcard.wide{width:min(900px,94vw);height:min(640px,86vh);display:flex;flex-direction:column}
+.pxcard h2{margin:0}
+.pxcard .field input{width:100%}
+.pxcard #pxQ{margin:10px 0;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--field)}
+.pxlist{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;align-content:start}
+.pxlist button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--chrome-2);font-size:12px;word-break:break-all;cursor:pointer}
+.pxlist button:hover{border-color:var(--gold)}
+.pxlist button{position:relative}
+.pxdel{position:absolute;top:2px;right:4px;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;font-size:14px;color:var(--ink-2)}
+.pxdel:hover{background:var(--bad);color:#fff}
+.pxlist b{font-size:14px}
+.pxtabs .btn[aria-pressed="true"]{background:var(--forest);color:var(--on-forest);border-color:var(--forest)}
+.pxcard [hidden]{display:none}
+.pxlist img{height:48px;max-width:100%;object-fit:contain;image-rendering:pixelated}
+.pxlist i{color:var(--gold-ink);font-style:normal;font-weight:600}
+.pxlayers{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto}
+.pxlrow{display:flex;align-items:center;gap:6px;padding:3px 5px;border:1px solid var(--line);border-radius:7px;background:var(--chrome-2);cursor:pointer}
+.pxlrow[aria-current="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold);background:var(--chrome)}
+.pxlrow.off canvas,.pxlrow.off .pxlname{opacity:.45}
+.pxlrow canvas{image-rendering:pixelated;background:repeating-conic-gradient(#e2e6dc 0 25%,#f3f5ef 0 50%) 0 0/6px 6px;flex:none}
+.pxeye{border:0;background:none;padding:2px;display:grid;place-items:center;color:var(--ink);cursor:pointer}
+.pxlname{flex:1;min-width:0;border:1px solid transparent;border-radius:5px;background:transparent;padding:2px 4px;font-size:13.5px}
+.pxlname:focus{border-color:var(--line);background:var(--field)}
+.pxrefrow{margin-top:6px;cursor:default;flex-wrap:wrap}
+.pxrefrow b{font-size:13.5px;font-weight:600}
+.pxrefrow select{flex:1;min-width:90px;padding:2px 4px;border:1px solid var(--line);border-radius:6px;background:var(--field)}
+@media (max-width:760px){.pxmain{grid-template-columns:56px 1fr;grid-template-rows:1fr 45%}.pxside{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}}
+/* the editor is the whole page */
+dialog.pixed{width:100%;height:100%;max-width:none;max-height:none;margin:0;border:0;border-radius:0;box-shadow:none}
+dialog.pixed::backdrop{background:var(--chrome)}
+</style>
+<dialog id="dlgPixel" class="pixed" aria-label="Pixel editor"></dialog>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<script src="js/spritepack.js"></script>
+<script src="js/v2pack.js"></script>
+<script src="js/data.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/landscape.js"></script>
+<script>
+// What the editor borrows from the game's UI files (map.js, ui.js): escaping and toasts that show over the editor
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ui = {toast(text, kind){
+  const box = document.getElementById("toasts"), el = document.createElement("div");
+  el.className = "toast " + (kind || ""); el.textContent = text;
+  (document.querySelector("dialog:modal") || document.body).appendChild(box); box.appendChild(el);
+  while(box.children.length > 4) box.firstChild.remove();
+  setTimeout(() => el.remove(), 6000);
+}};
+</script>
+<script src="js/pixeled.js"></script>
+
+</body></html>
