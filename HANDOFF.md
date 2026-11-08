@@ -23,6 +23,8 @@ Recent merges set the context for what's fresh and most likely to need follow-up
 - ✅ Many other `claude/*` and `ccr-*` branches exist on the remote; all are fully merged into `main` (stale, safe to ignore).
 - ✅ The HANDOFF/AGENTS setup was merged in PR #29.
 
+- ✅ T. rex walks at 2x (`speed: 2` in its `data.js` entry; per-species `speed` multiplier read in `animals.js`). Shipped without a GIF review at the user's say-so.
+
 ## Known issues
 - ✅ No TODO/FIXME markers in `src/`, `tests/` or `tools/`.
 - ✅ Transport bugs reproduced on `main`: deep-water hauls retry indefinitely, and the first dangerous animal delivered into an empty pen leaves its keeper inside. Fixed on `codex/fix-animal-transport`: gate handoffs account for the animal and its tile; unloading rechecks movement, biome, exhibit and crate occupancy. Invalid destinations leave a crate with the keeper and a reason in the bell. Awaiting review and merge.

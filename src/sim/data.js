@@ -87,7 +87,7 @@ export const SPECIES = {
           sprite: { name: "tiktaalik", frame: [96, 32], frames: 8, anchor: [48, 28], cycle: 0.4, swim: { frames: 8, cycle: 0.8 },
                     idle: { frames: 4, s: 2.4 }, lie: { frames: 7, min: 4 }, rest: { frames: 4, s: 3.2 }, eat: { frames: 8, s: 1.0 },
                     box: { east: [13, 11, 83, 29], west: [13, 11, 83, 29] } } },
-  trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
+  trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, speed: 2, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
           space: 120, group: [1, 2], foodType: "meat", food: 60, appeal: 25, price: 80000, moves: "land", color: "#6a5a3a",
           sprite: { name: "tyrannosaurus", frame: [192, 112], frames: 8, anchor: [96, 96], cycle: 2.4,
                     idle: { frames: 8, s: 3.6 }, lie: { frames: 17, min: 7 }, rest: { frames: 8, s: 4.4 }, eat: { frames: 12, s: 3.0 },
