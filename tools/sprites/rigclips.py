@@ -26,6 +26,17 @@ its nose-down turn unturned.
   python3 tools/sprites/rigclips.py sacabambaspis eat --clip hover --rigid Body+Head --keys '{"Body+Head": {"r": [0, 12, 12, 0]}}' \\
       --keep Body+Head 77 40 79 42 --keep Body+Head 82 39 84 41 --size 96 46 --offset -1 -23
 
+--at FRAME POSE adds a pose to one frame of the clip (counted after --frames), and can be given again: the
+Lystrosaurus's hind foot stays level while its shin leans back at push-off, which split the heel off the leg, so
+there the foot turns with the shin instead (heel up, toes down).
+
+  python3 tools/sprites/rigclips.py lystrosaurus walk --clip walk --at 4 '{"Back Foot": {"r": 8.85}}' --size 96 40 --offset -2 -38
+
+--clips FILE adds clips written for v2 (JSON: [{"name", "frames": [{part name: {r, dx, dy}}]}]) next to the rig's own,
+for motion v1 never had (the Tiktaalik lived in a vivarium and never walked: art/source/tiktaalik/clips.json).
+
+  python3 tools/sprites/rigclips.py tiktaalik walk --clip crawl --clips art/source/tiktaalik/clips.json --size 96 32 --offset -2 -14
+
 --size and --offset place the rig cell in the frame, the same for every strip of one animal.
 """
 import argparse, glob, json, os
@@ -58,6 +69,8 @@ def main():
     ap.add_argument("--pose", default="{}", help="JSON pose {part name: {r, dx, dy}} added to every frame")
     ap.add_argument("--ease", default="{}", help="JSON pose added from none on the first frame to all of it on the last")
     ap.add_argument("--keys", default="{}", help="JSON {part name: {r|dx|dy: [values]}}: a value a frame (spread over the clip if the counts differ), added after --pose")
+    ap.add_argument("--at", nargs=2, action="append", default=[], metavar=("FRAME", "POSE"), help="a JSON pose added to one frame")
+    ap.add_argument("--clips", help="a JSON file of extra clips, keyed by part name")
     ap.add_argument("--rigid", nargs="*", default=[], help="parts that never turn, only shift by whole pixels")
     ap.add_argument("--keep", nargs=5, action="append", default=[], metavar=("PART", "X0", "Y0", "X1", "Y1"),
                     help="a box of a part's picture (cell pixels in the rest pose, X1 Y1 included) pasted back untouched where the pose carries it")
@@ -68,6 +81,9 @@ def main():
     rig = Rig(json.load(open(os.path.join(ROOT, "art", "v1", f"{a.name}-rig.json"))))
     rig.P["cell"] = {"w": rig.P["cell"]["w"] + 20, "h": rig.P["cell"]["h"] + 21}   # room below and right: v1's cell clips parts that sink or reach
     clips = {c["name"]: c for c in rig.P.get("clips", [])}
+    if a.clips:
+        for c in json.load(open(a.clips)):
+            clips[c["name"]] = {**c, "frames": [{rig.named.get(k, k): v for k, v in f.items()} for f in c["frames"]]}
     if a.clip not in clips:
         raise SystemExit(f"no clip {a.clip!r}; the rig has: {', '.join(clips)}")
     frames = clips[a.clip]["frames"]
@@ -78,6 +94,9 @@ def main():
     rest = down(rig.draw({}, K, {k: up(v) for k, v in rig.pics.items()}))
     rest_at = rig.worlds({}, 1)
     keeps = [(rig.named[k[0]], *map(int, k[1:])) for k in a.keep]
+    at = {}
+    for i, over in a.at:
+        at.setdefault(int(i), []).append(named(over))
     for part in a.rigid:
         if part not in rig.named:
             raise SystemExit(f"no part {part!r}; the rig has: {', '.join(rig.named)}")
@@ -88,11 +107,13 @@ def main():
     for old in glob.glob(os.path.join(src, f"{a.strip}-*.png")):
         os.remove(old)
     for i, f in enumerate(frames):
-        at = {k: {c: at_frame(v, i, len(frames)) for c, v in kv.items()} for k, kv in keys.items()}
-        p = add(add(add(json.loads(json.dumps(f)), pose), ease, i / max(1, len(frames) - 1)), at)
+        kf = {k: {c: at_frame(v, i, len(frames)) for c, v in kv.items()} for k, kv in keys.items()}
+        p = add(add(add(json.loads(json.dumps(f)), pose), ease, i / max(1, len(frames) - 1)), kf)
+        for over in at.get(i, []):
+            p = add(p, over)
         for k in rigid:
             q = p.setdefault(k, {"r": 0, "dx": 0, "dy": 0})
-            q["r"], q["dx"], q["dy"] = pose.get(k, {}).get("r", 0) + at.get(k, {}).get("r", 0), round(q.get("dx", 0)), round(q.get("dy", 0))
+            q["r"], q["dx"], q["dy"] = pose.get(k, {}).get("r", 0) + kf.get(k, {}).get("r", 0), round(q.get("dx", 0)), round(q.get("dy", 0))
         im = down(rig.draw(p, K, pics))
         w = rig.worlds(p, 1)
         for part, x0, y0, x1, y1 in keeps:

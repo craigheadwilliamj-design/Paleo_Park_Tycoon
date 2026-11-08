@@ -11,7 +11,7 @@ import argparse, os
 from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-STRIPS = ("walk", "idle", "lie", "rest", "eat", "drink", "attack")
+STRIPS = ("walk", "swim", "idle", "lie", "rest", "eat", "drink", "attack")
 
 
 def main():

@@ -42,6 +42,7 @@ export const PARK_WATER = ["#5c94a6", "#3d7186"];
 // leaning right or left): frame size (px, square, or [w, h]), frames in the walk, anchor (the feet in a frame), box (each facing's drawn
 // bounds, for the selection outline; the facings it has: without the others it walks every way in profile), cycle (tiles walked per walk cycle),
 // scale (optional: drawn this much smaller than its pixels, for a drawing too big for the size curve; the Anomalocaris is 0.5, the Sacabambaspis 0.25, the Dunkleosteus 0.75 of its doubled pixels).
+// swim (optional): moving through water it plays <name>-swim-<facing>.png instead of the walk (frames, cycle: tiles a stroke).
 // Optional, same script: idle (standing loop: frames, s a cycle), lie (lying down, played backwards to get up: frames, min park
 // minutes), rest (lying loop: frames, s) and eat (at the feeder: frames, s; drinking uses it too unless there is a drink), from
 // <name>-idle|lie|rest|eat|drink-<facing>.png. Without them: the standing frame.
@@ -50,7 +51,10 @@ export const SPECIES = {
   arth: { name: "Arthropleura", size: 2, active: "night", period: "Carboniferous", stars: 0, starter: true, len: 2.5, danger: 1, biomes: ["wetland", "tropical"], water: 0,
           space: 6, group: [1, 6], foodType: "greens", food: 4, appeal: 4, price: 5000, moves: "land", color: "#5a3b2a" },
   lyst: { name: "Lystrosaurus", size: 2, active: "day", period: "Permian", stars: 0, starter: true, len: 1.5, danger: 1, biomes: ["grassland", "desert"], water: 0.05,
-          space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a" },
+          space: 8, group: [3, 10], foodType: "greens", food: 5, appeal: 3, price: 3500, moves: "land", color: "#b08a5a",
+          sprite: { name: "lystrosaurus", frame: [96, 40], frames: 8, anchor: [48, 37], scale: 0.5, cycle: 0.32,
+                    idle: { frames: 12, s: 2.0 }, lie: { frames: 9, min: 6 }, rest: { frames: 8, s: 3.2 }, eat: { frames: 25, s: 3.1 },
+                    box: { east: [12, 5, 83, 37], west: [13, 5, 84, 37] } } },
   dime: { name: "Dimetrodon", size: 3, active: "day", drain: { enrich: 1.5 }, period: "Permian", stars: 1, len: 3.2, danger: 3, biomes: ["desert", "grassland"], water: 0.1,
           space: 20, group: [1, 4], foodType: "meat", food: 12, appeal: 7, price: 9000, moves: "land", color: "#b4552a",
           sprite: { name: "dimetrodon", frame: [96, 56], frames: 8, anchor: [48, 48], cycle: 1.25,
@@ -79,7 +83,10 @@ export const SPECIES = {
                     idle: { frames: 16, s: 2.0 }, eat: { frames: 18, s: 2.4 }, attack: { frames: 16, s: 1.2 },
                     box: { east: [20, 8, 172, 74], west: [20, 8, 172, 74] } } },
   tikt: { name: "Tiktaalik", size: 2, active: "day", period: "Devonian", stars: 0.5, len: 2.7, danger: 1, biomes: ["wetland", "tropical"], water: 0.5,
-          space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a" },
+          space: 10, group: [2, 6], foodType: "fish", food: 5, appeal: 5, price: 4500, moves: "both", color: "#6b7a4a",
+          sprite: { name: "tiktaalik", frame: [96, 32], frames: 8, anchor: [48, 28], cycle: 0.4, swim: { frames: 8, cycle: 0.8 },
+                    idle: { frames: 4, s: 2.4 }, lie: { frames: 7, min: 4 }, rest: { frames: 4, s: 3.2 }, eat: { frames: 8, s: 1.0 },
+                    box: { east: [13, 11, 83, 29], west: [13, 11, 83, 29] } } },
   trex: { name: "Tyrannosaurus rex", size: 5, active: "day", drain: { enrich: 1.5 }, period: "Cretaceous", stars: 4.5, len: 12, danger: 5, biomes: ["temperate", "grassland"], water: 0.05,
           space: 120, group: [1, 2], foodType: "meat", food: 60, appeal: 25, price: 80000, moves: "land", color: "#6a5a3a",
           sprite: { name: "tyrannosaurus", frame: [192, 112], frames: 8, anchor: [96, 96], cycle: 2.4,
