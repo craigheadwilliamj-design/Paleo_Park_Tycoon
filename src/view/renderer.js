@@ -1,5 +1,5 @@
-// Draws the world onto a canvas. Reads the sim, never writes to it. Placeholder art: flat colors and blocks
-// in the right sizes and places, to be swapped for sprites once the golden assets exist.
+// Draws the world onto a canvas. Reads the sim, never writes to it.
+// Approved sprites replace placeholders as artwork becomes available.
 import { TILE, displayPx, personPx } from "./display.js";
 import { S_PATH, S_FENCE, W_NONE, W_DEEP, F_GATE, F_CHUTE } from "../sim/config.js";
 import { FENCES, BIOMES, BUILDINGS, SPECIES, PARK_GROUND, PARK_WATER } from "../sim/data.js";
@@ -127,9 +127,15 @@ function drawCrate(ctx, px, py, size, z) {
   ctx.strokeStyle = "#6e4a24"; ctx.lineWidth = u; ctx.beginPath(); ctx.moveTo(px, py + top); ctx.lineTo(px + size, py + size); ctx.stroke(); ctx.restore();
 }
 
-// Placeholder building: a flat roof and a front face, with a short label.
+// Building sprites share the footprint width and sit on its bottom edge; other buildings keep placeholders.
 function drawBuilding(ctx, def, px, py, T, z) {
   const w = def.w * T, h = def.h * T, front = Math.round(h * 0.4);
+  const im = def.sprite && spriteImg(def.sprite);
+  if (im) {
+    const height = Math.round(w * im.naturalHeight / im.naturalWidth);
+    ctx.drawImage(im, px, py + h - height, w, height);
+    return;
+  }
   ctx.fillStyle = shade(def.color, -0.3); ctx.fillRect(px, py + h - front, w, front);
   ctx.fillStyle = def.color; ctx.fillRect(px, py - front * 0.3, w, h - front * 0.7);
   if (z >= 2 && def.w > 1) { ctx.fillStyle = "#fff8"; ctx.font = `${6 * z}px sans-serif`; ctx.fillText(def.name, px + 2 * z, py + 7 * z); }

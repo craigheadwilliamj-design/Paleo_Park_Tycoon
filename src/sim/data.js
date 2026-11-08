@@ -115,7 +115,7 @@ export const BUILDINGS = {
   timetravel: { name: "Time Travel Lab", w: 4, h: 3, price: 15000, upkeep: 200, unique: true, lab: "timetravel", ask: true, menu: "science", tip: "Drones scout fossil sites and bring back genomes. Comes with one drone.", color: "#2f7a7e" },
   genetics: { name: "Genetics Lab", w: 4, h: 3, price: 12000, upkeep: 160, unique: true, lab: "genetics", ask: true, menu: "science", tip: "Geneticists clone animals with a complete genome.", color: "#8e3a46" },
   snack:    { name: "Snack Stand", w: 2, h: 2, price: 1500, serves: "hunger", sale: 6, cost: 2, menu: "guest", tip: "Feeds hungry guests. Put it beside a path.", color: "#d27a4a" },
-  restroom: { name: "Restroom",   w: 2, h: 2, price: 1200, serves: "bladder", sale: 0, cost: 1, upkeep: 15, menu: "guest", tip: "Guests relieve themselves here. Put it beside a path.", color: "#6f8fa8" },
+  restroom: { name: "Restroom", sprite: "art/buildings/restroom.png",   w: 2, h: 2, price: 1200, serves: "bladder", sale: 0, cost: 1, upkeep: 15, menu: "guest", tip: "Guests relieve themselves here. Put it beside a path.", color: "#6f8fa8" },
   bench:    { name: "Bench",      w: 1, h: 1, price: 150, serves: "tired", stay: 14, sale: 0, cost: 0, menu: "guest", tip: "Tired guests sit here. Put it beside a path.", color: "#9a7448" },
   bin:      { name: "Trash Bin",  w: 1, h: 1, price: 80, serves: "litter", stay: 1, sale: 0, cost: 0, menu: "guest", tip: "Guests bin their rubbish. Without one it ends up on the path. Put it beside a path.", color: "#5f6b66" },
   gift:     { name: "Gift Stand", w: 2, h: 2, price: 2000, serves: "gift", sale: 14, cost: 4, menu: "guest", tip: "Guests who've seen something buy a souvenir. Put it beside a path.", color: "#b5538c" },
